@@ -157,10 +157,11 @@ export interface SegmentComparison {
 }
 
 export interface FilterState {
-  categoryId: string | null;
-  questionType: QuestionType | null;
-  scoreRange: [number, number] | null;
-  matchStatus: MatchStatus | null;
-  ageGroup: string | null;
-  country: string | null;
+  ageGroups: string[];
+  genders: string[];
+  countries: string[];
+  hardwareTiers: string[];
+  sessionPlaytime: null | '<1h' | '1-3h' | '3-6h' | '6h+';
+  playedFactorio: boolean;
+  playedSatisfactory: boolean;
 }

@@ -1,6 +1,6 @@
 'use client';
 import { X, User } from 'lucide-react';
-import { useDashboardStore, selectQuestion } from '@/lib/store';
+import { useDashboardStore, selectQuestion, selectFilteredResponses } from '@/lib/store';
 import { formatDate, questionTypeLabel, formatTesterId } from '@/lib/utils';
 import Badge from './Badge';
 
@@ -10,7 +10,7 @@ export default function EvidenceDrawer() {
   const drawerRatingValue = useDashboardStore((s) => s.drawerRatingValue);
   const closeDrawer = useDashboardStore((s) => s.closeDrawer);
   const openTesterPanel = useDashboardStore((s) => s.openTesterPanel);
-  const responses = useDashboardStore((s) => s.responses);
+  const responses = useDashboardStore(selectFilteredResponses);
   const testers = useDashboardStore((s) => s.testers);
   const questions = useDashboardStore((s) => s.questions);
 

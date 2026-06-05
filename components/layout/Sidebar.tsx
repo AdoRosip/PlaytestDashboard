@@ -3,9 +3,10 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard, Layers, HelpCircle, Sparkles,
-  Users, Table2, Download, Settings, Gamepad2,
+  Users, Table2, Download, Settings, Gamepad2, SlidersHorizontal,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useDashboardStore, selectActiveFilterCount } from '@/lib/store';
 
 const NAV_SECTIONS = [
   {
@@ -34,7 +35,10 @@ const NAV_SECTIONS = [
 ];
 
 export default function Sidebar() {
-  const pathname = usePathname();
+  const pathname         = usePathname();
+  const filterPanelOpen  = useDashboardStore((s) => s.filterPanelOpen);
+  const toggleFilterPanel = useDashboardStore((s) => s.toggleFilterPanel);
+  const activeFilterCount = useDashboardStore(selectActiveFilterCount);
 
   return (
     <aside className="fixed top-0 left-0 h-full w-[220px] bg-[#0d1220] border-r border-slate-800 flex flex-col z-40">
@@ -81,6 +85,29 @@ export default function Sidebar() {
           </div>
         ))}
       </nav>
+
+      {/* Filters toggle */}
+      <div className="px-3 pb-3">
+        <button
+          onClick={toggleFilterPanel}
+          className={cn(
+            'flex items-center justify-between w-full px-3 py-2 rounded-md text-sm transition-colors border',
+            filterPanelOpen
+              ? 'bg-indigo-600/20 border-indigo-500/40 text-indigo-300'
+              : 'border-slate-700/60 text-slate-400 hover:text-slate-200 hover:border-slate-600',
+          )}
+        >
+          <div className="flex items-center gap-2">
+            <SlidersHorizontal className="w-4 h-4 flex-shrink-0" />
+            <span>Filters</span>
+          </div>
+          {activeFilterCount > 0 && (
+            <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-600/30 text-indigo-300 border border-indigo-500/30">
+              {activeFilterCount}
+            </span>
+          )}
+        </button>
+      </div>
 
       {/* Upload new */}
       <div className="px-3 pb-4">

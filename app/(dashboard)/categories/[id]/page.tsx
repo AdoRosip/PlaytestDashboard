@@ -2,23 +2,25 @@
 import { use } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, HelpCircle, MessageSquare } from 'lucide-react';
-import { useDashboardStore } from '@/lib/store';
+import { useDashboardStore, selectFilteredResponses } from '@/lib/store';
 import PageHeader from '@/components/ui/PageHeader';
 import Badge from '@/components/ui/Badge';
 import ScoreBar from '@/components/ui/ScoreBar';
 import { scoreColor, questionTypeLabel, computeRatingDistribution } from '@/lib/utils';
 import RatingBarChart from '@/components/charts/RatingBarChart';
+import { countRespondents } from '@/lib/responseStats';
 
 export default function CategoryDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const categories = useDashboardStore((s) => s.categories);
   const questions   = useDashboardStore((s) => s.questions);
-  const responses   = useDashboardStore((s) => s.responses);
+  const responses   = useDashboardStore(selectFilteredResponses);
   const themes      = useDashboardStore((s) => s.themes);
   const openDrawer  = useDashboardStore((s) => s.openDrawer);
 
   const category = categories.find((c) => c.id === id);
   const catQuestions = questions.filter((q) => q.categoryId === id);
+  const catResponses = responses.filter((r) => catQuestions.some((q) => q.id === r.questionId));
   const catThemes = themes.filter((t) => t.categoryId === id);
 
   if (!category) {
@@ -37,7 +39,7 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ id: s
         </Link>
         <PageHeader
           title={category.name}
-          sub={`${catQuestions.length} questions · ${responses.filter((r) => catQuestions.some((q) => q.id === r.questionId)).length} responses`}
+          sub={`${catQuestions.length} questions · ${countRespondents(catResponses)} respondents`}
         />
       </div>
 
@@ -79,7 +81,7 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ id: s
                     <p className="text-sm text-white leading-snug">{q.text}</p>
                     <div className="flex items-center gap-2 mt-1.5">
                       <Badge label={questionTypeLabel(q.type)} variant="type" />
-                      <span className="text-xs text-slate-500">{q.responseCount ?? qResponses.length} responses</span>
+                      <span className="text-xs text-slate-500">{qResponses.length} responses</span>
                     </div>
                   </div>
                 </div>

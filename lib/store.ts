@@ -1,5 +1,6 @@
 'use client';
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import type {
   Project, Tester, Category, Question, Response, Theme, FilterState,
 } from './types';
@@ -33,6 +34,10 @@ interface DashboardState {
   testerPanelOpen: boolean;
   activeTesterId: string | null;
 
+  // Filter panel
+  filterPanelOpen: boolean;
+  toggleFilterPanel: () => void;
+
   // Actions
   loadMockData: () => void;
   loadFromExcel: (data: {
@@ -56,15 +61,18 @@ interface DashboardState {
 }
 
 const defaultFilters: FilterState = {
-  categoryId: null,
-  questionType: null,
-  scoreRange: null,
-  matchStatus: null,
-  ageGroup: null,
-  country: null,
+  ageGroups: [],
+  genders: [],
+  countries: [],
+  hardwareTiers: [],
+  sessionPlaytime: null,
+  playedFactorio: false,
+  playedSatisfactory: false,
 };
 
-export const useDashboardStore = create<DashboardState>((set, get) => ({
+export const useDashboardStore = create<DashboardState>()(
+  persist(
+    (set, get) => ({
   project: null,
   testers: [],
   categories: [],
@@ -73,6 +81,7 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
   themes: [],
   isLoaded: false,
   filters: defaultFilters,
+  filterPanelOpen: true,
   analysisStatus: 'idle',
   analysisError: null,
   drawerOpen: false,
@@ -105,6 +114,7 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
     });
   },
 
+  toggleFilterPanel: () => set((s) => ({ filterPanelOpen: !s.filterPanelOpen })),
   setFilter: (patch) => set((s) => ({ filters: { ...s.filters, ...patch } })),
   clearFilters: () => set({ filters: defaultFilters }),
 
@@ -222,9 +232,183 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
       });
     }
   },
-}));
+    }),
+    {
+      name: 'playtest-dashboard-v1',
+      storage: createJSONStorage(() => {
+        // Wrap localStorage to silently handle QuotaExceededError
+        return {
+          getItem: (key) => {
+            try { return localStorage.getItem(key); } catch { return null; }
+          },
+          setItem: (key, value) => {
+            try { localStorage.setItem(key, value); } catch {
+              console.warn('localStorage quota exceeded — uploaded data will not be persisted.');
+            }
+          },
+          removeItem: (key) => {
+            try { localStorage.removeItem(key); } catch { /* ignore */ }
+          },
+        };
+      }),
+      // Only persist data — not UI state (filters, open panels, drawers)
+      partialize: (state) => ({
+        project: state.project,
+        testers: state.testers,
+        categories: state.categories,
+        questions: state.questions,
+        responses: state.responses,
+        themes: state.themes,
+        isLoaded: state.isLoaded,
+      }),
+    }
+  )
+);
 
-// Derived selectors
+// ─── Filter selectors ────────────────────────────────────────────────────────
+
+let filteredTesterIdsCache:
+  | {
+      filters: FilterState;
+      testers: Tester[];
+      responses: Response[];
+      questions: Question[];
+      value: Set<string> | null;
+    }
+  | null = null;
+
+let filteredResponsesCache:
+  | {
+      responses: Response[];
+      testerIds: Set<string>;
+      value: Response[];
+    }
+  | null = null;
+
+let filteredTestersCache:
+  | {
+      testers: Tester[];
+      testerIds: Set<string>;
+      value: Tester[];
+    }
+  | null = null;
+
+export const selectFilteredTesterIds = (state: DashboardState): Set<string> | null => {
+  const { filters, testers, responses, questions } = state;
+
+  if (
+    filteredTesterIdsCache?.filters === filters &&
+    filteredTesterIdsCache.testers === testers &&
+    filteredTesterIdsCache.responses === responses &&
+    filteredTesterIdsCache.questions === questions
+  ) {
+    return filteredTesterIdsCache.value;
+  }
+
+  const hasFilter =
+    filters.ageGroups.length > 0 || filters.genders.length > 0 ||
+    filters.countries.length > 0 || filters.hardwareTiers.length > 0 ||
+    filters.sessionPlaytime !== null || filters.playedFactorio || filters.playedSatisfactory;
+
+  if (!hasFilter) {
+    filteredTesterIdsCache = { filters, testers, responses, questions, value: null };
+    return null; // null = no filter active, use all testers
+  }
+
+  // Build session playtime lookup
+  const playtimeQ = questions.find((q) =>
+    /how many hours.*(?:play|game|session)|hours.*played.*(?:exo|game|session)/i.test(q.text)
+  );
+  const playtimeMap = new Map<string, number>();
+  if (playtimeQ) {
+    for (const r of responses) {
+      if (r.questionId === playtimeQ.id && r.testerId && r.numericValue !== null) {
+        playtimeMap.set(r.testerId, r.numericValue);
+      }
+    }
+  }
+
+  // Build "played game" lookups
+  const buildGameSet = (pattern: RegExp) => {
+    const q = questions.find((q) => pattern.test(q.text) && q.categoryId === 'cat_01');
+    const set = new Set<string>();
+    if (!q) return set;
+    for (const r of responses) {
+      if (r.questionId !== q.id || !r.testerId) continue;
+      const n = r.numericValue ?? 0;
+      const raw = r.rawAnswer.toLowerCase().trim();
+      if (n > 0 || (raw && raw !== '0' && raw !== 'no' && raw !== 'none' && raw !== '')) {
+        set.add(r.testerId);
+      }
+    }
+    return set;
+  };
+  const factorioTesters = filters.playedFactorio ? buildGameSet(/factorio/i) : null;
+  const satTesters = filters.playedSatisfactory ? buildGameSet(/satisfactory/i) : null;
+
+  const result = new Set<string>();
+  for (const t of testers) {
+    if (filters.ageGroups.length > 0 && !filters.ageGroups.includes(t.ageGroup)) continue;
+    if (filters.genders.length > 0 && !filters.genders.includes(t.segments.gender ?? '')) continue;
+    if (filters.countries.length > 0) {
+      const c = t.country || t.segments.country || '';
+      if (!filters.countries.includes(c)) continue;
+    }
+    if (filters.hardwareTiers.length > 0 && !filters.hardwareTiers.includes(t.segments.hardware_tier ?? 'Unknown')) continue;
+    if (filters.sessionPlaytime !== null) {
+      const pt = playtimeMap.get(t.id);
+      if (pt === undefined) continue;
+      const ok =
+        (filters.sessionPlaytime === '<1h'  && pt < 1) ||
+        (filters.sessionPlaytime === '1-3h' && pt >= 1 && pt <= 3) ||
+        (filters.sessionPlaytime === '3-6h' && pt > 3 && pt <= 6) ||
+        (filters.sessionPlaytime === '6h+'  && pt > 6);
+      if (!ok) continue;
+    }
+    if (factorioTesters && !factorioTesters.has(t.id)) continue;
+    if (satTesters && !satTesters.has(t.id)) continue;
+    result.add(t.id);
+  }
+  filteredTesterIdsCache = { filters, testers, responses, questions, value: result };
+  return result;
+};
+
+export const selectFilteredResponses = (state: DashboardState) => {
+  const ids = selectFilteredTesterIds(state);
+  if (ids === null) return state.responses;
+  if (filteredResponsesCache?.responses === state.responses && filteredResponsesCache.testerIds === ids) {
+    return filteredResponsesCache.value;
+  }
+
+  const value = state.responses.filter((r) => r.testerId === null || ids.has(r.testerId));
+  filteredResponsesCache = { responses: state.responses, testerIds: ids, value };
+  return value;
+};
+
+export const selectFilteredTesters = (state: DashboardState) => {
+  const ids = selectFilteredTesterIds(state);
+  if (ids === null) return state.testers;
+  if (filteredTestersCache?.testers === state.testers && filteredTestersCache.testerIds === ids) {
+    return filteredTestersCache.value;
+  }
+
+  const value = state.testers.filter((t) => ids.has(t.id));
+  filteredTestersCache = { testers: state.testers, testerIds: ids, value };
+  return value;
+};
+
+export const selectActiveFilterCount = (state: DashboardState): number => {
+  const f = state.filters;
+  return (
+    f.ageGroups.length + f.genders.length + f.countries.length + f.hardwareTiers.length +
+    (f.sessionPlaytime !== null ? 1 : 0) +
+    (f.playedFactorio ? 1 : 0) +
+    (f.playedSatisfactory ? 1 : 0)
+  );
+};
+
+// ─── Other derived selectors ─────────────────────────────────────────────────
+
 export const selectTester = (store: DashboardState, testerId: string) =>
   store.testers.find((t) => t.id === testerId);
 

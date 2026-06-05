@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { HelpCircle } from 'lucide-react';
-import { useDashboardStore } from '@/lib/store';
+import { useDashboardStore, selectFilteredResponses } from '@/lib/store';
 import PageHeader from '@/components/ui/PageHeader';
 import Badge from '@/components/ui/Badge';
 import ScoreBar from '@/components/ui/ScoreBar';
@@ -11,7 +11,7 @@ import { questionTypeLabel, scoreColor } from '@/lib/utils';
 export default function QuestionsPage() {
   const questions   = useDashboardStore((s) => s.questions);
   const categories  = useDashboardStore((s) => s.categories);
-  const responses   = useDashboardStore((s) => s.responses);
+  const responses   = useDashboardStore(selectFilteredResponses);
 
   if (!questions.length) {
     return (
@@ -49,7 +49,7 @@ export default function QuestionsPage() {
                   {cat && (
                     <Badge label={cat.name} variant="accent" />
                   )}
-                  <span className="text-xs text-slate-500">{q.responseCount ?? qResponses.length} responses</span>
+                  <span className="text-xs text-slate-500">{qResponses.length} responses</span>
                 </div>
               </div>
 

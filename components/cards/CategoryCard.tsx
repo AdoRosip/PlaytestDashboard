@@ -10,14 +10,14 @@ interface CategoryCardProps {
   category: Category;
   avgScore: number;
   questionCount: number;
-  responseCount: number;
+  respondentCount: number;
   negativePct: number;
   severity: 'Low' | 'Medium' | 'High' | 'Critical';
   topThemes: string[];
 }
 
 export default function CategoryCard({
-  category, avgScore, questionCount, responseCount, negativePct, severity, topThemes,
+  category, avgScore, questionCount, respondentCount, negativePct, severity, topThemes,
 }: CategoryCardProps) {
   return (
     <div className="rounded-xl border border-slate-700/60 bg-slate-800/20 p-5 flex flex-col gap-4 hover:border-slate-600 transition-colors">
@@ -48,7 +48,7 @@ export default function CategoryCard({
       <div className="grid grid-cols-3 gap-2 text-center">
         {[
           { label: 'Questions', value: questionCount },
-          { label: 'Responses', value: responseCount },
+          { label: 'Respondents', value: respondentCount },
           { label: '% Negative', value: `${negativePct}%` },
         ].map(({ label, value }) => (
           <div key={label} className="rounded-lg bg-slate-900/50 py-2">

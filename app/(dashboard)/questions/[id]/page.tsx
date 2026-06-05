@@ -3,7 +3,7 @@ import { use, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, MessageSquare, User, Clock, Sparkles, RefreshCw, Lightbulb, X, Brain } from 'lucide-react';
 import type { QuestionAnalysisResult } from '@/app/api/question-analysis/route';
-import { useDashboardStore } from '@/lib/store';
+import { useDashboardStore, selectFilteredResponses } from '@/lib/store';
 import PageHeader from '@/components/ui/PageHeader';
 import Badge from '@/components/ui/Badge';
 import RatingBarChart from '@/components/charts/RatingBarChart';
@@ -18,7 +18,7 @@ export default function QuestionDetailPage({ params }: { params: Promise<{ id: s
   const { id } = use(params);
   const questions       = useDashboardStore((s) => s.questions);
   const categories      = useDashboardStore((s) => s.categories);
-  const responses       = useDashboardStore((s) => s.responses);
+  const responses       = useDashboardStore(selectFilteredResponses);
   const testers         = useDashboardStore((s) => s.testers);
   const openDrawer      = useDashboardStore((s) => s.openDrawer);
   const openTesterPanel = useDashboardStore((s) => s.openTesterPanel);

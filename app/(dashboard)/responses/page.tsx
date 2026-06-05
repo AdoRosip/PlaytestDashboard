@@ -1,13 +1,13 @@
 'use client';
 import { useState } from 'react';
 import { Search } from 'lucide-react';
-import { useDashboardStore } from '@/lib/store';
+import { useDashboardStore, selectFilteredResponses } from '@/lib/store';
 import PageHeader from '@/components/ui/PageHeader';
 import Badge from '@/components/ui/Badge';
 import { formatDate } from '@/lib/utils';
 
 export default function ResponsesPage() {
-  const responses  = useDashboardStore((s) => s.responses);
+  const responses  = useDashboardStore(selectFilteredResponses);
   const questions  = useDashboardStore((s) => s.questions);
   const testers    = useDashboardStore((s) => s.testers);
   const openTesterPanel = useDashboardStore((s) => s.openTesterPanel);

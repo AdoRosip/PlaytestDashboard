@@ -7,8 +7,9 @@ import {
   CheckCircle2, ArrowRight, ChevronRight, Brain,
   AlertTriangle, Clock, Download, Sparkles, User,
 } from 'lucide-react';
-import { useDashboardStore } from '@/lib/store';
+import { useDashboardStore, selectFilteredResponses, selectFilteredTesters } from '@/lib/store';
 import type { Question, Severity } from '@/lib/types';
+import { countRespondents } from '@/lib/responseStats';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared micro-components
@@ -59,9 +60,9 @@ interface KpiCard {
 export default function OverviewPage() {
   const project    = useDashboardStore(s => s.project);
   const questions  = useDashboardStore(s => s.questions);
-  const responses  = useDashboardStore(s => s.responses);
+  const responses  = useDashboardStore(selectFilteredResponses);
   const categories = useDashboardStore(s => s.categories);
-  const testers    = useDashboardStore(s => s.testers);
+  const testers    = useDashboardStore(selectFilteredTesters);
   const themes     = useDashboardStore(s => s.themes);
 
   const d = useMemo(() => {
@@ -219,6 +220,8 @@ export default function OverviewPage() {
 
   const hasThemes = themes.length > 0;
   const dateStr = new Date(project.createdAt).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+  const participantCount = countRespondents(responses);
+  const responseCount = responses.length;
 
   return (
     <div className="min-h-screen px-8 py-10 max-w-[1200px] mx-auto">
@@ -236,7 +239,7 @@ export default function OverviewPage() {
           <div className="flex items-center gap-3 mt-3 flex-wrap">
             <span className="flex items-center gap-1.5 text-sm text-slate-400">
               <Users className="w-3.5 h-3.5 text-slate-500" />
-              {project.totalResponses} participants
+              {participantCount} participants
             </span>
             <span className="text-slate-700">·</span>
             <span className="text-sm text-slate-400">{dateStr}</span>
@@ -259,10 +262,10 @@ export default function OverviewPage() {
         {[
           {
             label: 'Participants',
-            value: String(project.totalResponses),
-            sub: project.matchedTesters < project.totalResponses
-              ? `${project.matchedTesters} matched to profiles`
-              : 'all matched to profiles',
+            value: String(participantCount),
+            sub: participantCount === project.totalResponses
+              ? 'all participants shown'
+              : `${participantCount} of ${project.totalResponses} shown`,
             Icon: Users,
             valueColor: 'text-white',
           },
@@ -302,7 +305,7 @@ export default function OverviewPage() {
       </div>
 
       {/* ── SECTION 2: PLAYTEST HEALTH ──────────────────────────────── */}
-      <SectionLabel action={`${project.totalResponses} responses analysed`}>
+      <SectionLabel action={`${responseCount} responses analysed`}>
         Playtest Health
       </SectionLabel>
 

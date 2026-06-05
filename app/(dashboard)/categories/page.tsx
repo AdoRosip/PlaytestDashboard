@@ -1,10 +1,11 @@
 'use client';
-import { useDashboardStore } from '@/lib/store';
+import { useDashboardStore, selectFilteredResponses } from '@/lib/store';
 import PageHeader from '@/components/ui/PageHeader';
 import CategoryCard from '@/components/cards/CategoryCard';
 import EmptyState from '@/components/ui/EmptyState';
 import { Layers } from 'lucide-react';
 import type { Severity } from '@/lib/types';
+import { countRespondents } from '@/lib/responseStats';
 
 function deriveSeverity(score: number, negativePct: number): Severity {
   if (score < 40 || negativePct > 50) return 'Critical';
@@ -16,7 +17,7 @@ function deriveSeverity(score: number, negativePct: number): Severity {
 export default function CategoriesPage() {
   const categories = useDashboardStore((s) => s.categories);
   const questions   = useDashboardStore((s) => s.questions);
-  const responses   = useDashboardStore((s) => s.responses);
+  const responses   = useDashboardStore(selectFilteredResponses);
   const themes      = useDashboardStore((s) => s.themes);
 
   if (!categories.length) {
@@ -47,7 +48,7 @@ export default function CategoriesPage() {
       category: cat,
       avgScore,
       questionCount: catQuestions.length,
-      responseCount: catResponses.length,
+      respondentCount: countRespondents(catResponses),
       negativePct,
       severity: deriveSeverity(avgScore, negativePct),
       topThemes: catThemes.map((t) => t.label),

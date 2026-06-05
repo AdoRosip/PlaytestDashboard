@@ -1,14 +1,14 @@
 'use client';
 import { useState } from 'react';
 import { Search, Star, AlertTriangle, Globe, Gamepad2, Clock } from 'lucide-react';
-import { useDashboardStore } from '@/lib/store';
+import { useDashboardStore, selectFilteredTesters } from '@/lib/store';
 import PageHeader from '@/components/ui/PageHeader';
 import EmptyState from '@/components/ui/EmptyState';
 import { Users } from 'lucide-react';
 import { formatTesterId } from '@/lib/utils';
 
 export default function TestersPage() {
-  const testers = useDashboardStore((s) => s.testers);
+  const testers = useDashboardStore(selectFilteredTesters);
   const openTesterPanel = useDashboardStore((s) => s.openTesterPanel);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | 'outlier' | 'unmatched'>('all');
