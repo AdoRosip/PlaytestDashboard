@@ -113,7 +113,7 @@ export default function ExportPage() {
   ];
 
   return (
-    <div className="px-8 py-8 max-w-3xl">
+    <div className="mx-auto w-full max-w-3xl px-6 lg:px-8 py-8">
       <PageHeader
         title="Export"
         sub="Download your playtest data in various formats"

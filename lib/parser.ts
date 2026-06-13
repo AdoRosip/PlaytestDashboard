@@ -279,12 +279,12 @@ export function parseExcelFile(buffer: ArrayBuffer, fileName: string): ParseResu
 
         // Build segments from all registration columns dynamically
         const segments: TesterSegments = {};
-        let hwCpu = '', hwGpu = '', hwRam = '';
+        let hwGpu = '', hwRam = '';
         for (const header of headers) {
           const role = classifySegmentColumn(header);
           const value = String(row[header] ?? '').trim();
           if (!role || !value) continue;
-          if (role === 'hw_cpu') { hwCpu = value; continue; }
+          if (role === 'hw_cpu') continue;
           if (role === 'hw_gpu') { hwGpu = value; continue; }
           if (role === 'hw_ram') { hwRam = value; continue; }
           segments[role] = value;
@@ -346,24 +346,33 @@ export function parseExcelFile(buffer: ArrayBuffer, fileName: string): ParseResu
     };
   });
 
-  // Build responses + link testers
-  const allTesters: Tester[] = Array.from(new Set(testerMap.values()));
-  const knownTesterIds = new Set(allTesters.map((t) => t.id));
-
-  // Track unmatched and add them as placeholder testers
+  // Build responses + participant testers. The response sheet is the source of
+  // truth for participation; registration only enriches submitted rows.
+  const participantTesters: Tester[] = [];
   let unmatchedCount = 0;
+  let matchedCount = 0;
   const responses: Response[] = [];
 
   responseRows.forEach((row, rowIdx) => {
+    const hasSubmission = questionCols.some(col => String(row[col] ?? '').trim().length > 0);
+    if (!hasSubmission) return;
+
     const rawId = idCol ? String(row[idCol] ?? '').trim() : '';
     const rawEmail = emailCol ? String(row[emailCol] ?? '').trim().toLowerCase() : '';
     const rawDiscord = discordCol ? String(row[discordCol] ?? '').trim().toLowerCase() : '';
     const submittedAt = safeIso(timestampCol ? row[timestampCol] : null);
 
-    let tester = testerMap.get(rawId) ?? testerMap.get(rawEmail) ?? testerMap.get(rawDiscord);
+    const matchedProfile = testerMap.get(rawId) ?? testerMap.get(rawEmail) ?? testerMap.get(rawDiscord);
     let matchStatus: 'matched' | 'unmatched' | 'needs_check' = 'matched';
+    let tester: Tester;
 
-    if (!tester) {
+    if (matchedProfile) {
+      matchedCount++;
+      tester = {
+        ...matchedProfile,
+        id: `tstr_resp_${rowIdx}`,
+      };
+    } else {
       matchStatus = 'needs_check';
       unmatchedCount++;
       const placeholderId = `tstr_unmatched_${rowIdx}`;
@@ -376,11 +385,8 @@ export function parseExcelFile(buffer: ArrayBuffer, fileName: string): ParseResu
         ageGroup: '', country: '', gamingProfile: '',
         hardware: '', similarGamesPlayed: [], rawProfileJson: {},
       };
-      if (!knownTesterIds.has(placeholderId)) {
-        allTesters.push(tester);
-        knownTesterIds.add(placeholderId);
-      }
     }
+    participantTesters.push(tester);
 
     questions.forEach((q) => {
       const rawAnswer = String(row[q.sourceColumn] ?? '').trim();
@@ -400,7 +406,7 @@ export function parseExcelFile(buffer: ArrayBuffer, fileName: string): ParseResu
       responses.push({
         id: `r_${rowIdx}_${q.id}`,
         projectId: 'proj_import',
-        testerId: tester!.id,
+        testerId: tester.id,
         questionId: q.id,
         rawAnswer,
         numericValue,
@@ -412,28 +418,22 @@ export function parseExcelFile(buffer: ArrayBuffer, fileName: string): ParseResu
   });
 
   const defaultCategories: Category[] = [
-    { id: 'cat_01', projectId: 'proj_import', name: 'Tester Background',              description: 'Gaming history and genre experience', order: 1,  color: '#64748b' },
-    { id: 'cat_02', projectId: 'proj_import', name: 'Overall Friction & Session',     description: 'High-level frustration and engagement signals', order: 2,  color: '#f97316' },
-    { id: 'cat_03', projectId: 'proj_import', name: 'Mechanics & Clarity',            description: 'How well mechanics were communicated', order: 3,  color: '#6366f1' },
-    { id: 'cat_04', projectId: 'proj_import', name: 'Progression & Pacing',           description: 'Goal clarity, stuckness, tech pacing', order: 4,  color: '#8b5cf6' },
-    { id: 'cat_05', projectId: 'proj_import', name: 'Logistics & Resource Transport', description: 'Intuitiveness of the logistics system', order: 5,  color: '#06b6d4' },
-    { id: 'cat_06', projectId: 'proj_import', name: 'User Interface',                 description: 'UI clarity, menus, and QoL', order: 6,  color: '#ec4899' },
-    { id: 'cat_07', projectId: 'proj_import', name: 'Objectives & In-Game Guidance',  description: 'Goal clarity and in-game help systems', order: 7,  color: '#f59e0b' },
-    { id: 'cat_08', projectId: 'proj_import', name: 'Enjoyment & Retention',          description: 'Overall enjoyment, NPS, replay intent', order: 8,  color: '#10b981' },
-    { id: 'cat_09', projectId: 'proj_import', name: 'Zero Gravity Movement',          description: 'Movement feel in zero-gravity', order: 9,  color: '#3b82f6' },
-    { id: 'cat_10', projectId: 'proj_import', name: 'Mining & Extraction',            description: 'Laser mining satisfaction and repetition', order: 10, color: '#84cc16' },
-    { id: 'cat_11', projectId: 'proj_import', name: 'Automation Systems',             description: 'Factory automation satisfaction', order: 11, color: '#22d3ee' },
-    { id: 'cat_12', projectId: 'proj_import', name: 'Open Highlights & Feedback',     description: 'Favourite moments and standout features', order: 12, color: '#a78bfa' },
-    { id: 'cat_13', projectId: 'proj_import', name: 'Performance & Bugs',             description: 'FPS issues and technical problems', order: 13, color: '#ef4444' },
-    { id: 'cat_14', projectId: 'proj_import', name: 'Evidence & Recordings',          description: 'Gameplay footage and upload links', order: 14, color: '#475569' },
-    { id: 'cat_15', projectId: 'proj_import', name: 'Admin / Internal',               description: 'Internal scoring and payment data', order: 15, color: '#374151' },
+    { id: 'cat_01', projectId: 'proj_import', name: 'Tester Background',              description: 'Gaming history and genre experience', order: 1,  color: '#00FFFF' },
+    { id: 'cat_02', projectId: 'proj_import', name: 'Overall Friction & Session',     description: 'High-level frustration and engagement signals', order: 2,  color: '#0066FF' },
+    { id: 'cat_03', projectId: 'proj_import', name: 'Mechanics & Clarity',            description: 'How well mechanics were communicated', order: 3,  color: '#0000EE' },
+    { id: 'cat_04', projectId: 'proj_import', name: 'Progression & Pacing',           description: 'Goal clarity, stuckness, tech pacing', order: 4,  color: '#FFF' },
+    { id: 'cat_05', projectId: 'proj_import', name: 'Logistics & Resource Transport', description: 'Intuitiveness of the logistics system', order: 5,  color: '#00FFFF' },
+    { id: 'cat_06', projectId: 'proj_import', name: 'User Interface',                 description: 'UI clarity, menus, and QoL', order: 6,  color: '#0066FF' },
+    { id: 'cat_07', projectId: 'proj_import', name: 'Objectives & In-Game Guidance',  description: 'Goal clarity and in-game help systems', order: 7,  color: '#0000EE' },
+    { id: 'cat_08', projectId: 'proj_import', name: 'Enjoyment & Retention',          description: 'Overall enjoyment, NPS, replay intent', order: 8,  color: '#FFF' },
+    { id: 'cat_09', projectId: 'proj_import', name: 'Zero Gravity Movement',          description: 'Movement feel in zero-gravity', order: 9,  color: '#00FFFF' },
+    { id: 'cat_10', projectId: 'proj_import', name: 'Mining & Extraction',            description: 'Laser mining satisfaction and repetition', order: 10, color: '#0066FF' },
+    { id: 'cat_11', projectId: 'proj_import', name: 'Automation Systems',             description: 'Factory automation satisfaction', order: 11, color: '#0000EE' },
+    { id: 'cat_12', projectId: 'proj_import', name: 'Open Highlights & Feedback',     description: 'Favourite moments and standout features', order: 12, color: '#FFF' },
+    { id: 'cat_13', projectId: 'proj_import', name: 'Performance & Bugs',             description: 'FPS issues and technical problems', order: 13, color: '#00FFFF' },
+    { id: 'cat_14', projectId: 'proj_import', name: 'Evidence & Recordings',          description: 'Gameplay footage and upload links', order: 14, color: '#0066FF' },
+    { id: 'cat_15', projectId: 'proj_import', name: 'Admin / Internal',               description: 'Internal scoring and payment data', order: 15, color: '#0000EE' },
   ];
-
-  // Count only rows where at least one question column has a non-empty answer.
-  // This excludes empty/header rows and registered testers who never submitted.
-  const submissionCount = responseRows.filter(row =>
-    questionCols.some(col => String(row[col] ?? '').trim().length > 0)
-  ).length;
 
   const project: Project = {
     id: 'proj_import',
@@ -441,14 +441,14 @@ export function parseExcelFile(buffer: ArrayBuffer, fileName: string): ParseResu
     gameName: 'Exovia',
     playtestName: fileName,
     createdAt: new Date().toISOString(),
-    totalResponses: submissionCount,
-    matchedTesters: allTesters.length - unmatchedCount,
+    totalResponses: participantTesters.length,
+    matchedTesters: matchedCount,
     unmatchedTesters: unmatchedCount,
   };
 
   return {
     project,
-    testers: allTesters,
+    testers: participantTesters,
     categories: defaultCategories,
     questions,
     responses,

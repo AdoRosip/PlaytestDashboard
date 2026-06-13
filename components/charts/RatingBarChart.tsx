@@ -4,17 +4,17 @@ import {
 } from 'recharts';
 
 const COLORS: Record<number, string> = {
-  1: '#ef4444',
-  2: '#f97316',
-  3: '#eab308',
-  4: '#22c55e',
-  5: '#10b981',
+  1: '#0000EE',
+  2: '#003DF5',
+  3: '#0066FF',
+  4: '#00B8FF',
+  5: '#00FFFF',
 };
 
 const COLORS_10: Record<number, string> = {
-  1: '#ef4444', 2: '#ef4444', 3: '#ef4444', 4: '#f97316',
-  5: '#eab308', 6: '#eab308', 7: '#eab308',
-  8: '#22c55e', 9: '#10b981', 10: '#10b981',
+  1: '#0000EE', 2: '#001EF1', 3: '#003DF5', 4: '#0054FA',
+  5: '#0066FF', 6: '#0084FF', 7: '#00A2FF',
+  8: '#00C0FF', 9: '#00E0FF', 10: '#00FFFF',
 };
 
 interface RatingBarChartProps {
@@ -27,29 +27,29 @@ export default function RatingBarChart({ data, scale = 5, onBarClick }: RatingBa
   const colorMap = scale === 10 ? COLORS_10 : COLORS;
 
   return (
-    <ResponsiveContainer width="100%" height={200}>
+    <ResponsiveContainer width="100%" height={200} minWidth={0}>
       <BarChart data={data} margin={{ top: 4, right: 4, bottom: 4, left: -20 }}>
         <XAxis
           dataKey="value"
-          tick={{ fill: '#94a3b8', fontSize: 12 }}
+          tick={{ fill: 'rgba(255,255,255,0.72)', fontSize: 12 }}
           axisLine={false}
           tickLine={false}
         />
         <YAxis
-          tick={{ fill: '#64748b', fontSize: 11 }}
+          tick={{ fill: 'rgba(255,255,255,0.42)', fontSize: 11 }}
           axisLine={false}
           tickLine={false}
         />
         <Tooltip
           cursor={{ fill: 'rgba(255,255,255,0.04)' }}
           contentStyle={{
-            background: '#1e293b',
-            border: '1px solid #334155',
+            background: '#0B1021',
+            border: '1px solid rgba(0, 255, 255, 0.32)',
             borderRadius: '8px',
             fontSize: '12px',
           }}
-          labelStyle={{ color: '#94a3b8' }}
-          itemStyle={{ color: '#e2e8f0' }}
+          labelStyle={{ color: '#00FFFF' }}
+          itemStyle={{ color: '#FFF' }}
           formatter={(value, _name, props) => [
             `${value ?? ''} responses (${(props as { payload: { pct: number } }).payload.pct}%)`,
             '',
@@ -66,7 +66,7 @@ export default function RatingBarChart({ data, scale = 5, onBarClick }: RatingBa
           } : undefined}
         >
           {data.map((entry) => (
-            <Cell key={entry.value} fill={colorMap[entry.value] ?? '#6366f1'} />
+            <Cell key={entry.value} fill={colorMap[entry.value] ?? '#0066FF'} />
           ))}
         </Bar>
       </BarChart>

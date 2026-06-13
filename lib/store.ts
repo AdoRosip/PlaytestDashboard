@@ -8,6 +8,10 @@ import {
   mockProject, mockTesters, mockCategories, mockQuestions,
   mockResponses, mockThemes,
 } from './mockData';
+import {
+  computeFilteredTesterIds, filterResponsesByTesterIds, filterTestersByIds,
+  countActiveFilters,
+} from './filtering';
 
 export type AnalysisStatus = 'idle' | 'running' | 'done' | 'error';
 
@@ -146,7 +150,7 @@ export const useDashboardStore = create<DashboardState>()(
       name,
       description: '',
       order: categories.length + 1,
-      color: '#94a3b8',
+      color: '#00FFFF',
     };
     set((s) => ({ categories: [...s.categories, newCat] }));
   },
@@ -305,72 +309,9 @@ export const selectFilteredTesterIds = (state: DashboardState): Set<string> | nu
     return filteredTesterIdsCache.value;
   }
 
-  const hasFilter =
-    filters.ageGroups.length > 0 || filters.genders.length > 0 ||
-    filters.countries.length > 0 || filters.hardwareTiers.length > 0 ||
-    filters.sessionPlaytime !== null || filters.playedFactorio || filters.playedSatisfactory;
-
-  if (!hasFilter) {
-    filteredTesterIdsCache = { filters, testers, responses, questions, value: null };
-    return null; // null = no filter active, use all testers
-  }
-
-  // Build session playtime lookup
-  const playtimeQ = questions.find((q) =>
-    /how many hours.*(?:play|game|session)|hours.*played.*(?:exo|game|session)/i.test(q.text)
-  );
-  const playtimeMap = new Map<string, number>();
-  if (playtimeQ) {
-    for (const r of responses) {
-      if (r.questionId === playtimeQ.id && r.testerId && r.numericValue !== null) {
-        playtimeMap.set(r.testerId, r.numericValue);
-      }
-    }
-  }
-
-  // Build "played game" lookups
-  const buildGameSet = (pattern: RegExp) => {
-    const q = questions.find((q) => pattern.test(q.text) && q.categoryId === 'cat_01');
-    const set = new Set<string>();
-    if (!q) return set;
-    for (const r of responses) {
-      if (r.questionId !== q.id || !r.testerId) continue;
-      const n = r.numericValue ?? 0;
-      const raw = r.rawAnswer.toLowerCase().trim();
-      if (n > 0 || (raw && raw !== '0' && raw !== 'no' && raw !== 'none' && raw !== '')) {
-        set.add(r.testerId);
-      }
-    }
-    return set;
-  };
-  const factorioTesters = filters.playedFactorio ? buildGameSet(/factorio/i) : null;
-  const satTesters = filters.playedSatisfactory ? buildGameSet(/satisfactory/i) : null;
-
-  const result = new Set<string>();
-  for (const t of testers) {
-    if (filters.ageGroups.length > 0 && !filters.ageGroups.includes(t.ageGroup)) continue;
-    if (filters.genders.length > 0 && !filters.genders.includes(t.segments.gender ?? '')) continue;
-    if (filters.countries.length > 0) {
-      const c = t.country || t.segments.country || '';
-      if (!filters.countries.includes(c)) continue;
-    }
-    if (filters.hardwareTiers.length > 0 && !filters.hardwareTiers.includes(t.segments.hardware_tier ?? 'Unknown')) continue;
-    if (filters.sessionPlaytime !== null) {
-      const pt = playtimeMap.get(t.id);
-      if (pt === undefined) continue;
-      const ok =
-        (filters.sessionPlaytime === '<1h'  && pt < 1) ||
-        (filters.sessionPlaytime === '1-3h' && pt >= 1 && pt <= 3) ||
-        (filters.sessionPlaytime === '3-6h' && pt > 3 && pt <= 6) ||
-        (filters.sessionPlaytime === '6h+'  && pt > 6);
-      if (!ok) continue;
-    }
-    if (factorioTesters && !factorioTesters.has(t.id)) continue;
-    if (satTesters && !satTesters.has(t.id)) continue;
-    result.add(t.id);
-  }
-  filteredTesterIdsCache = { filters, testers, responses, questions, value: result };
-  return result;
+  const value = computeFilteredTesterIds({ testers, responses, questions, filters });
+  filteredTesterIdsCache = { filters, testers, responses, questions, value };
+  return value;
 };
 
 export const selectFilteredResponses = (state: DashboardState) => {
@@ -380,7 +321,7 @@ export const selectFilteredResponses = (state: DashboardState) => {
     return filteredResponsesCache.value;
   }
 
-  const value = state.responses.filter((r) => r.testerId === null || ids.has(r.testerId));
+  const value = filterResponsesByTesterIds(state.responses, ids);
   filteredResponsesCache = { responses: state.responses, testerIds: ids, value };
   return value;
 };
@@ -392,20 +333,13 @@ export const selectFilteredTesters = (state: DashboardState) => {
     return filteredTestersCache.value;
   }
 
-  const value = state.testers.filter((t) => ids.has(t.id));
+  const value = filterTestersByIds(state.testers, ids);
   filteredTestersCache = { testers: state.testers, testerIds: ids, value };
   return value;
 };
 
-export const selectActiveFilterCount = (state: DashboardState): number => {
-  const f = state.filters;
-  return (
-    f.ageGroups.length + f.genders.length + f.countries.length + f.hardwareTiers.length +
-    (f.sessionPlaytime !== null ? 1 : 0) +
-    (f.playedFactorio ? 1 : 0) +
-    (f.playedSatisfactory ? 1 : 0)
-  );
-};
+export const selectActiveFilterCount = (state: DashboardState): number =>
+  countActiveFilters(state.filters);
 
 // ─── Other derived selectors ─────────────────────────────────────────────────
 

@@ -21,7 +21,7 @@ export default function ResponsesPage() {
   }).slice(0, 100);
 
   return (
-    <div className="px-8 py-8 max-w-6xl">
+    <div className="mx-auto w-full max-w-[1680px] px-6 lg:px-8 py-8">
       <PageHeader title="Raw Responses" sub={`${responses.length} total responses`} />
 
       <div className="relative mb-4">

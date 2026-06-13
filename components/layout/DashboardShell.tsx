@@ -27,7 +27,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
     <div className="flex min-h-screen">
       <Sidebar />
       {filterPanelOpen && <FilterPanel />}
-      <main className={`flex-1 ${mainMargin} min-h-screen overflow-y-auto transition-all duration-200`}>
+      <main className={`flex-1 ${mainMargin} min-h-screen transition-all duration-200`}>
         {/* Active filter banner */}
         {activeFilterCount > 0 && (
           <div className="flex items-center gap-2 px-6 py-2 bg-indigo-900/20 border-b border-indigo-700/30">

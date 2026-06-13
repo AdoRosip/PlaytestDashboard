@@ -65,7 +65,7 @@ export default function SegmentBreakdown({ responses, testers, scale }: Props) {
       <div className="space-y-2.5">
         {rows.map(({ label, avg, count }) => {
           const pct = (avg / scale) * 100;
-          const barColor = pct >= 65 ? '#10b981' : pct >= 40 ? '#f59e0b' : '#ef4444';
+          const barColor = pct >= 65 ? '#00FFFF' : pct >= 40 ? '#0066FF' : '#0000EE';
           return (
             <div key={label} className="flex items-center gap-3">
               <div

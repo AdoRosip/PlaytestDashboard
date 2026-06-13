@@ -32,7 +32,7 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ id: s
   }
 
   return (
-    <div className="px-8 py-8 max-w-5xl">
+    <div className="mx-auto w-full max-w-5xl px-6 lg:px-8 py-8">
       <div className="mb-6">
         <Link href="/categories" className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-white transition-colors mb-4">
           <ArrowLeft className="w-3.5 h-3.5" /> Back to categories

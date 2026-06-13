@@ -109,7 +109,7 @@ export default function QuestionDetailPage({ params }: { params: Promise<{ id: s
     : [];
 
   return (
-    <div className={`flex items-start gap-6 py-8 px-8 ${aiPanelOpen ? '' : ''}`}>
+    <div className="mx-auto w-full max-w-[1680px] flex items-start gap-6 py-8 px-6 lg:px-8">
 
       {/* ── Main content ─────────────────────────────────────────────── */}
       <div className="flex-1 min-w-0">
