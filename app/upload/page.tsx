@@ -159,7 +159,8 @@ export default function UploadPage() {
         </button>
 
         <p className="text-xs text-slate-600 text-center mt-4">
-          Your data never leaves your browser. All processing happens locally.
+          Parsing happens locally in your browser. Response text is only sent to a
+          third-party AI service if you choose to run AI analysis later.
         </p>
       </div>
     </div>

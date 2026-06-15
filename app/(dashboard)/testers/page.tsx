@@ -6,6 +6,8 @@ import PageHeader from '@/components/ui/PageHeader';
 import EmptyState from '@/components/ui/EmptyState';
 import { Users } from 'lucide-react';
 import { formatTesterId } from '@/lib/utils';
+import { flagLabel } from '@/lib/outliers';
+import type { TesterFlagType } from '@/lib/types';
 import GeoDistributionMap from '@/components/charts/GeoDistributionMap';
 
 type DistributionRow = {
@@ -120,7 +122,18 @@ export default function TestersPage() {
   const testers = useDashboardStore(selectFilteredTesters);
   const openTesterPanel = useDashboardStore((s) => s.openTesterPanel);
   const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState<'all' | 'outlier' | 'unmatched'>('all');
+  const [filter, setFilter] = useState<'all' | TesterFlagType>('all');
+
+  // Which flag types are actually present, with counts (drives the filter chips).
+  const flagCounts = useMemo(() => {
+    const counts: Record<TesterFlagType, number> = {
+      harsh_critic: 0, overly_positive: 0, straight_liner: 0,
+    };
+    for (const t of testers) {
+      for (const f of t.quality?.flags ?? []) counts[f.type]++;
+    }
+    return counts;
+  }, [testers]);
 
   const overview = useMemo(() => {
     const total = testers.length;
@@ -157,10 +170,7 @@ export default function TestersPage() {
       const q = search.toLowerCase();
       const matchSearch = !q || t.testerId.toLowerCase().includes(q) || t.email.toLowerCase().includes(q) || t.discord.toLowerCase().includes(q);
       const matchFilter =
-        filter === 'all' ? true :
-        filter === 'outlier' ? t.isOutlier :
-        filter === 'unmatched' ? !t.email && !t.discord :
-        true;
+        filter === 'all' ? true : (t.quality?.flags.some((f) => f.type === filter) ?? false);
       return matchSearch && matchFilter;
     })
     .sort((a, b) => {
@@ -180,7 +190,15 @@ export default function TestersPage() {
 
   return (
     <div className="mx-auto w-full max-w-[1680px] px-6 lg:px-8 py-8">
-      <PageHeader title="Testers" sub={`${testers.length} testers · ${testers.filter((t) => t.isOutlier).length} flagged as outliers`} />
+      <PageHeader
+        title="Testers"
+        sub={(() => {
+          const parts = [`${testers.length} testers`];
+          if (flagCounts.harsh_critic) parts.push(`${flagCounts.harsh_critic} harsh critics`);
+          if (flagCounts.straight_liner) parts.push(`${flagCounts.straight_liner} straight-lining`);
+          return parts.join(' · ');
+        })()}
+      />
 
       {/* Tester overview */}
       <div className="space-y-4 mb-8">
@@ -274,28 +292,31 @@ export default function TestersPage() {
             className="w-full pl-9 pr-4 py-2 rounded-lg bg-slate-800/60 border border-slate-700 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500/60 transition-colors"
           />
         </div>
-        {(['all', 'outlier'] as const).map((f) => (
-          <button
-            key={f}
-            onClick={() => setFilter(f)}
-            className={`px-3 py-2 rounded-lg text-xs font-medium transition-colors border ${
-              filter === f
-                ? 'bg-indigo-600/20 border-indigo-500/40 text-indigo-300'
-                : 'border-slate-700 text-slate-400 hover:text-slate-200 hover:border-slate-500'
-            }`}
-          >
-            {f === 'all' ? 'All' : 'Outliers'}
-          </button>
-        ))}
+        {(['all', 'harsh_critic', 'overly_positive', 'straight_liner'] as const)
+          .filter((f) => f === 'all' || flagCounts[f] > 0)
+          .map((f) => (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className={`px-3 py-2 rounded-lg text-xs font-medium transition-colors border whitespace-nowrap ${
+                filter === f
+                  ? 'bg-indigo-600/20 border-indigo-500/40 text-indigo-300'
+                  : 'border-slate-700 text-slate-400 hover:text-slate-200 hover:border-slate-500'
+              }`}
+            >
+              {f === 'all' ? 'All' : `${flagLabel(f)} (${flagCounts[f]})`}
+            </button>
+          ))}
       </div>
 
       {/* Table */}
       <div className="rounded-xl border border-slate-700/60 overflow-hidden">
+        <div className="max-h-[70vh] overflow-y-auto scrollbar-thin scrollbar-track-transparent scrollbar-thumb-slate-700">
         <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-slate-700/60 bg-slate-800/40">
+          <thead className="sticky top-0 z-10">
+            <tr className="border-b border-slate-700/60">
               {['Tester', 'Location', 'Gamer Type', 'Hours/wk', 'Avg Rating', ''].map((h) => (
-                <th key={h} className="text-left text-xs text-slate-500 font-medium px-4 py-3 uppercase tracking-wide">{h}</th>
+                <th key={h} className="text-left text-xs text-slate-500 font-medium px-4 py-3 uppercase tracking-wide bg-slate-800 border-b border-slate-700/60">{h}</th>
               ))}
             </tr>
           </thead>
@@ -315,7 +336,14 @@ export default function TestersPage() {
                       <div className="text-slate-200 font-medium">{formatTesterId(t.testerId)}</div>
                       <div className="text-xs text-slate-500 truncate max-w-[140px]">{t.email || t.discord}</div>
                     </div>
-                    {t.isOutlier && <AlertTriangle className="w-3.5 h-3.5 text-yellow-400 flex-shrink-0" />}
+                    {t.quality && t.quality.flags.length > 0 && (
+                      <span
+                        className="flex-shrink-0 cursor-help"
+                        title={t.quality.flags.map((f) => `${flagLabel(f.type)}: ${f.detail}`).join('\n')}
+                      >
+                        <AlertTriangle className="w-3.5 h-3.5 text-yellow-400" />
+                      </span>
+                    )}
                   </div>
                 </td>
                 <td className="px-4 py-3">
@@ -356,6 +384,7 @@ export default function TestersPage() {
         {visible.length === 0 && (
           <div className="text-center py-10 text-slate-500 text-sm">No testers match your search</div>
         )}
+        </div>
       </div>
     </div>
   );

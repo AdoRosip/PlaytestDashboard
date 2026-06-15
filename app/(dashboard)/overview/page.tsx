@@ -1,11 +1,10 @@
 'use client';
 import { useMemo } from 'react';
-import { type ElementType } from 'react';
 import Link from 'next/link';
 import {
-  Users, Star, TrendingUp, ThumbsUp, Target, BarChart2,
+  Users, Star, TrendingUp, ThumbsUp,
   CheckCircle2, ArrowRight, ChevronRight, Brain,
-  AlertTriangle, Clock, Download, Sparkles, Trophy, Flag,
+  AlertTriangle, Clock, Download, Sparkles, Flag,
   BookOpen, Info,
 } from 'lucide-react';
 import { useDashboardStore, selectFilteredResponses, selectFilteredTesters } from '@/lib/store';
@@ -62,8 +61,6 @@ function InfoTooltip({ text }: { text: string }) {
   );
 }
 
-const scoreTextColor = (s: number) => s >= 70 ? 'text-[#00FFFF]' : s >= 45 ? 'text-[#0066FF]' : 'text-indigo-400';
-
 function formatHours(hours: number | null): string {
   if (hours === null) return '—';
   if (hours < 1) return `${Math.round(hours * 60)}m`;
@@ -105,8 +102,11 @@ function parseProgressTier(rawAnswer: string, numericValue: number | null): numb
     six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
   };
 
-  const targeted = raw.match(/\b(?:tier|level|stage|progress|technology)\s*(?:reached|achieved|made|to|:|-)?\s*(\d+(?:\.\d+)?|viii|vii|vi|iv|ix|x|v|iii|ii|i|zero|one|two|three|four|five|six|seven|eight|nine|ten)\b/i);
-  const token = targeted?.[1] ?? raw.match(/\b(\d+(?:\.\d+)?)\b/)?.[1];
+  // "tier 3", "level: 4", "technology tier 2"
+  const forward = raw.match(/\b(?:tier|level|stage|technology)\s*(?:reached|achieved|made|to|:|-|of)?\s*(\d+(?:\.\d+)?|viii|vii|vi|iv|ix|x|v|iii|ii|i|zero|one|two|three|four|five|six|seven|eight|nine|ten)\b/i);
+  // "reached tier 3", "got to level 4", "made it to stage 2"
+  const reverse = raw.match(/\b(?:reached?|got\s+to|made\s+it\s+to|achieved|unlocked)\s+(?:tier|level|stage)\s*(\d+(?:\.\d+)?|viii|vii|vi|iv|ix|x|v|iii|ii|i|zero|one|two|three|four|five|six|seven|eight|nine|ten)\b/i);
+  const token = (forward ?? reverse)?.[1];
   if (!token) return null;
 
   const parsed = Number(token);
@@ -148,7 +148,7 @@ export default function OverviewPage() {
       const p = (n: number) => Math.round((n / rs.length) * 100);
       return {
         avg: rs.reduce((s, r) => s + r.numericValue!, 0) / rs.length,
-        positive: p(pos), neutral: p(rs.length - pos - neg), negative: p(neg), n: rs.length,
+        positive: p(pos), neutral: p(rs.length - pos - neg), negative: p(neg), n: rs.length, max,
       };
     };
 
@@ -173,6 +173,9 @@ export default function OverviewPage() {
       : [];
     const avgPlaytime = playtimeValues.length
       ? playtimeValues.reduce((a, b) => a + b, 0) / playtimeValues.length
+      : null;
+    const totalPlaytime = playtimeValues.length
+      ? playtimeValues.reduce((a, b) => a + b, 0)
       : null;
 
     // ── Progress tier ──────────────────────────────────────────────────────
@@ -205,10 +208,13 @@ export default function OverviewPage() {
     const retQ     = q(/continue.*playing/i);
     const npsQ     = q(/recommend.*friend/i);
 
-    const enjoyStats   = enjoyQ   ? qSentiment(enjoyQ.id,   5) : null;
-    const clarityStats = clarityQ ? qSentiment(clarityQ.id, 5) : null;
-    const retStats     = retQ     ? qSentiment(retQ.id,     10) : null;
-    const npsStats     = npsQ     ? qSentiment(npsQ.id,     10) : null;
+    // Use each question's detected scale (falls back to a sensible default if the
+    // parser didn't record one) instead of assuming a fixed 5- or 10-point scale.
+    const scaleOf = (qq: Question | undefined, fallback: number) => qq?.scaleMax ?? fallback;
+    const enjoyStats   = enjoyQ   ? qSentiment(enjoyQ.id,   scaleOf(enjoyQ,   5)) : null;
+    const clarityStats = clarityQ ? qSentiment(clarityQ.id, scaleOf(clarityQ, 5)) : null;
+    const retStats     = retQ     ? qSentiment(retQ.id,     scaleOf(retQ,    10)) : null;
+    const npsStats     = npsQ     ? qSentiment(npsQ.id,     scaleOf(npsQ,    10)) : null;
 
     // ── Tutorial completion ────────────────────────────────────────────────
     const tutorialQ = questions.find(q =>
@@ -249,7 +255,7 @@ export default function OverviewPage() {
       const qIds = new Set(questions.filter(q => q.categoryId === c.id).map(q => q.id));
       const rVals = responses.filter(r => qIds.has(r.questionId) && r.normalizedScore !== null);
       const negativePct = rVals.length
-        ? Math.round((rVals.filter(r => (r.normalizedScore ?? 100) < 40).length / rVals.length) * 100)
+        ? Math.round((rVals.filter(r => r.normalizedScore! < 40).length / rVals.length) * 100)
         : 0;
       const catThemes = themes
         .filter(t => t.categoryId === c.id)
@@ -333,6 +339,7 @@ export default function OverviewPage() {
       concerns,
       segmentCards,
       avgPlaytime,
+      totalPlaytime,
       maxTier,
       maxTierCount,
       avgTier,
@@ -359,9 +366,9 @@ export default function OverviewPage() {
   const responseCount = responses.length;
 
   // ── Hero tile helpers ────────────────────────────────────────────────────
-  const enjoyDisplay  = d.enjoyStats  ? `${d.enjoyStats.avg.toFixed(1)} / 5`  : '—';
-  const retPct        = d.retStats    ? `${Math.round(d.retStats.avg / 10 * 100)}%`   : '—';
-  const npsPct        = d.npsStats    ? `${Math.round(d.npsStats.avg / 10 * 100)}%`   : '—';
+  const enjoyDisplay  = d.enjoyStats  ? `${d.enjoyStats.avg.toFixed(1)} / ${d.enjoyStats.max}`  : '—';
+  const retPct        = d.retStats    ? `${Math.round(d.retStats.avg / d.retStats.max * 100)}%`   : '—';
+  const npsPct        = d.npsStats    ? `${Math.round(d.npsStats.avg / d.npsStats.max * 100)}%`   : '—';
   const tutorialDisplay = d.tutorialPct !== null ? `${d.tutorialPct}%` : null;
   const progressionValue = formatTier(d.avgTier);
   const progressionSub = d.avgTier !== null
@@ -435,7 +442,7 @@ export default function OverviewPage() {
       </div>
 
       {/* ── SECTION 1: HERO KPI TILES ────────────────────────────────── */}
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4 mb-10">
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7 gap-4 mb-10">
 
         {/* Overall Satisfaction */}
         <div className="bg-slate-800/30 rounded-2xl border border-slate-700/60 p-5">
@@ -461,13 +468,13 @@ export default function OverviewPage() {
               <TrendingUp className="w-3.5 h-3.5 text-slate-400" />
             </div>
             <span className="text-xs font-medium text-slate-400 leading-tight">Want to Continue Playing</span>
-            <InfoTooltip text="Derived from the 'continue playing' question (0–10 scale). Shown as a percentage: avg score ÷ 10 × 100. Matched by keywords like 'continue playing'." />
+            <InfoTooltip text="Derived from the 'continue playing' question. Shown as a percentage of the question's max score. Matched by keywords like 'continue playing'." />
           </div>
           <div className={`text-2xl font-bold ${d.retStats ? 'text-[#00FFFF]' : 'text-slate-600'}`}>
             {retPct}
           </div>
           <div className="text-[10px] text-slate-500 mt-0.5">
-            {d.retStats ? `${d.retStats.avg.toFixed(1)} / 10 avg score` : 'no retention question detected'}
+            {d.retStats ? `${d.retStats.avg.toFixed(1)} / ${d.retStats.max} avg score` : 'no retention question detected'}
           </div>
         </div>
 
@@ -478,13 +485,13 @@ export default function OverviewPage() {
               <ThumbsUp className="w-3.5 h-3.5 text-slate-400" />
             </div>
             <span className="text-xs font-medium text-slate-400 leading-tight">Would Recommend</span>
-            <InfoTooltip text="NPS-style metric from the 'recommend to a friend' question (0–10 scale). Converted to a percentage: avg ÷ 10 × 100. Matched by keywords like 'recommend friend'." />
+            <InfoTooltip text="NPS-style metric from the 'recommend to a friend' question. Converted to a percentage of the question's max score. Matched by keywords like 'recommend friend'." />
           </div>
           <div className={`text-2xl font-bold ${d.npsStats ? 'text-[#00FFFF]' : 'text-slate-600'}`}>
             {npsPct}
           </div>
           <div className="text-[10px] text-slate-500 mt-0.5">
-            {d.npsStats ? `${d.npsStats.avg.toFixed(1)} / 10 avg score` : 'no recommendation question detected'}
+            {d.npsStats ? `${d.npsStats.avg.toFixed(1)} / ${d.npsStats.max} avg score` : 'no recommendation question detected'}
           </div>
         </div>
 
@@ -502,6 +509,23 @@ export default function OverviewPage() {
           </div>
           <div className="text-[10px] text-slate-500 mt-0.5">
             {d.avgPlaytime !== null ? 'average session length' : 'no playtime data detected'}
+          </div>
+        </div>
+
+        {/* Total Playtime */}
+        <div className="bg-slate-800/30 rounded-2xl border border-slate-700/60 p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-7 h-7 rounded-lg bg-slate-700/60 flex items-center justify-center">
+              <Clock className="w-3.5 h-3.5 text-slate-400" />
+            </div>
+            <span className="text-xs font-medium text-slate-400 leading-tight">Total Playtime</span>
+            <InfoTooltip text="Sum of all testers' session lengths. Parsed from the same playtime question as Avg Playtime." />
+          </div>
+          <div className={`text-2xl font-bold ${d.totalPlaytime !== null ? 'text-white' : 'text-slate-600'}`}>
+            {formatHours(d.totalPlaytime)}
+          </div>
+          <div className="text-[10px] text-slate-500 mt-0.5">
+            {d.totalPlaytime !== null ? 'combined across all testers' : 'no playtime data detected'}
           </div>
         </div>
 

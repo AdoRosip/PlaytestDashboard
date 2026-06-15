@@ -59,9 +59,9 @@ export default function QuestionsPage() {
                 </div>
               )}
 
-              {q.avgScore !== undefined && (
-                <div className={`text-sm font-semibold w-8 text-right flex-shrink-0 ${scoreColor(avgNorm ?? 50)}`}>
-                  {q.avgScore}
+              {avgNorm !== null && (
+                <div className={`text-sm font-semibold w-8 text-right flex-shrink-0 ${scoreColor(avgNorm)}`}>
+                  {avgNorm}
                 </div>
               )}
 

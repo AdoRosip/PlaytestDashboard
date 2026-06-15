@@ -62,6 +62,8 @@ const noFilters: FilterState = {
   sessionPlaytime: null,
   playedFactorio: false,
   playedSatisfactory: false,
+  excludeStraightLiners: false,
+  excludeHarshCritics: false,
 };
 
 const f = (patch: Partial<FilterState>): FilterState => ({ ...noFilters, ...patch });
@@ -220,6 +222,34 @@ describe('computeFilteredTesterIds', () => {
       const responses = [response('a', 'q_fac', { numericValue: 120 })];
       const result = computeFilteredTesterIds({ testers, responses, questions: [wrongCat], filters: f({ playedFactorio: true }) });
       expect(ids(result)).toEqual([]);
+    });
+  });
+
+  describe('data-quality exclusions', () => {
+    const sl = tester('sl', {
+      quality: { benchmarkN: 10, sentiment: 'typical', straightLining: true, flags: [{ type: 'straight_liner', detail: '' }] },
+    });
+    const harsh = tester('harsh', {
+      quality: { benchmarkN: 10, sentiment: 'harsh', straightLining: false, flags: [{ type: 'harsh_critic', detail: '' }] },
+    });
+    const normal = tester('normal', {
+      quality: { benchmarkN: 10, sentiment: 'typical', straightLining: false, flags: [] },
+    });
+    const all = [sl, harsh, normal];
+
+    it('excludeStraightLiners drops only straight-liners', () => {
+      const result = computeFilteredTesterIds({ testers: all, responses: [], questions: [], filters: f({ excludeStraightLiners: true }) });
+      expect(ids(result)).toEqual(['harsh', 'normal']);
+    });
+
+    it('excludeHarshCritics drops only harsh critics', () => {
+      const result = computeFilteredTesterIds({ testers: all, responses: [], questions: [], filters: f({ excludeHarshCritics: true }) });
+      expect(ids(result)).toEqual(['normal', 'sl']);
+    });
+
+    it('both exclusions combine', () => {
+      const result = computeFilteredTesterIds({ testers: all, responses: [], questions: [], filters: f({ excludeStraightLiners: true, excludeHarshCritics: true }) });
+      expect(ids(result)).toEqual(['normal']);
     });
   });
 });

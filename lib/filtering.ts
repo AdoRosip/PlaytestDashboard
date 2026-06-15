@@ -29,7 +29,9 @@ export function hasActiveFilters(f: FilterState): boolean {
     f.hardwareTiers.length > 0 ||
     f.sessionPlaytime !== null ||
     f.playedFactorio ||
-    f.playedSatisfactory
+    f.playedSatisfactory ||
+    f.excludeStraightLiners ||
+    f.excludeHarshCritics
   );
 }
 
@@ -63,7 +65,8 @@ function buildPlayedGameSet(
     if (r.questionId !== q.id || !r.testerId) continue;
     const n = r.numericValue ?? 0;
     const raw = r.rawAnswer.toLowerCase().trim();
-    if (n > 0 || (raw && raw !== '0' && raw !== 'no' && raw !== 'none')) {
+    const negatives = new Set(['0', 'no', 'none', 'never', 'n/a', 'na']);
+    if (n > 0 || (raw && !negatives.has(raw))) {
       set.add(r.testerId);
     }
   }
@@ -121,6 +124,8 @@ export function computeFilteredTesterIds(input: FilterInput): Set<string> | null
     }
     if (factorioTesters && !factorioTesters.has(t.id)) continue;
     if (satTesters && !satTesters.has(t.id)) continue;
+    if (filters.excludeStraightLiners && t.quality?.straightLining) continue;
+    if (filters.excludeHarshCritics && t.quality?.sentiment === 'harsh') continue;
     result.add(t.id);
   }
   return result;
@@ -149,6 +154,8 @@ export function countActiveFilters(f: FilterState): number {
     f.hardwareTiers.length +
     (f.sessionPlaytime !== null ? 1 : 0) +
     (f.playedFactorio ? 1 : 0) +
-    (f.playedSatisfactory ? 1 : 0)
+    (f.playedSatisfactory ? 1 : 0) +
+    (f.excludeStraightLiners ? 1 : 0) +
+    (f.excludeHarshCritics ? 1 : 0)
   );
 }

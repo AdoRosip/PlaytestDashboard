@@ -22,93 +22,63 @@ export const mockProject: Project = {
 export const mockCategories: Category[] = [
   {
     id: 'cat_01', projectId: 'proj_001', order: 1,
-    name: 'Tester Background',
+    name: 'Player Background',
     description: 'Gaming history and experience with the automation genre — used as a segmentation lens for all other scores.',
     color: '#00FFFF',
   },
   {
     id: 'cat_02', projectId: 'proj_001', order: 2,
-    name: 'Overall Friction & Session',
-    description: 'High-level frustration signals, would-they-have-quit moments, total playtime, and first impression of intuitiveness.',
+    name: 'Overall Experience',
+    description: 'Overall enjoyment, frustration signals, would-they-have-quit moments, favourite moments, and total playtime.',
     color: '#0066FF',
   },
   {
     id: 'cat_03', projectId: 'proj_001', order: 3,
-    name: 'Mechanics & Clarity',
-    description: 'How well core game mechanics were communicated and understood, including how new systems are introduced.',
-    color: '#0000EE',
+    name: 'Retention & Market Fit',
+    description: 'Likelihood to continue playing, NPS recommendation score, what makes Exovia stand out, and reasons to return.',
+    color: '#6366F1',
   },
   {
     id: 'cat_04', projectId: 'proj_001', order: 4,
-    name: 'Progression & Pacing',
-    description: 'Goal clarity, how often players felt stuck, how far they got, and whether the tech unlock pacing felt right.',
-    color: '#FFF',
+    name: 'Game Clarity & Onboarding',
+    description: 'How well mechanics were communicated, clarity of objectives, in-game guidance, feeling stuck, and trial-and-error perception.',
+    color: '#0000EE',
   },
   {
     id: 'cat_05', projectId: 'proj_001', order: 5,
-    name: 'Logistics & Resource Transport',
-    description: 'Intuitiveness and satisfaction of the logistics and resource-movement system.',
-    color: '#00FFFF',
+    name: 'Progression & Engagement',
+    description: 'How far players progressed, tech unlock pacing, reasons for stopping, factory growth, and peak excitement moments.',
+    color: '#FFF',
   },
   {
     id: 'cat_06', projectId: 'proj_001', order: 6,
-    name: 'User Interface',
-    description: 'UI clarity, menu navigation, and quality-of-life improvements testers most want.',
-    color: '#0066FF',
+    name: 'Core Mechanics',
+    description: 'Zero-gravity movement feel and laser mining satisfaction — the two hands-on physical loops of Exovia.',
+    color: '#00FFFF',
   },
   {
     id: 'cat_07', projectId: 'proj_001', order: 7,
-    name: 'Objectives & In-Game Guidance',
-    description: 'Clarity of goals and instructions, use of the in-game manual / audio log, and what was unclear.',
-    color: '#0000EE',
+    name: 'Automation & Factory Systems',
+    description: 'Logistics intuitiveness, resource transport satisfaction, automation systems, floater management, and space accelerators.',
+    color: '#0066FF',
   },
   {
     id: 'cat_08', projectId: 'proj_001', order: 8,
-    name: 'Enjoyment & Retention',
-    description: 'Overall enjoyment score, NPS, likelihood to continue, and what drives replay intent.',
-    color: '#FFF',
+    name: 'UI & Quality of Life',
+    description: 'UI clarity, menu navigation, interface friction, and the QoL improvements testers most want.',
+    color: '#6366F1',
   },
   {
     id: 'cat_09', projectId: 'proj_001', order: 9,
-    name: 'Zero Gravity Movement',
-    description: 'Feel, enjoyment, and disorientation of moving and navigating in the zero-gravity environment.',
-    color: '#00FFFF',
-  },
-  {
-    id: 'cat_10', projectId: 'proj_001', order: 10,
-    name: 'Mining & Extraction',
-    description: 'Satisfaction and repetitiveness of the laser mining mechanic.',
-    color: '#0066FF',
-  },
-  {
-    id: 'cat_11', projectId: 'proj_001', order: 11,
-    name: 'Automation Systems',
-    description: 'Factory-level automation satisfaction — watching systems work together, floater management, accelerators, and evolution over time.',
+    name: 'Technical & Evidence',
+    description: 'Performance issues, FPS drops, bugs, and gameplay recordings or footage submitted by testers.',
     color: '#0000EE',
   },
   {
-    id: 'cat_12', projectId: 'proj_001', order: 12,
-    name: 'Open Highlights & Feedback',
-    description: 'Favourite moments, what makes Exovia stand out, and peak excitement points in the session.',
-    color: '#FFF',
-  },
-  {
-    id: 'cat_13', projectId: 'proj_001', order: 13,
-    name: 'Performance & Bugs',
-    description: 'FPS drops, stuttering, floater-related lag, and other technical issues encountered.',
-    color: '#00FFFF',
-  },
-  {
-    id: 'cat_14', projectId: 'proj_001', order: 14,
-    name: 'Evidence & Recordings',
-    description: 'Gameplay footage uploads, external links, and timestamped notes about key moments.',
-    color: '#0066FF',
-  },
-  {
-    id: 'cat_15', projectId: 'proj_001', order: 15,
+    id: 'cat_15', projectId: 'proj_001', order: 10,
     name: 'Admin / Internal',
     description: 'Internal evaluation score, admin notes, and payment tracking. Not included in client-facing report.',
-    color: '#0000EE',
+    color: '#334155',
   },
 ];
 
@@ -120,7 +90,7 @@ export const mockCategories: Category[] = [
 // Follow-up questions are noted in the text and share their parent's category.
 // ---------------------------------------------------------------------------
 export const mockQuestions: Question[] = [
-  // ── Tester Background ──────────────────────────────────────────────────
+  // ── Player Background ──────────────────────────────────────────────────
   { id: 'q_000', projectId: 'proj_001', categoryId: 'cat_01', sourceColumn: 'q_000',
     text: 'Have you played similar games to Exovia? (Factory building, management type)',
     type: 'yes_no', responseCount: 177 },
@@ -137,7 +107,16 @@ export const mockQuestions: Question[] = [
     text: 'How many hours do you have on Satisfactory?',
     type: 'multiple_choice', responseCount: 152 },
 
-  // ── Overall Friction & Session ──────────────────────────────────────────
+  // ── Overall Experience ─────────────────────────────────────────────────
+  { id: 'q_025', projectId: 'proj_001', categoryId: 'cat_02', sourceColumn: 'q_025',
+    text: 'How much did you enjoy the game overall?',
+    type: 'rating_1_5', scaleMin: 1, scaleMax: 5,
+    avgScore: 3.8, responseCount: 177, lowScorePct: 18 },
+
+  { id: 'q_026', projectId: 'proj_001', categoryId: 'cat_02', sourceColumn: 'q_026',
+    text: 'What was your favorite part of the game?',
+    type: 'free_text', responseCount: 170 },
+
   { id: 'q_004', projectId: 'proj_001', categoryId: 'cat_02', sourceColumn: 'q_004',
     text: 'If this was not a playtest, would you have stopped playing at any point?',
     type: 'yes_no', responseCount: 177 },
@@ -160,30 +139,57 @@ export const mockQuestions: Question[] = [
     text: 'Approximately how many hours did you play?',
     type: 'free_text', responseCount: 177 },
 
-  { id: 'q_036', projectId: 'proj_001', categoryId: 'cat_02', sourceColumn: 'q_036',
-    text: 'Did the game feel intuitive, or more like trial and error?',
-    type: 'multiple_choice', responseCount: 177 },
+  // ── Retention & Market Fit ─────────────────────────────────────────────
+  { id: 'q_032', projectId: 'proj_001', categoryId: 'cat_03', sourceColumn: 'q_032',
+    text: 'How likely are you to continue playing the game after this test? (1–10)',
+    type: 'rating_1_10', scaleMin: 1, scaleMax: 10,
+    avgScore: 65, responseCount: 177, lowScorePct: 26 },
 
-  // ── Mechanics & Clarity ─────────────────────────────────────────────────
-  { id: 'q_007', projectId: 'proj_001', categoryId: 'cat_03', sourceColumn: 'q_007',
+  { id: 'q_033', projectId: 'proj_001', categoryId: 'cat_03', sourceColumn: 'q_033',
+    text: 'How likely are you to recommend this game to your friends? (1–10)',
+    type: 'rating_1_10', scaleMin: 1, scaleMax: 10,
+    avgScore: 58, responseCount: 177, lowScorePct: 34 },
+
+  { id: 'q_035', projectId: 'proj_001', categoryId: 'cat_03', sourceColumn: 'q_035',
+    text: '↳ What makes you want to continue or stop playing? (follow-up)',
+    type: 'free_text', responseCount: 160 },
+
+  { id: 'q_056', projectId: 'proj_001', categoryId: 'cat_03', sourceColumn: 'q_056',
+    text: 'What makes this game stand out compared to other automation/base-building games you played?',
+    type: 'free_text', responseCount: 148 },
+
+  // ── Game Clarity & Onboarding ──────────────────────────────────────────
+  { id: 'q_007', projectId: 'proj_001', categoryId: 'cat_04', sourceColumn: 'q_007',
     text: 'How clear and understandable were the game mechanics overall?',
     type: 'rating_1_5', scaleMin: 1, scaleMax: 5,
     avgScore: 3.8, responseCount: 177, lowScorePct: 22 },
 
-  { id: 'q_008', projectId: 'proj_001', categoryId: 'cat_03', sourceColumn: 'q_008',
+  { id: 'q_008', projectId: 'proj_001', categoryId: 'cat_04', sourceColumn: 'q_008',
     text: '↳ Which mechanics felt unclear or confusing and why? (follow-up)',
     type: 'free_text', responseCount: 118 },
 
-  { id: 'q_030', projectId: 'proj_001', categoryId: 'cat_03', sourceColumn: 'q_030',
+  { id: 'q_030', projectId: 'proj_001', categoryId: 'cat_04', sourceColumn: 'q_030',
     text: 'How clearly were new mechanics/components introduced?',
     type: 'rating_1_5', scaleMin: 1, scaleMax: 5,
     avgScore: 3.5, responseCount: 177, lowScorePct: 28 },
 
-  { id: 'q_031', projectId: 'proj_001', categoryId: 'cat_03', sourceColumn: 'q_031',
+  { id: 'q_031', projectId: 'proj_001', categoryId: 'cat_04', sourceColumn: 'q_031',
     text: '↳ Is there anything that could help you understand it more? (follow-up)',
     type: 'free_text', responseCount: 101 },
 
-  // ── Progression & Pacing ────────────────────────────────────────────────
+  { id: 'q_027', projectId: 'proj_001', categoryId: 'cat_04', sourceColumn: 'q_027',
+    text: 'How clear were the objectives and instructions?',
+    type: 'rating_1_5', scaleMin: 1, scaleMax: 5,
+    avgScore: 3.5, responseCount: 177, lowScorePct: 27 },
+
+  { id: 'q_028', projectId: 'proj_001', categoryId: 'cat_04', sourceColumn: 'q_028',
+    text: 'Did you ever need to go to the in-game Instruction Manual or Audio Log?',
+    type: 'multiple_choice', responseCount: 177 },
+
+  { id: 'q_029', projectId: 'proj_001', categoryId: 'cat_04', sourceColumn: 'q_029',
+    text: '↳ What were you looking for / what was unclear? (follow-up)',
+    type: 'free_text', responseCount: 98 },
+
   { id: 'q_009', projectId: 'proj_001', categoryId: 'cat_04', sourceColumn: 'q_009',
     text: 'How often did you feel stuck or unsure how to progress?',
     type: 'rating_1_5', scaleMin: 1, scaleMax: 5,
@@ -197,192 +203,151 @@ export const mockQuestions: Question[] = [
     text: '↳ Do you remember approximately when this happened? (follow-up)',
     type: 'free_text', responseCount: 110 },
 
-  { id: 'q_012', projectId: 'proj_001', categoryId: 'cat_04', sourceColumn: 'q_012',
+  { id: 'q_036', projectId: 'proj_001', categoryId: 'cat_04', sourceColumn: 'q_036',
+    text: 'Did the game feel intuitive, or more like trial and error?',
+    type: 'multiple_choice', responseCount: 177 },
+
+  // ── Progression & Engagement ───────────────────────────────────────────
+  { id: 'q_012', projectId: 'proj_001', categoryId: 'cat_05', sourceColumn: 'q_012',
     text: 'How engaging was the progression system?',
     type: 'rating_1_5', scaleMin: 1, scaleMax: 5,
     avgScore: 3.9, responseCount: 177, lowScorePct: 18 },
 
-  { id: 'q_013', projectId: 'proj_001', categoryId: 'cat_04', sourceColumn: 'q_013',
+  { id: 'q_013', projectId: 'proj_001', categoryId: 'cat_05', sourceColumn: 'q_013',
     text: 'How far did you progress during the session? (which Technology Tier / automation stage)',
     type: 'free_text', responseCount: 177 },
 
-  { id: 'q_014', projectId: 'proj_001', categoryId: 'cat_04', sourceColumn: 'q_014',
+  { id: 'q_014', projectId: 'proj_001', categoryId: 'cat_05', sourceColumn: 'q_014',
     text: 'If you stopped progressing, what was the main reason?',
     type: 'multiple_choice', responseCount: 160 },
 
-  { id: 'q_015', projectId: 'proj_001', categoryId: 'cat_04', sourceColumn: 'q_015',
+  { id: 'q_015', projectId: 'proj_001', categoryId: 'cat_05', sourceColumn: 'q_015',
     text: '↳ Please explain why you stopped progressing. (follow-up)',
     type: 'free_text', responseCount: 144 },
 
-  { id: 'q_018', projectId: 'proj_001', categoryId: 'cat_04', sourceColumn: 'q_018',
+  { id: 'q_018', projectId: 'proj_001', categoryId: 'cat_05', sourceColumn: 'q_018',
     text: 'How did the pacing of unlocking technologies/mechanics feel?',
     type: 'rating_1_5', scaleMin: 1, scaleMax: 5,
     avgScore: 4.0, responseCount: 177, lowScorePct: 14 },
 
-  // ── Logistics & Resource Transport ──────────────────────────────────────
-  { id: 'q_016', projectId: 'proj_001', categoryId: 'cat_05', sourceColumn: 'q_016',
-    text: 'How intuitive was the logistics/resource transportation system?',
-    type: 'rating_1_5', scaleMin: 1, scaleMax: 5,
-    avgScore: 3.6, responseCount: 177, lowScorePct: 24 },
-
-  { id: 'q_017', projectId: 'proj_001', categoryId: 'cat_05', sourceColumn: 'q_017',
-    text: 'How satisfying was managing and moving resources/items?',
-    type: 'rating_1_5', scaleMin: 1, scaleMax: 5,
-    avgScore: 3.9, responseCount: 177, lowScorePct: 16 },
-
-  { id: 'q_019', projectId: 'proj_001', categoryId: 'cat_05', sourceColumn: 'q_019',
-    text: '↳ What could be improved in the logistics/transport system? (follow-up)',
-    type: 'free_text', responseCount: 128 },
-
-  // ── User Interface ──────────────────────────────────────────────────────
-  { id: 'q_020', projectId: 'proj_001', categoryId: 'cat_06', sourceColumn: 'q_020',
-    text: 'How clear and easy to navigate was the User Interface overall?',
-    type: 'rating_1_5', scaleMin: 1, scaleMax: 5,
-    avgScore: 3.4, responseCount: 177, lowScorePct: 30 },
-
-  { id: 'q_021', projectId: 'proj_001', categoryId: 'cat_06', sourceColumn: 'q_021',
-    text: 'How easy was it to navigate menus, upgrades, building systems, and interfaces?',
-    type: 'rating_1_5', scaleMin: 1, scaleMax: 5,
-    avgScore: 3.3, responseCount: 177, lowScorePct: 32 },
-
-  { id: 'q_022', projectId: 'proj_001', categoryId: 'cat_06', sourceColumn: 'q_022',
-    text: '↳ What parts of the UI felt unclear or frustrating? (follow-up)',
-    type: 'free_text', responseCount: 118 },
-
-  { id: 'q_024', projectId: 'proj_001', categoryId: 'cat_06', sourceColumn: 'q_024',
-    text: 'What Quality of Life feature would improve your experience the most right now?',
-    type: 'free_text', responseCount: 155 },
-
-  // ── Objectives & In-Game Guidance ───────────────────────────────────────
-  { id: 'q_027', projectId: 'proj_001', categoryId: 'cat_07', sourceColumn: 'q_027',
-    text: 'How clear were the objectives and instructions?',
-    type: 'rating_1_5', scaleMin: 1, scaleMax: 5,
-    avgScore: 3.5, responseCount: 177, lowScorePct: 27 },
-
-  { id: 'q_028', projectId: 'proj_001', categoryId: 'cat_07', sourceColumn: 'q_028',
-    text: 'Did you ever need to go to the in-game Instruction Manual or Audio Log?',
-    type: 'multiple_choice', responseCount: 177 },
-
-  { id: 'q_029', projectId: 'proj_001', categoryId: 'cat_07', sourceColumn: 'q_029',
-    text: '↳ What were you looking for / what was unclear? (follow-up)',
-    type: 'free_text', responseCount: 98 },
-
-  // ── Enjoyment & Retention ───────────────────────────────────────────────
-  { id: 'q_025', projectId: 'proj_001', categoryId: 'cat_08', sourceColumn: 'q_025',
-    text: 'How much did you enjoy the game overall?',
-    type: 'rating_1_5', scaleMin: 1, scaleMax: 5,
-    avgScore: 3.8, responseCount: 177, lowScorePct: 18 },
-
-  { id: 'q_032', projectId: 'proj_001', categoryId: 'cat_08', sourceColumn: 'q_032',
-    text: 'How likely are you to continue playing the game after this test? (1–10)',
-    type: 'rating_1_10', scaleMin: 1, scaleMax: 10,
-    avgScore: 65, responseCount: 177, lowScorePct: 26 },
-
-  { id: 'q_033', projectId: 'proj_001', categoryId: 'cat_08', sourceColumn: 'q_033',
-    text: 'How likely are you to recommend this game to your friends? (1–10)',
-    type: 'rating_1_10', scaleMin: 1, scaleMax: 10,
-    avgScore: 58, responseCount: 177, lowScorePct: 34 },
-
-  { id: 'q_035', projectId: 'proj_001', categoryId: 'cat_08', sourceColumn: 'q_035',
-    text: '↳ What makes you want to continue or stop playing? (follow-up)',
-    type: 'free_text', responseCount: 160 },
-
-  // ── Zero Gravity Movement ───────────────────────────────────────────────
-  { id: 'q_044', projectId: 'proj_001', categoryId: 'cat_09', sourceColumn: 'q_044',
-    text: 'How enjoyable was moving and navigating in zero gravity?',
-    type: 'rating_1_5', scaleMin: 1, scaleMax: 5,
-    avgScore: 4.0, responseCount: 177, lowScorePct: 14 },
-
-  { id: 'q_045', projectId: 'proj_001', categoryId: 'cat_09', sourceColumn: 'q_045',
-    text: 'Did movement ever feel disorienting or difficult? (1 = very much, 5 = not at all)',
-    type: 'rating_1_5', scaleMin: 1, scaleMax: 5,
-    avgScore: 3.8, responseCount: 177, lowScorePct: 19 },
-
-  { id: 'q_046', projectId: 'proj_001', categoryId: 'cat_09', sourceColumn: 'q_046',
-    text: '↳ What would you change to improve the movement experience? (follow-up)',
-    type: 'free_text', responseCount: 88 },
-
-  // ── Mining & Extraction ─────────────────────────────────────────────────
-  { id: 'q_047', projectId: 'proj_001', categoryId: 'cat_10', sourceColumn: 'q_047',
-    text: 'How satisfying was mining ores with the laser?',
-    type: 'rating_1_5', scaleMin: 1, scaleMax: 5,
-    avgScore: 4.1, responseCount: 177, lowScorePct: 10 },
-
-  { id: 'q_048', projectId: 'proj_001', categoryId: 'cat_10', sourceColumn: 'q_048',
-    text: 'Did mining become repetitive too quickly? (1 = yes, very quickly, 5 = not at all)',
-    type: 'rating_1_5', scaleMin: 1, scaleMax: 5,
-    avgScore: 3.5, responseCount: 177, lowScorePct: 28 },
-
-  { id: 'q_049', projectId: 'proj_001', categoryId: 'cat_10', sourceColumn: 'q_049',
-    text: '↳ What would you change to improve the mining experience? (follow-up)',
-    type: 'free_text', responseCount: 92 },
-
-  // ── Automation Systems ──────────────────────────────────────────────────
-  { id: 'q_050', projectId: 'proj_001', categoryId: 'cat_11', sourceColumn: 'q_050',
-    text: 'How satisfying was it to watch your automated systems work together?',
-    type: 'rating_1_5', scaleMin: 1, scaleMax: 5,
-    avgScore: 4.3, responseCount: 177, lowScorePct: 8 },
-
-  { id: 'q_051', projectId: 'proj_001', categoryId: 'cat_11', sourceColumn: 'q_051',
-    text: 'Was the automation of production or floater management intuitive to set up? (1–5)',
-    type: 'rating_1_5', scaleMin: 1, scaleMax: 5,
-    avgScore: 3.4, responseCount: 177, lowScorePct: 29 },
-
-  { id: 'q_052', projectId: 'proj_001', categoryId: 'cat_11', sourceColumn: 'q_052',
-    text: 'How satisfying was transporting resources through space using accelerators and logistics systems?',
-    type: 'rating_1_5', scaleMin: 1, scaleMax: 5,
-    avgScore: 4.0, responseCount: 177, lowScorePct: 12 },
-
-  { id: 'q_053', projectId: 'proj_001', categoryId: 'cat_11', sourceColumn: 'q_053',
-    text: 'Did watching resources flow through your systems feel visually rewarding?',
-    type: 'rating_1_5', scaleMin: 1, scaleMax: 5,
-    avgScore: 4.2, responseCount: 177, lowScorePct: 9 },
-
-  { id: 'q_054', projectId: 'proj_001', categoryId: 'cat_11', sourceColumn: 'q_054',
+  { id: 'q_054', projectId: 'proj_001', categoryId: 'cat_05', sourceColumn: 'q_054',
     text: 'Did you feel like your operation/factory automation meaningfully evolved over time?',
     type: 'rating_1_5', scaleMin: 1, scaleMax: 5,
     avgScore: 3.9, responseCount: 177, lowScorePct: 16 },
 
-  // ── Open Highlights & Feedback ──────────────────────────────────────────
-  { id: 'q_026', projectId: 'proj_001', categoryId: 'cat_12', sourceColumn: 'q_026',
-    text: 'What was your favorite part of the game?',
-    type: 'free_text', responseCount: 170 },
-
-  { id: 'q_055', projectId: 'proj_001', categoryId: 'cat_12', sourceColumn: 'q_055',
+  { id: 'q_055', projectId: 'proj_001', categoryId: 'cat_05', sourceColumn: 'q_055',
     text: 'At what point did the game become the most exciting for you?',
     type: 'free_text', responseCount: 155 },
 
-  { id: 'q_056', projectId: 'proj_001', categoryId: 'cat_12', sourceColumn: 'q_056',
-    text: 'What makes this game stand out compared to other automation/base-building games you played?',
-    type: 'free_text', responseCount: 148 },
+  // ── Core Mechanics ─────────────────────────────────────────────────────
+  { id: 'q_044', projectId: 'proj_001', categoryId: 'cat_06', sourceColumn: 'q_044',
+    text: 'How enjoyable was moving and navigating in zero gravity?',
+    type: 'rating_1_5', scaleMin: 1, scaleMax: 5,
+    avgScore: 4.0, responseCount: 177, lowScorePct: 14 },
 
-  // ── Performance & Bugs ──────────────────────────────────────────────────
-  { id: 'q_037', projectId: 'proj_001', categoryId: 'cat_13', sourceColumn: 'q_037',
+  { id: 'q_045', projectId: 'proj_001', categoryId: 'cat_06', sourceColumn: 'q_045',
+    text: 'Did movement ever feel disorienting or difficult? (1 = very much, 5 = not at all)',
+    type: 'rating_1_5', scaleMin: 1, scaleMax: 5,
+    avgScore: 3.8, responseCount: 177, lowScorePct: 19 },
+
+  { id: 'q_046', projectId: 'proj_001', categoryId: 'cat_06', sourceColumn: 'q_046',
+    text: '↳ What would you change to improve the movement experience? (follow-up)',
+    type: 'free_text', responseCount: 88 },
+
+  { id: 'q_047', projectId: 'proj_001', categoryId: 'cat_06', sourceColumn: 'q_047',
+    text: 'How satisfying was mining ores with the laser?',
+    type: 'rating_1_5', scaleMin: 1, scaleMax: 5,
+    avgScore: 4.1, responseCount: 177, lowScorePct: 10 },
+
+  { id: 'q_048', projectId: 'proj_001', categoryId: 'cat_06', sourceColumn: 'q_048',
+    text: 'Did mining become repetitive too quickly? (1 = yes, very quickly, 5 = not at all)',
+    type: 'rating_1_5', scaleMin: 1, scaleMax: 5,
+    avgScore: 3.5, responseCount: 177, lowScorePct: 28 },
+
+  { id: 'q_049', projectId: 'proj_001', categoryId: 'cat_06', sourceColumn: 'q_049',
+    text: '↳ What would you change to improve the mining experience? (follow-up)',
+    type: 'free_text', responseCount: 92 },
+
+  // ── Automation & Factory Systems ───────────────────────────────────────
+  { id: 'q_016', projectId: 'proj_001', categoryId: 'cat_07', sourceColumn: 'q_016',
+    text: 'How intuitive was the logistics/resource transportation system?',
+    type: 'rating_1_5', scaleMin: 1, scaleMax: 5,
+    avgScore: 3.6, responseCount: 177, lowScorePct: 24 },
+
+  { id: 'q_017', projectId: 'proj_001', categoryId: 'cat_07', sourceColumn: 'q_017',
+    text: 'How satisfying was managing and moving resources/items?',
+    type: 'rating_1_5', scaleMin: 1, scaleMax: 5,
+    avgScore: 3.9, responseCount: 177, lowScorePct: 16 },
+
+  { id: 'q_019', projectId: 'proj_001', categoryId: 'cat_07', sourceColumn: 'q_019',
+    text: '↳ What could be improved in the logistics/transport system? (follow-up)',
+    type: 'free_text', responseCount: 128 },
+
+  { id: 'q_050', projectId: 'proj_001', categoryId: 'cat_07', sourceColumn: 'q_050',
+    text: 'How satisfying was it to watch your automated systems work together?',
+    type: 'rating_1_5', scaleMin: 1, scaleMax: 5,
+    avgScore: 4.3, responseCount: 177, lowScorePct: 8 },
+
+  { id: 'q_051', projectId: 'proj_001', categoryId: 'cat_07', sourceColumn: 'q_051',
+    text: 'Was the automation of production or floater management intuitive to set up? (1–5)',
+    type: 'rating_1_5', scaleMin: 1, scaleMax: 5,
+    avgScore: 3.4, responseCount: 177, lowScorePct: 29 },
+
+  { id: 'q_052', projectId: 'proj_001', categoryId: 'cat_07', sourceColumn: 'q_052',
+    text: 'How satisfying was transporting resources through space using accelerators and logistics systems?',
+    type: 'rating_1_5', scaleMin: 1, scaleMax: 5,
+    avgScore: 4.0, responseCount: 177, lowScorePct: 12 },
+
+  { id: 'q_053', projectId: 'proj_001', categoryId: 'cat_07', sourceColumn: 'q_053',
+    text: 'Did watching resources flow through your systems feel visually rewarding?',
+    type: 'rating_1_5', scaleMin: 1, scaleMax: 5,
+    avgScore: 4.2, responseCount: 177, lowScorePct: 9 },
+
+  // ── UI & Quality of Life ───────────────────────────────────────────────
+  { id: 'q_020', projectId: 'proj_001', categoryId: 'cat_08', sourceColumn: 'q_020',
+    text: 'How clear and easy to navigate was the User Interface overall?',
+    type: 'rating_1_5', scaleMin: 1, scaleMax: 5,
+    avgScore: 3.4, responseCount: 177, lowScorePct: 30 },
+
+  { id: 'q_021', projectId: 'proj_001', categoryId: 'cat_08', sourceColumn: 'q_021',
+    text: 'How easy was it to navigate menus, upgrades, building systems, and interfaces?',
+    type: 'rating_1_5', scaleMin: 1, scaleMax: 5,
+    avgScore: 3.3, responseCount: 177, lowScorePct: 32 },
+
+  { id: 'q_022', projectId: 'proj_001', categoryId: 'cat_08', sourceColumn: 'q_022',
+    text: '↳ What parts of the UI felt unclear or frustrating? (follow-up)',
+    type: 'free_text', responseCount: 118 },
+
+  { id: 'q_024', projectId: 'proj_001', categoryId: 'cat_08', sourceColumn: 'q_024',
+    text: 'What Quality of Life feature would improve your experience the most right now?',
+    type: 'free_text', responseCount: 155 },
+
+  // ── Technical & Evidence ───────────────────────────────────────────────
+  { id: 'q_037', projectId: 'proj_001', categoryId: 'cat_09', sourceColumn: 'q_037',
     text: 'Did you encounter any performance issues? (e.g. FPS drops with many floaters, stuttering during explosions)',
     type: 'free_text', responseCount: 177 },
 
-  // ── Evidence & Recordings ───────────────────────────────────────────────
-  { id: 'q_038', projectId: 'proj_001', categoryId: 'cat_14', sourceColumn: 'q_038',
+  { id: 'q_038', projectId: 'proj_001', categoryId: 'cat_09', sourceColumn: 'q_038',
     text: 'Did you record your gameplay or have images you would like to share?',
     type: 'yes_no', responseCount: 177 },
 
-  { id: 'q_039', projectId: 'proj_001', categoryId: 'cat_14', sourceColumn: 'q_039',
+  { id: 'q_039', projectId: 'proj_001', categoryId: 'cat_09', sourceColumn: 'q_039',
     text: 'Describe what happened during the playtest (for those not uploading files)',
     type: 'free_text', responseCount: 88 },
 
-  { id: 'q_040', projectId: 'proj_001', categoryId: 'cat_14', sourceColumn: 'q_040',
+  { id: 'q_040', projectId: 'proj_001', categoryId: 'cat_09', sourceColumn: 'q_040',
     text: 'Upload: Gameplay recordings or images (Google Drive)',
     type: 'file_upload', responseCount: 62 },
 
-  { id: 'q_041', projectId: 'proj_001', categoryId: 'cat_14', sourceColumn: 'q_041',
+  { id: 'q_041', projectId: 'proj_001', categoryId: 'cat_09', sourceColumn: 'q_041',
     text: 'Upload: External link if not using Google Drive',
     type: 'free_text', responseCount: 18 },
 
-  { id: 'q_042', projectId: 'proj_001', categoryId: 'cat_14', sourceColumn: 'q_042',
+  { id: 'q_042', projectId: 'proj_001', categoryId: 'cat_09', sourceColumn: 'q_042',
     text: 'Footage timestamps: where you felt confused, frustrated, stuck, or excited',
     type: 'free_text', responseCount: 41 },
 
-  { id: 'q_043', projectId: 'proj_001', categoryId: 'cat_14', sourceColumn: 'q_043',
+  { id: 'q_043', projectId: 'proj_001', categoryId: 'cat_09', sourceColumn: 'q_043',
     text: 'Notes for the uploaded files',
     type: 'free_text', responseCount: 35 },
 
@@ -419,6 +384,7 @@ export const mockTesters: Tester[] = [
     ageGroup: '25 - 34', country: 'United States', gamingProfile: 'Hardcore, Competitive',
     hardware: 'High-end', similarGamesPlayed: ['Factorio', 'Satisfactory', 'Dyson Sphere Program'],
     rawProfileJson: {}, avgRating: 4.1, isOutlier: false,
+    quality: { benchmarkN: 12, avgNorm: 82, avgRating: 4.1, severity: 7, robustZ: 0.5, sentiment: 'typical', straightLining: false, flags: [] },
   },
   {
     id: 'tstr_02', testerId: 'T-002', email: 'marie.d@example.com', discord: 'MarieD#7812',
@@ -431,6 +397,7 @@ export const mockTesters: Tester[] = [
     ageGroup: '18 - 24', country: 'France', gamingProfile: 'Casual, Social',
     hardware: 'Mid-end', similarGamesPlayed: ['Stardew Valley'],
     rawProfileJson: {}, avgRating: 2.8, isOutlier: true,
+    quality: { benchmarkN: 12, avgNorm: 56, avgRating: 2.8, severity: -16, robustZ: -2.6, sentiment: 'harsh', straightLining: false, flags: [{ type: 'harsh_critic', detail: 'Scored 56 vs 73 group · 2.6σ below' }] },
   },
   {
     id: 'tstr_03', testerId: 'T-003', email: 'chen.w@example.com', discord: 'ChenW#0033',
@@ -443,6 +410,7 @@ export const mockTesters: Tester[] = [
     ageGroup: '35 - 44', country: 'Canada', gamingProfile: 'Hardcore',
     hardware: 'High-end', similarGamesPlayed: ['Factorio', 'Rimworld', 'Satisfactory'],
     rawProfileJson: {}, avgRating: 4.6, isOutlier: false,
+    quality: { benchmarkN: 12, avgNorm: 92, avgRating: 4.6, severity: 17, robustZ: 1.6, sentiment: 'typical', straightLining: false, flags: [] },
   },
   {
     id: 'tstr_04', testerId: 'T-004', email: 'priya.s@example.com', discord: 'PriyaS#2209',
@@ -455,6 +423,7 @@ export const mockTesters: Tester[] = [
     ageGroup: '25 - 34', country: 'India', gamingProfile: 'Casual',
     hardware: 'Low-end', similarGamesPlayed: ['Minecraft'],
     rawProfileJson: {}, avgRating: 3.2, isOutlier: false,
+    quality: { benchmarkN: 12, avgNorm: 64, avgRating: 3.2, severity: -6, robustZ: -0.7, sentiment: 'typical', straightLining: false, flags: [] },
   },
   {
     id: 'tstr_05', testerId: 'T-005', email: 'jakob.n@example.com', discord: 'JakobN#5500',
@@ -467,6 +436,7 @@ export const mockTesters: Tester[] = [
     ageGroup: '45 - 54', country: 'Germany', gamingProfile: 'Competitive, Hardcore',
     hardware: 'Mid-end', similarGamesPlayed: ['Anno 1800', 'Factorio'],
     rawProfileJson: {}, avgRating: 3.9, isOutlier: false,
+    quality: { benchmarkN: 12, avgNorm: 78, avgRating: 3.9, severity: 4, robustZ: 0.2, sentiment: 'typical', straightLining: false, flags: [] },
   },
   {
     id: 'tstr_06', testerId: 'T-006', email: 'sofia.l@example.com', discord: 'SofiaL#9910',
@@ -479,6 +449,7 @@ export const mockTesters: Tester[] = [
     ageGroup: '18 - 24', country: 'Brazil', gamingProfile: 'Casual, Social',
     hardware: 'Low-end', similarGamesPlayed: [],
     rawProfileJson: {}, avgRating: 2.1, isOutlier: true,
+    quality: { benchmarkN: 12, avgNorm: 42, avgRating: 2.1, severity: -28, robustZ: -3.4, sentiment: 'harsh', straightLining: false, flags: [{ type: 'harsh_critic', detail: 'Scored 42 vs 73 group · 3.4σ below' }] },
   },
   {
     id: 'tstr_07', testerId: 'T-007', email: 'ryo.t@example.com', discord: 'RyoT#3344',
@@ -491,6 +462,7 @@ export const mockTesters: Tester[] = [
     ageGroup: '25 - 34', country: 'Japan', gamingProfile: 'Hardcore, Competitive',
     hardware: 'High-end', similarGamesPlayed: ['Satisfactory', 'Dyson Sphere Program', 'Mindustry'],
     rawProfileJson: {}, avgRating: 4.8, isOutlier: false,
+    quality: { benchmarkN: 12, avgNorm: 96, avgRating: 4.8, severity: 21, robustZ: 2.0, sentiment: 'typical', straightLining: false, flags: [] },
   },
 ];
 

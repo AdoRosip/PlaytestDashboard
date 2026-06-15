@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard, Layers, HelpCircle, Sparkles,
-  Users, Table2, Download, Settings, SlidersHorizontal,
+  Users, Table2, Download, Settings, SlidersHorizontal, FolderTree,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useDashboardStore, selectActiveFilterCount } from '@/lib/store';
@@ -17,6 +17,7 @@ const NAV_SECTIONS = [
       { href: '/categories', label: 'Categories', icon: Layers },
       { href: '/questions',  label: 'Questions',  icon: HelpCircle },
       { href: '/testers',    label: 'Testers',    icon: Users },
+      { href: '/builder',    label: 'Category Builder', icon: FolderTree },
     ],
   },
   {

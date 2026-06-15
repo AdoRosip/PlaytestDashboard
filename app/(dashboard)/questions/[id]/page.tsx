@@ -35,11 +35,12 @@ export default function QuestionDetailPage({ params }: { params: Promise<{ id: s
   const ratingResponses   = qResponses.filter((r) => r.normalizedScore !== null);
   const freeTextResponses = qResponses.filter((r) => r.numericValue === null && r.rawAnswer);
 
-  const ratingDist = useMemo(
-    () => ratingResponses.length > 0 ? computeRatingDistribution(ratingResponses, scale) : null,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [id, responses.length, scale],
-  );
+  const ratingDist = useMemo(() => {
+    // Recompute from the live response set (the memoised selector hands us a new
+    // array identity whenever filters change, so this stays in sync).
+    const rr = responses.filter((r) => r.questionId === id && r.normalizedScore !== null);
+    return rr.length > 0 ? computeRatingDistribution(rr, scale) : null;
+  }, [responses, id, scale]);
 
   const playtimeMap = useMemo(() => {
     const playtimeQ = questions.find((q) =>
@@ -210,7 +211,7 @@ export default function QuestionDetailPage({ params }: { params: Promise<{ id: s
               Individual Responses
               <span className="text-xs font-normal text-slate-500 ml-2">({qResponses.length})</span>
             </h2>
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 overflow-y-auto max-h-[480px] pr-2 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-slate-700">
               {qResponses.slice(0, 30).map((r) => {
                 const tester = testers.find((t) => t.id === r.testerId);
                 const playtime = r.testerId ? playtimeMap.get(r.testerId) : undefined;
@@ -254,7 +255,7 @@ export default function QuestionDetailPage({ params }: { params: Promise<{ id: s
               <h2 className="text-sm font-semibold text-white">All Responses</h2>
               <span className="text-xs text-slate-500">({freeTextResponses.length})</span>
             </div>
-            <div className="space-y-3">
+            <div className="space-y-3 overflow-y-auto max-h-[480px] pr-2 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-slate-700">
               {freeTextResponses.map((r) => {
                 const tester = testers.find((t) => t.id === r.testerId);
                 const playtime = r.testerId ? playtimeMap.get(r.testerId) : undefined;
@@ -303,7 +304,7 @@ export default function QuestionDetailPage({ params }: { params: Promise<{ id: s
           <div className="rounded-xl border border-slate-700/60 bg-slate-800/20 p-5">
             <h2 className="text-sm font-semibold text-white mb-4">Individual Responses</h2>
             <p className="text-xs text-slate-500 mb-3">Click a bar in the chart above to filter by specific score</p>
-            <div className="space-y-2">
+            <div className="space-y-2 overflow-y-auto max-h-[480px] pr-2 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-slate-700">
               {ratingResponses.slice(0, 15).map((r) => {
                 const tester = testers.find((t) => t.id === r.testerId);
                 const playtime = r.testerId ? playtimeMap.get(r.testerId) : undefined;

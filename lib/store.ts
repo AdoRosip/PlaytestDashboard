@@ -12,6 +12,22 @@ import {
   computeFilteredTesterIds, filterResponsesByTesterIds, filterTestersByIds,
   countActiveFilters,
 } from './filtering';
+import { computeTesterQuality, isConcerning } from './outliers';
+import { computeNormalizedScore, scaleForType } from './scoring';
+
+/**
+ * Recompute tester quality (avgRating / flags / outlier) over the current
+ * questions + responses. Used whenever question metadata or category assignment
+ * changes, since both alter the benchmark set or the scores feeding it.
+ */
+function applyQuality(testers: Tester[], questions: Question[], responses: Response[]): Tester[] {
+  const quality = computeTesterQuality({ testers, questions, responses });
+  return testers.map((t) => {
+    const q = quality.get(t.id);
+    if (!q) return t;
+    return { ...t, quality: q, avgRating: q.avgRating, isOutlier: isConcerning(q) };
+  });
+}
 
 export type AnalysisStatus = 'idle' | 'running' | 'done' | 'error';
 
@@ -59,6 +75,7 @@ interface DashboardState {
   closeTesterPanel: () => void;
   updateCategory: (categoryId: string, patch: Partial<Category>) => void;
   assignQuestionToCategory: (questionId: string, categoryId: string | null) => void;
+  updateQuestion: (questionId: string, patch: Partial<Question>) => void;
   addCategory: (name: string) => void;
   runThemeAnalysis: () => Promise<void>;
   clearThemes: () => void;
@@ -72,6 +89,8 @@ const defaultFilters: FilterState = {
   sessionPlaytime: null,
   playedFactorio: false,
   playedSatisfactory: false,
+  excludeStraightLiners: false,
+  excludeHarshCritics: false,
 };
 
 export const useDashboardStore = create<DashboardState>()(
@@ -138,9 +157,35 @@ export const useDashboardStore = create<DashboardState>()(
     })),
 
   assignQuestionToCategory: (questionId, categoryId) =>
-    set((s) => ({
-      questions: s.questions.map((q) => q.id === questionId ? { ...q, categoryId } : q),
-    })),
+    set((s) => {
+      const questions = s.questions.map((q) => q.id === questionId ? { ...q, categoryId } : q);
+      // Category drives the benchmark set, so re-derive tester quality.
+      return { questions, testers: applyQuality(s.testers, questions, s.responses) };
+    }),
+
+  updateQuestion: (questionId, patch) =>
+    set((s) => {
+      const questions = s.questions.map((q) => {
+        if (q.id !== questionId) return q;
+        const next = { ...q, ...patch };
+        // Changing the type implies a new scale unless one was passed explicitly.
+        if (patch.type !== undefined && patch.scaleMin === undefined && patch.scaleMax === undefined) {
+          const sc = scaleForType(patch.type);
+          next.scaleMin = sc.scaleMin;
+          next.scaleMax = sc.scaleMax;
+        }
+        return next;
+      });
+      const changed = questions.find((q) => q.id === questionId);
+      if (!changed) return {};
+      // Recompute this question's normalized scores, then re-derive quality.
+      const responses = s.responses.map((r) =>
+        r.questionId === questionId
+          ? { ...r, normalizedScore: computeNormalizedScore(changed, r.numericValue) }
+          : r,
+      );
+      return { questions, responses, testers: applyQuality(s.testers, questions, responses) };
+    }),
 
   addCategory: (name) => {
     const { categories } = get();

@@ -34,10 +34,10 @@ Fields:
 - `playtestName`: uploaded filename.
 - `createdAt`: import time.
 - `totalResponses`: count of response-sheet rows with at least one non-empty question answer.
-- `matchedTesters`: parser-derived count based on registration matching.
+- `matchedTesters`: number of response rows successfully linked to a registration profile (clean `matchedCount`).
 - `unmatchedTesters`: number of response rows that could not be linked to registration data.
 
-Important caveat: `matchedTesters` is not currently a clean "matched submitters" count. It is derived from `allTesters.length - unmatchedCount`, where `allTesters` includes registered testers, including possible no-shows.
+Note: participation is derived from the response sheet, not the registration sheet — registered testers who never submitted a response are not counted.
 
 ### Tester
 
@@ -202,6 +202,61 @@ Sensitivity:
 - The order matters because the first matching rule wins.
 - Categories themselves are fixed and game-specific.
 
+### Category Structure (current)
+
+The dashboard uses 10 fixed categories. The previous 15-category structure was consolidated in June 2026 to reduce fragmentation and better reflect the distinction between player experience and commercial signal.
+
+| ID | Name | Scored | Purpose |
+|----|------|--------|---------|
+| cat_01 | Player Background | No | Gaming history and prior experience — segmentation lens only |
+| cat_02 | Overall Experience | Yes | Enjoyment, frustration, quit moments, favourite part, session length |
+| cat_03 | Retention & Market Fit | Yes | Continue playing, NPS recommendation, stand-out vs. competitors, reasons to return |
+| cat_04 | Game Clarity & Onboarding | Yes | Mechanic comprehension, objectives, in-game guidance, feeling stuck, trial-and-error |
+| cat_05 | Progression & Engagement | Yes | Progress depth, tech pacing, stopping reasons, factory growth, peak excitement |
+| cat_06 | Core Mechanics | Yes | Zero-gravity movement and laser mining — the two hands-on physical loops |
+| cat_07 | Automation & Factory Systems | Yes | Logistics, resource transport, automation satisfaction, space accelerators |
+| cat_08 | UI & Quality of Life | Yes | Interface clarity, menu navigation, QoL requests |
+| cat_09 | Technical & Evidence | No | Performance issues, bugs, gameplay recordings |
+| cat_15 | Admin / Internal | No | Internal scoring, payment tracking — never shown in client-facing views |
+
+The overview page gauge row excludes categories whose names contain `admin`, `internal`, `evidence`, `background`, or `recording`. cat_01 and cat_09 are filtered out this way without hardcoding their IDs. cat_15 is also excluded by its name and by an explicit `cat_15` ID check used for question counting.
+
+The split between cat_02 (Overall Experience) and cat_03 (Retention & Market Fit) is intentional. cat_02 captures whether playing the game was enjoyable. cat_03 captures commercial signals: would the tester return and recommend it? These are different questions for different audiences — design team vs. product/business.
+
+### Tester Quality & Outlier Detection
+
+All tester quality logic lives in **`lib/outliers.ts`** (`computeTesterQuality()`), called once from `parseExcelFile()` after responses are built. Results are stored on `tester.quality` (a `TesterQuality` object), with `tester.avgRating` and a legacy `tester.isOutlier` convenience derived from it. Detection is **population-level** — computed over the whole uploaded set, not re-derived per active filter.
+
+Benchmark questions = all `rating_1_5` / `rating_1_10` questions except cat_01 (Player Background), cat_09 (Technical & Evidence), and cat_15 (Admin / Internal). Negative-valence questions marked `isInverseScored` are inverted (`100 − normalizedScore`) before any math.
+
+Two **independent** signals are produced:
+
+#### 1. Sentiment outlier (harsh critic / overly positive)
+
+This measures genuine rater severity, with two deliberate design choices that fix the old `mean − 1.5·SD` method:
+
+1. **Per-question deviation** removes question-mix bias. For each benchmark response, `deviation = effectiveScore − questionMean` (the mean for *that* question across all testers). A tester's `severity` is the mean of their deviations, so answering mostly hard/low-scoring questions no longer makes someone look negative.
+2. **Robust standardization** with median + MAD, not mean + SD, so the outliers don't distort their own threshold: `robustZ = (severity − median) / (1.4826 × MAD)`.
+
+A tester is flagged `harsh` when `robustZ < −2.5` and `generous` when `robustZ > +2.5`.
+
+Guards: `severity` is only computed with ≥ 5 benchmark responses (`minForSeverity`), is shrunk toward 0 by `n/(n+5)` so thin samples aren't flagged on noise, and **no sentiment flags are produced unless ≥ 10 testers have a severity score** (`minGroupForFlags`). `avgRating` (0–5, = `avgNorm/20`) still shows with ≥ 3 responses.
+
+#### 2. Quality outlier (straight-lining)
+
+A tester who answered ≥ 8 rating questions and gave the same value to ≥ 95% of them is flagged `straight_liner`. This is the only flag that justifies *excluding* a tester — it's low-information noise rather than a strong opinion.
+
+#### Constants
+
+All thresholds live in `OUTLIER_CONFIG` at the top of `lib/outliers.ts` (no magic numbers in the logic).
+
+#### Where it surfaces
+
+- **Testers page** — filter chips per flag type (with counts), a header breakdown, and a ⚠️ whose tooltip shows the reason (e.g. "Scored 38 vs 67 group · 2.8σ below").
+- **Tester panel** — each flag shown with its reason.
+- **Export** — `sentiment`, `straight_lining`, `robust_z`, and `flags` columns.
+- **Global filters** — see below. By default flags affect nothing; aggregates include everyone.
+
 ## State Ownership
 
 The central store is `lib/store.ts`.
@@ -251,8 +306,12 @@ Filter dimensions:
 - Session playtime.
 - Played Factorio.
 - Played Satisfactory.
+- Exclude straight-liners (data-quality).
+- Exclude harsh critics (data-quality).
 
 Demographic filters come from registration data. Session playtime and prior-game filters come from survey questions detected by regex.
+
+The two data-quality exclusions are driven by `tester.quality` (see Tester Quality & Outlier Detection). They default off, only appear in the panel when such testers exist, and — because every page derives its numbers through `selectFilteredTesterIds()` — they propagate to overview, category, and question scores, not just the testers table. "Exclude harsh critics" shows a caveat: removing the most critical testers mechanically raises every score, so it is a robustness check, not data cleaning.
 
 Sensitivity:
 

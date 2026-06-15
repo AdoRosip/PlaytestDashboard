@@ -2,9 +2,9 @@
 import { X, Star, AlertTriangle } from 'lucide-react';
 import { useDashboardStore } from '@/lib/store';
 import { formatDate, formatTesterId } from '@/lib/utils';
+import { flagLabel } from '@/lib/outliers';
 import { SEGMENT_LABELS } from '@/lib/types';
 import type { SegmentKey } from '@/lib/types';
-import Badge from './Badge';
 
 const SEGMENT_GROUPS: { label: string; keys: SegmentKey[] }[] = [
   { label: 'Demographics',  keys: ['age_group', 'gender', 'country', 'employment', 'availability'] },
@@ -66,13 +66,21 @@ export default function TesterPanel() {
                     <div className="text-xs text-slate-600">{tester.discord}</div>
                   )}
                 </div>
-                {tester.isOutlier && (
-                  <div className="ml-auto flex items-center gap-1">
-                    <AlertTriangle className="w-3.5 h-3.5 text-yellow-400" />
-                    <Badge label="Outlier" severity="High" variant="severity" />
-                  </div>
-                )}
               </div>
+
+              {tester.quality && tester.quality.flags.length > 0 && (
+                <div className="mb-4 space-y-1.5">
+                  {tester.quality.flags.map((f) => (
+                    <div key={f.type} className="flex items-start gap-2 rounded-lg bg-yellow-500/5 border border-yellow-500/20 px-3 py-2">
+                      <AlertTriangle className="w-3.5 h-3.5 text-yellow-400 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <div className="text-xs font-semibold text-yellow-300">{flagLabel(f.type)}</div>
+                        <div className="text-[11px] text-slate-400 leading-relaxed">{f.detail}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="rounded-lg bg-slate-800/40 border border-slate-700/50 p-3">

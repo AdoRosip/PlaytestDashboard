@@ -46,6 +46,28 @@ export type Severity = 'Low' | 'Medium' | 'High' | 'Critical';
 export type Priority = 'Low' | 'Medium' | 'High' | 'Critical';
 export type MatchStatus = 'matched' | 'unmatched' | 'needs_check';
 
+// ── Tester data-quality / outlier flags ──────────────────────────────────────
+// Two distinct concepts: sentiment outliers (harsh / overly positive raters —
+// usually legitimate feedback you want to *read*) and quality outliers
+// (straight-liners — low-information noise you may want to *exclude*).
+export type TesterFlagType = 'harsh_critic' | 'overly_positive' | 'straight_liner';
+
+export interface TesterFlag {
+  type: TesterFlagType;
+  detail: string; // human-readable reason, e.g. "Scored 38 vs 67 group · 2.8σ below"
+}
+
+export interface TesterQuality {
+  benchmarkN: number;            // number of benchmark rating responses
+  avgNorm?: number;              // mean normalized (0–100) benchmark score
+  avgRating?: number;            // avgNorm on a 0–5 display scale
+  severity?: number;            // shrunk per-question deviation (rater leniency/severity)
+  robustZ?: number;             // severity standardized via median + MAD
+  sentiment: 'harsh' | 'generous' | 'typical';
+  straightLining: boolean;
+  flags: TesterFlag[];
+}
+
 export interface Tester {
   id: string;
   testerId: string;
@@ -63,7 +85,8 @@ export interface Tester {
   paymentAmount?: number;
   // derived
   avgRating?: number;
-  isOutlier?: boolean;
+  isOutlier?: boolean; // convenience: harsh critic OR straight-liner (the "concerning" flags)
+  quality?: TesterQuality;
 }
 
 export interface Category {
@@ -84,6 +107,9 @@ export interface Question {
   sourceColumn: string;
   scaleMin?: number;
   scaleMax?: number;
+  // When true, a high numeric answer is *negative* (e.g. "how frustrated were
+  // you?"). Score normalization and outlier math invert these.
+  isInverseScored?: boolean;
   // derived
   avgScore?: number;
   responseCount?: number;
@@ -164,4 +190,7 @@ export interface FilterState {
   sessionPlaytime: null | '<1h' | '1-3h' | '3-6h' | '6h+';
   playedFactorio: boolean;
   playedSatisfactory: boolean;
+  // Data-quality exclusions (default off — removing testers changes headline scores)
+  excludeStraightLiners: boolean;
+  excludeHarshCritics: boolean;
 }

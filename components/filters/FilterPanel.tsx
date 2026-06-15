@@ -4,7 +4,7 @@ import { X, SlidersHorizontal } from 'lucide-react';
 import { useDashboardStore, selectActiveFilterCount } from '@/lib/store';
 import type { FilterState } from '@/lib/types';
 
-const HARDWARE_TIERS = ['High', 'Mid', 'Low', 'Unknown'];
+const HARDWARE_TIERS = ['High', 'Mid', 'Low'];
 const PLAYTIME_OPTIONS: { label: string; value: FilterState['sessionPlaytime'] }[] = [
   { label: '< 1h',  value: '<1h'  },
   { label: '1–3h',  value: '1-3h' },
@@ -84,6 +84,11 @@ export default function FilterPanel() {
   const hasSessionQ  = questions.some((q) =>
     /how many hours.*(?:play|game|session)|hours.*played.*(?:exo|game|session)/i.test(q.text)
   );
+
+  // Data-quality flag counts (drive the exclusion controls)
+  const straightLinerCount = testers.filter((t) => t.quality?.straightLining).length;
+  const harshCriticCount = testers.filter((t) => t.quality?.sentiment === 'harsh').length;
+  const hasQualityFlags = straightLinerCount > 0 || harshCriticCount > 0;
 
   const toggle = <K extends 'ageGroups' | 'genders' | 'countries' | 'hardwareTiers'>(key: K, value: string) => {
     const cur = filters[key] as string[];
@@ -204,6 +209,35 @@ export default function FilterPanel() {
                 />
               )}
             </div>
+          </div>
+        )}
+
+        {/* Data Quality */}
+        {hasQualityFlags && (
+          <div>
+            <SectionLabel>Data Quality</SectionLabel>
+            <div className="space-y-1">
+              {straightLinerCount > 0 && (
+                <FilterCheckbox
+                  label={`Exclude straight-liners (${straightLinerCount})`}
+                  checked={filters.excludeStraightLiners}
+                  onChange={() => setFilter({ excludeStraightLiners: !filters.excludeStraightLiners })}
+                />
+              )}
+              {harshCriticCount > 0 && (
+                <FilterCheckbox
+                  label={`Exclude harsh critics (${harshCriticCount})`}
+                  checked={filters.excludeHarshCritics}
+                  onChange={() => setFilter({ excludeHarshCritics: !filters.excludeHarshCritics })}
+                />
+              )}
+            </div>
+            {filters.excludeHarshCritics && (
+              <p className="text-[10px] text-amber-400/80 leading-relaxed mt-2">
+                Removing the most critical testers raises every score — use for robustness
+                checks, not data cleaning.
+              </p>
+            )}
           </div>
         )}
 

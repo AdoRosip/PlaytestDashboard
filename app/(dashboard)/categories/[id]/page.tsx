@@ -62,8 +62,9 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ id: s
       )}
 
       {/* Questions */}
-      <div className="space-y-4">
-        <h2 className="text-sm font-semibold text-white">Questions</h2>
+      <div>
+        <h2 className="text-sm font-semibold text-white mb-4">Questions</h2>
+        <div className="space-y-4 overflow-y-auto max-h-[calc(100vh-280px)] pr-2 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-slate-700">
         {catQuestions.map((q) => {
           const qResponses = responses.filter((r) => r.questionId === q.id);
           const ratingResps = qResponses.filter((r) => r.numericValue !== null);
@@ -71,6 +72,15 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ id: s
             ? computeRatingDistribution(ratingResps, q.type === 'rating_1_10' ? 10 : 5)
             : null;
           const freeTextResponses = qResponses.filter((r) => r.numericValue === null && r.rawAnswer);
+
+          // Computed from responses (imported data has no mock-only summary fields)
+          const scored = qResponses.filter((r) => r.normalizedScore !== null);
+          const avgNorm = scored.length
+            ? Math.round(scored.reduce((s, r) => s + (r.normalizedScore ?? 0), 0) / scored.length)
+            : null;
+          const lowScorePct = scored.length
+            ? Math.round((scored.filter((r) => (r.normalizedScore ?? 0) < 40).length / scored.length) * 100)
+            : null;
 
           return (
             <div key={q.id} className="rounded-xl border border-slate-700/60 bg-slate-800/20 p-5">
@@ -87,14 +97,12 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ id: s
                 </div>
 
                 <div className="flex items-center gap-3 flex-shrink-0">
-                  {q.avgScore !== undefined && (
+                  {avgNorm !== null && (
                     <div className="text-right">
-                      <div className={`text-xl font-bold ${scoreColor(
-                        q.type === 'rating_1_5' ? ((q.avgScore - 1) / 4) * 100 : q.avgScore
-                      )}`}>
-                        {q.avgScore}
+                      <div className={`text-xl font-bold ${scoreColor(avgNorm)}`}>
+                        {avgNorm}
                       </div>
-                      <div className="text-[10px] text-slate-500">avg</div>
+                      <div className="text-[10px] text-slate-500">/ 100 avg</div>
                     </div>
                   )}
                   <Link
@@ -107,15 +115,12 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ id: s
               </div>
 
               {/* Score bar for rating questions */}
-              {q.lowScorePct !== undefined && (
+              {avgNorm !== null && (
                 <div className="mb-4">
-                  <ScoreBar
-                    score={q.type === 'rating_1_5'
-                      ? Math.round(((q.avgScore ?? 3) - 1) / 4 * 100)
-                      : q.avgScore ?? 50}
-                    height="h-2"
-                  />
-                  <div className="text-[10px] text-slate-500 mt-1">{q.lowScorePct}% low scores</div>
+                  <ScoreBar score={avgNorm} height="h-2" />
+                  {lowScorePct !== null && (
+                    <div className="text-[10px] text-slate-500 mt-1">{lowScorePct}% low scores</div>
+                  )}
                 </div>
               )}
 
@@ -163,6 +168,7 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ id: s
             </Link>
           </div>
         )}
+        </div>
       </div>
     </div>
   );

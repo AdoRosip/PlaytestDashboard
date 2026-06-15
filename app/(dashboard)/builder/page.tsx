@@ -5,6 +5,46 @@ import { useDashboardStore } from '@/lib/store';
 import PageHeader from '@/components/ui/PageHeader';
 import Badge from '@/components/ui/Badge';
 import { questionTypeLabel } from '@/lib/utils';
+import { isRatingType } from '@/lib/scoring';
+import type { Question, QuestionType } from '@/lib/types';
+
+const QUESTION_TYPES: QuestionType[] = [
+  'rating_1_5', 'rating_1_10', 'yes_no', 'multiple_choice',
+  'free_text', 'file_upload', 'timestamp', 'internal_admin', 'unknown',
+];
+
+// Per-question type + scoring-direction controls. Editing recomputes scores and
+// tester quality in the store.
+function QuestionMetaControls({ q }: { q: Question }) {
+  const updateQuestion = useDashboardStore((s) => s.updateQuestion);
+  return (
+    <div className="flex items-center gap-2 flex-shrink-0">
+      <select
+        value={q.type}
+        onChange={(e) => updateQuestion(q.id, { type: e.target.value as QuestionType })}
+        className="bg-slate-800 border border-slate-700 text-slate-300 text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-indigo-500/60 cursor-pointer"
+        title="Question type — controls whether answers feed rating scores"
+      >
+        {QUESTION_TYPES.map((t) => (
+          <option key={t} value={t}>{questionTypeLabel(t)}</option>
+        ))}
+      </select>
+      {isRatingType(q.type) && (
+        <button
+          onClick={() => updateQuestion(q.id, { isInverseScored: !q.isInverseScored })}
+          title="Inverse scoring: when on, a higher answer counts as worse (e.g. 'how frustrated were you?')"
+          className={`px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-colors whitespace-nowrap ${
+            q.isInverseScored
+              ? 'bg-amber-500/15 border-amber-500/40 text-amber-300'
+              : 'border-slate-700 text-slate-500 hover:text-slate-300 hover:border-slate-600'
+          }`}
+        >
+          {q.isInverseScored ? '↓ Inverted' : '↑ Normal'}
+        </button>
+      )}
+    </div>
+  );
+}
 
 export default function CategoryBuilderPage() {
   const questions  = useDashboardStore((s) => s.questions);
@@ -74,8 +114,8 @@ export default function CategoryBuilderPage() {
               <div key={q.id} className="flex items-center gap-4 rounded-xl border border-yellow-500/20 bg-yellow-500/5 px-5 py-3">
                 <div className="flex-1 min-w-0">
                   <p className="text-sm text-slate-200 truncate">{q.text}</p>
-                  <Badge label={questionTypeLabel(q.type)} variant="type" className="mt-1" />
                 </div>
+                <QuestionMetaControls q={q} />
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <select
                     defaultValue="none"
@@ -113,15 +153,15 @@ export default function CategoryBuilderPage() {
                 </div>
                 <div className="divide-y divide-slate-700/30">
                   {catQs.map((q) => (
-                    <div key={q.id} className="flex items-center gap-4 px-5 py-3">
+                    <div key={q.id} className="flex items-center gap-3 px-5 py-3">
                       <div className="flex-1 min-w-0">
                         <p className="text-sm text-slate-300 truncate">{q.text}</p>
-                        <Badge label={questionTypeLabel(q.type)} variant="type" className="mt-1" />
                       </div>
+                      <QuestionMetaControls q={q} />
                       <select
                         value={q.categoryId ?? 'none'}
                         onChange={(e) => handleAssign(q.id, e.target.value)}
-                        className="bg-slate-800 border border-slate-700 text-slate-200 text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:border-indigo-500/60 cursor-pointer"
+                        className="bg-slate-800 border border-slate-700 text-slate-200 text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:border-indigo-500/60 cursor-pointer flex-shrink-0"
                       >
                         <option value="none">Unassign</option>
                         {categories.map((c) => (

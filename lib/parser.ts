@@ -1,5 +1,7 @@
 import * as XLSX from 'xlsx';
 import type { QuestionType, SegmentKey, TesterSegments, Tester, Question, Response, Category, Project } from './types';
+import { computeTesterQuality, isConcerning } from './outliers';
+import { computeNormalizedScore } from './scoring';
 
 const IGNORED_SHEETS = ['sheet2'];
 const RESPONSES_KEYWORDS = ['response', 'answer', 'form'];
@@ -32,47 +34,32 @@ const CATEGORY_RULES: [string, RegExp][] = [
   // Admin / Internal (must come first — catch evaluation score, amount, empty cols)
   ['cat_15', /evaluation.?score|admin.?note|__empty|amount/i],
 
-  // Evidence & Recordings
-  ['cat_14', /record.*(gameplay|image)|upload|footage|timestamp.*(confused|frustrated|stuck|exciting)|notes.*file|files.*upload/i],
+  // Technical & Evidence (performance, recordings, uploads)
+  ['cat_09', /record.*(gameplay|image)|upload|footage|timestamp.*(confused|frustrated|stuck|exciting)|notes.*file|files.*upload|performance.?issue|fps.?drop|stuttering|floater.*fps|explosions/i],
 
-  // Performance & Bugs
-  ['cat_13', /performance.?issue|fps.?drop|stuttering|floater.*fps|explosions/i],
-
-  // Tester Background
+  // Player Background
   ['cat_01', /similar.?game|which.*game.*played|hours.*factorio|hours.*satisfactory|factorio|satisfactory/i],
 
-  // Zero Gravity Movement
-  ['cat_09', /zero.?gravity|navigating in zero|movement.*disorienting|disorienting.*difficult|improve.*movement|movement.*improve/i],
+  // Core Mechanics — Zero Gravity & Mining
+  ['cat_06', /zero.?gravity|navigating.*zero|movement.*disorienting|disorienting.*difficult|improve.*movement|movement.*improve|mining.?ore|laser.*mining|mining.*laser|mining.*repetitive|repetitive.*mining|improve.*mining|mining.*improve/i],
 
-  // Mining & Extraction
-  ['cat_10', /mining.?ore|laser.*mining|mining.*laser|mining.*repetitive|repetitive.*mining|improve.*mining|mining.*improve/i],
+  // Automation & Factory Systems (logistics + automation + space transport)
+  ['cat_07', /automated.?system.*work.?together|floater.?management|accelerator|resources.*flow|visually.?reward|logistics.*resource.*transport|resource.*transport.*system|managing.*moving.*resource|moving.*resources/i],
 
-  // Automation Systems
-  ['cat_11', /automated.?system.*work.?together|floater.?management|accelerator|resources.*flow|visually.?reward|factory.?automat.*evolv|automat.*evolv/i],
+  // UI & Quality of Life
+  ['cat_08', /user.?interface.*overall|navigate.*menu|menu.*navigat|parts.*user.?interface|quality.?of.?life/i],
 
-  // Logistics & Resource Transport
-  ['cat_05', /logistics.*resource.*transport|resource.*transport.*system|managing.*moving.*resource|moving.*resources|what.?could.?be.?improved/i],
+  // Game Clarity & Onboarding (mechanics, objectives, guidance, stuck, trial-error)
+  ['cat_04', /game.?mechanic.*overall|mechanic.*unclear|mechanic.*confus|new.?mechanic.*introduced|help.*understand|objective.*instruction|instruction.*manual|audio.?log|what.*looking.?for|stuck.*unsure.*progress|unsure.*how.*progress|caused.*this.*feeling|when.*this.*happened|intuitive.*trial|trial.*error/i],
 
-  // User Interface
-  ['cat_06', /user.?interface.?overall|navigate.*menu|menu.*navigat|ui.*unclear|ui.*frustrat|quality.?of.?life/i],
+  // Progression & Engagement (progress system, tier reached, pacing, factory growth)
+  ['cat_05', /progression.?system|how.?far.*progress|stopped.?progress|pacing.*unlock|factory.?automat.*evolv|automat.*evolv|most.?exciting/i],
 
-  // Objectives & In-Game Guidance
-  ['cat_07', /objective.*instruction|instruction.*manual|audio.?log|what.*looking.?for|what.*unclear/i],
+  // Retention & Market Fit (continue, recommend, stand out, why continue/stop)
+  ['cat_03', /continue.*playing.*test|recommend.*friend|stand.?out.?compared|continue.*or.*stop|want.*to.*continue/i],
 
-  // Mechanics & Clarity
-  ['cat_03', /game.?mechanic.*overall|mechanic.*unclear|mechanic.*confus|new.?mechanic.*introduced|help.*understand/i],
-
-  // Progression & Pacing
-  ['cat_04', /stuck.*unsure.*progress|unsure.*how.*progress|caused.*this.*feeling|when.*this.*happened|progression.?system|how.?far.*progress|stopped.?progress|pacing.*unlock/i],
-
-  // Overall Friction & Session
-  ['cat_02', /playtest.*stopped|stopped.*playtest|frustrated.*confused.*bored|friction.*frustration|how.?many.?hours.*play|intuitive.*trial|trial.*error/i],
-
-  // Enjoyment & Retention
-  ['cat_08', /enjoy.*game.*overall|continue.*playing.*test|recommend.*friend|continue.*or.*stop|want.*to.*continue/i],
-
-  // Open Highlights & Feedback
-  ['cat_12', /favourite|favorite|most.?exciting|stand.?out.?compared/i],
+  // Overall Experience (enjoyment, frustration, quit moments, favourite part, hours)
+  ['cat_02', /enjoy.*game.*overall|playtest.*stopped|stopped.*playing|frustrated.*confused.*bored|friction.*frustration|friction.*unnecessary|how.?many.?hours.*play|favourite|favorite/i],
 ];
 
 function suggestCategory(questionText: string): string | null {
@@ -396,12 +383,7 @@ export function parseExcelFile(buffer: ArrayBuffer, fileName: string): ParseResu
         ? Number(rawAnswer)
         : null;
 
-      let normalizedScore: number | null = null;
-      if (numericValue !== null && q.scaleMin !== undefined && q.scaleMax !== undefined) {
-        normalizedScore = Math.round(
-          ((numericValue - q.scaleMin) / (q.scaleMax - q.scaleMin)) * 100,
-        );
-      }
+      const normalizedScore = computeNormalizedScore(q, numericValue);
 
       responses.push({
         id: `r_${rowIdx}_${q.id}`,
@@ -418,22 +400,28 @@ export function parseExcelFile(buffer: ArrayBuffer, fileName: string): ParseResu
   });
 
   const defaultCategories: Category[] = [
-    { id: 'cat_01', projectId: 'proj_import', name: 'Tester Background',              description: 'Gaming history and genre experience', order: 1,  color: '#00FFFF' },
-    { id: 'cat_02', projectId: 'proj_import', name: 'Overall Friction & Session',     description: 'High-level frustration and engagement signals', order: 2,  color: '#0066FF' },
-    { id: 'cat_03', projectId: 'proj_import', name: 'Mechanics & Clarity',            description: 'How well mechanics were communicated', order: 3,  color: '#0000EE' },
-    { id: 'cat_04', projectId: 'proj_import', name: 'Progression & Pacing',           description: 'Goal clarity, stuckness, tech pacing', order: 4,  color: '#FFF' },
-    { id: 'cat_05', projectId: 'proj_import', name: 'Logistics & Resource Transport', description: 'Intuitiveness of the logistics system', order: 5,  color: '#00FFFF' },
-    { id: 'cat_06', projectId: 'proj_import', name: 'User Interface',                 description: 'UI clarity, menus, and QoL', order: 6,  color: '#0066FF' },
-    { id: 'cat_07', projectId: 'proj_import', name: 'Objectives & In-Game Guidance',  description: 'Goal clarity and in-game help systems', order: 7,  color: '#0000EE' },
-    { id: 'cat_08', projectId: 'proj_import', name: 'Enjoyment & Retention',          description: 'Overall enjoyment, NPS, replay intent', order: 8,  color: '#FFF' },
-    { id: 'cat_09', projectId: 'proj_import', name: 'Zero Gravity Movement',          description: 'Movement feel in zero-gravity', order: 9,  color: '#00FFFF' },
-    { id: 'cat_10', projectId: 'proj_import', name: 'Mining & Extraction',            description: 'Laser mining satisfaction and repetition', order: 10, color: '#0066FF' },
-    { id: 'cat_11', projectId: 'proj_import', name: 'Automation Systems',             description: 'Factory automation satisfaction', order: 11, color: '#0000EE' },
-    { id: 'cat_12', projectId: 'proj_import', name: 'Open Highlights & Feedback',     description: 'Favourite moments and standout features', order: 12, color: '#FFF' },
-    { id: 'cat_13', projectId: 'proj_import', name: 'Performance & Bugs',             description: 'FPS issues and technical problems', order: 13, color: '#00FFFF' },
-    { id: 'cat_14', projectId: 'proj_import', name: 'Evidence & Recordings',          description: 'Gameplay footage and upload links', order: 14, color: '#0066FF' },
-    { id: 'cat_15', projectId: 'proj_import', name: 'Admin / Internal',               description: 'Internal scoring and payment data', order: 15, color: '#0000EE' },
+    { id: 'cat_01', projectId: 'proj_import', name: 'Player Background',            description: 'Gaming history and genre experience — used as a segmentation lens', order: 1,  color: '#00FFFF' },
+    { id: 'cat_02', projectId: 'proj_import', name: 'Overall Experience',           description: 'Enjoyment, frustration, favourite moments, and session length', order: 2,  color: '#0066FF' },
+    { id: 'cat_03', projectId: 'proj_import', name: 'Retention & Market Fit',       description: 'Replay intent, NPS, and what makes the game stand out', order: 3,  color: '#6366F1' },
+    { id: 'cat_04', projectId: 'proj_import', name: 'Game Clarity & Onboarding',   description: 'Mechanic comprehension, objectives, guidance, and feeling stuck', order: 4,  color: '#0000EE' },
+    { id: 'cat_05', projectId: 'proj_import', name: 'Progression & Engagement',    description: 'Progress depth, pacing, stopping reasons, and peak excitement', order: 5,  color: '#FFF' },
+    { id: 'cat_06', projectId: 'proj_import', name: 'Core Mechanics',              description: 'Zero-gravity movement and laser mining feel', order: 6,  color: '#00FFFF' },
+    { id: 'cat_07', projectId: 'proj_import', name: 'Automation & Factory Systems',description: 'Logistics, resource transport, automation satisfaction', order: 7,  color: '#0066FF' },
+    { id: 'cat_08', projectId: 'proj_import', name: 'UI & Quality of Life',        description: 'Interface clarity, menu navigation, and QoL requests', order: 8,  color: '#6366F1' },
+    { id: 'cat_09', projectId: 'proj_import', name: 'Technical & Evidence',        description: 'Performance issues, bugs, and gameplay recordings', order: 9,  color: '#0000EE' },
+    { id: 'cat_15', projectId: 'proj_import', name: 'Admin / Internal',            description: 'Internal scoring and payment data — excluded from report', order: 10, color: '#334155' },
   ];
+
+  // ── Tester avg rating + outlier / quality detection ───────────────────────
+  // Robust per-question-deviation method, implemented in lib/outliers.ts.
+  const quality = computeTesterQuality({ testers: participantTesters, questions, responses });
+  for (const tester of participantTesters) {
+    const q = quality.get(tester.id);
+    if (!q) continue;
+    tester.quality = q;
+    tester.avgRating = q.avgRating;
+    tester.isOutlier = isConcerning(q);
+  }
 
   const project: Project = {
     id: 'proj_import',

@@ -60,7 +60,7 @@ function fillForCount(count: number, max: number): string {
 
 export default function GeoDistributionMap({ data }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [hover, setHover] = useState<{ continent: string; x: number; y: number } | null>(null);
+  const [hover, setHover] = useState<{ continent: string; x: number; y: number; flip: boolean } | null>(null);
 
   const { byContinent, maxCount, hasAny } = useMemo(() => {
     const map = new Map<string, ContinentRow>();
@@ -80,7 +80,10 @@ export default function GeoDistributionMap({ data }: Props) {
   function handleMove(continent: string, e: React.MouseEvent) {
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
-    setHover({ continent, x: e.clientX - rect.left, y: e.clientY - rect.top });
+    const x = e.clientX - rect.left;
+    // Decide tooltip flip here (event time) — reading the ref during render is a
+    // React anti-pattern and won't trigger a re-render when the size changes.
+    setHover({ continent, x, y: e.clientY - rect.top, flip: x > rect.width - 120 });
   }
 
   return (
@@ -132,7 +135,7 @@ export default function GeoDistributionMap({ data }: Props) {
           style={{
             left: Math.min(hover.x + 12, VIEW_W),
             top: hover.y + 12,
-            transform: hover.x > (containerRef.current?.clientWidth ?? VIEW_W) - 120 ? 'translateX(-100%)' : undefined,
+            transform: hover.flip ? 'translateX(-100%)' : undefined,
           }}
         >
           <div className="text-xs font-semibold text-white">{hover.continent}</div>
