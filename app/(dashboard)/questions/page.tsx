@@ -23,10 +23,10 @@ export default function QuestionsPage() {
   }
 
   return (
-    <div className="px-8 py-8 max-w-5xl">
+    <div className="mx-auto w-full max-w-[1680px] px-6 lg:px-8 py-8">
       <PageHeader title="Questions" sub={`${questions.length} questions detected`} />
 
-      <div className="space-y-2">
+      <div className="grid grid-cols-1 2xl:grid-cols-2 gap-2">
         {questions.map((q) => {
           const cat = categories.find((c) => c.id === q.categoryId);
           const qResponses = responses.filter((r) => r.questionId === q.id);
@@ -59,9 +59,9 @@ export default function QuestionsPage() {
                 </div>
               )}
 
-              {q.avgScore !== undefined && (
-                <div className={`text-sm font-semibold w-8 text-right flex-shrink-0 ${scoreColor(avgNorm ?? 50)}`}>
-                  {q.avgScore}
+              {avgNorm !== null && (
+                <div className={`text-sm font-semibold w-8 text-right flex-shrink-0 ${scoreColor(avgNorm)}`}>
+                  {avgNorm}
                 </div>
               )}
 

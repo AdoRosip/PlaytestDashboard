@@ -1,7 +1,7 @@
 'use client';
 import { X, User } from 'lucide-react';
 import { useDashboardStore, selectQuestion, selectFilteredResponses } from '@/lib/store';
-import { formatDate, questionTypeLabel, formatTesterId } from '@/lib/utils';
+import { formatDate, formatTesterId } from '@/lib/utils';
 import Badge from './Badge';
 
 export default function EvidenceDrawer() {

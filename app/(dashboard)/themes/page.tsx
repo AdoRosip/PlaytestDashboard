@@ -54,7 +54,7 @@ export default function ThemesPage() {
   const hasThemes = themes.length > 0;
 
   return (
-    <div className="px-8 py-8 max-w-4xl">
+    <div className="mx-auto w-full max-w-4xl px-6 lg:px-8 py-8">
       <PageHeader
         title="Themes"
         sub={

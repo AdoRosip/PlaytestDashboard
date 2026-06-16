@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Playtest Insights Dashboard',
+  title: 'Playlytix Dashboard',
   description: 'Interactive playtest feedback analysis for game studios',
 };
 

@@ -1,6 +1,6 @@
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import type { Severity, Priority, QuestionType } from './types';
+import type { Severity, Priority, QuestionType, Tester } from './types';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -25,15 +25,15 @@ export function severityDot(severity: Severity | Priority): string {
 }
 
 export function scoreColor(score: number): string {
-  if (score >= 70) return 'text-green-400';
-  if (score >= 45) return 'text-yellow-400';
-  return 'text-red-400';
+  if (score >= 70) return 'text-[#00FFFF]';
+  if (score >= 45) return 'text-[#0066FF]';
+  return 'text-[#0000EE]';
 }
 
 export function scoreBgColor(score: number): string {
-  if (score >= 70) return 'bg-green-400';
-  if (score >= 45) return 'bg-yellow-400';
-  return 'bg-red-400';
+  if (score >= 70) return 'bg-[#00FFFF]';
+  if (score >= 45) return 'bg-[#0066FF]';
+  return 'bg-[#0000EE]';
 }
 
 export function normalizeScore(value: number, min: number, max: number): number {
@@ -86,6 +86,55 @@ export function getInitials(name: string): string {
 
 export function formatTesterId(testerId: string): string {
   return /^\d+$/.test(testerId.trim()) ? `Tester ${testerId.trim()}` : testerId;
+}
+
+export interface SegmentRow {
+  label: string;
+  count: number;
+  pct: number;
+}
+
+export interface TesterSegmentSummary {
+  ageGroups: SegmentRow[];
+  hardwareTiers: SegmentRow[];
+  gamerTypes: SegmentRow[];
+}
+
+function segmentDistribution(values: string[], total: number): SegmentRow[] {
+  const counts = new Map<string, number>();
+  for (const v of values) {
+    const label = v.trim() || 'Unknown';
+    counts.set(label, (counts.get(label) ?? 0) + 1);
+  }
+  return Array.from(counts.entries())
+    .map(([label, count]) => ({
+      label,
+      count,
+      pct: total > 0 ? Math.round((count / total) * 100) : 0,
+    }))
+    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+}
+
+export function computeTesterSegments(testers: Tester[]): TesterSegmentSummary {
+  const total = testers.length;
+
+  const ageGroups = segmentDistribution(
+    testers.map(t => t.segments.age_group || t.ageGroup || ''),
+    total,
+  );
+  const hardwareTiers = segmentDistribution(
+    testers.map(t => t.segments.hardware_tier || t.hardware || ''),
+    total,
+  );
+  const gamerTypes = segmentDistribution(
+    testers.flatMap(t => {
+      const raw = t.segments.gamer_type || t.gamingProfile || '';
+      return raw.split(',').map(v => v.trim()).filter(Boolean);
+    }),
+    Math.max(testers.length, 1),
+  );
+
+  return { ageGroups, hardwareTiers, gamerTypes };
 }
 
 export function avgArray(nums: (number | null)[]): number {

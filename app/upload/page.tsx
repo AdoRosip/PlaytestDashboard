@@ -1,9 +1,10 @@
 'use client';
 import { useCallback, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Upload, FileSpreadsheet, AlertCircle, CheckCircle2, Gamepad2 } from 'lucide-react';
+import { Upload, FileSpreadsheet, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { parseExcelFile } from '@/lib/parser';
 import { useDashboardStore } from '@/lib/store';
+import CompanyLogo from '@/components/brand/CompanyLogo';
 
 export default function UploadPage() {
   const router = useRouter();
@@ -53,12 +54,10 @@ export default function UploadPage() {
   return (
     <div className="min-h-screen bg-[#0b0f19] flex flex-col items-center justify-center px-4">
       {/* Header */}
-      <div className="flex items-center gap-3 mb-10">
-        <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center">
-          <Gamepad2 className="w-5 h-5 text-white" />
-        </div>
+      <div className="flex flex-col items-center gap-3 mb-10 text-center">
+        <CompanyLogo glow className="w-24" priority />
         <div>
-          <div className="text-lg font-semibold text-white">Playtest Insights</div>
+          <div className="text-lg font-semibold text-white">Playlytix</div>
           <div className="text-xs text-slate-400">Interactive feedback analysis for game studios</div>
         </div>
       </div>
@@ -160,7 +159,8 @@ export default function UploadPage() {
         </button>
 
         <p className="text-xs text-slate-600 text-center mt-4">
-          Your data never leaves your browser. All processing happens locally.
+          Parsing happens locally in your browser. Response text is only sent to a
+          third-party AI service if you choose to run AI analysis later.
         </p>
       </div>
     </div>

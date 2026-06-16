@@ -3,10 +3,11 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard, Layers, HelpCircle, Sparkles,
-  Users, Table2, Download, Settings, Gamepad2, SlidersHorizontal,
+  Users, Table2, Download, Settings, SlidersHorizontal, FolderTree,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useDashboardStore, selectActiveFilterCount } from '@/lib/store';
+import CompanyLogo from '@/components/brand/CompanyLogo';
 
 const NAV_SECTIONS = [
   {
@@ -16,6 +17,7 @@ const NAV_SECTIONS = [
       { href: '/categories', label: 'Categories', icon: Layers },
       { href: '/questions',  label: 'Questions',  icon: HelpCircle },
       { href: '/testers',    label: 'Testers',    icon: Users },
+      { href: '/builder',    label: 'Category Builder (Beta)', icon: FolderTree },
     ],
   },
   {
@@ -45,8 +47,8 @@ export default function Sidebar() {
       {/* Logo */}
       <div className="px-5 py-5 border-b border-slate-800">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center">
-            <Gamepad2 className="w-4 h-4 text-white" />
+          <div className="w-9 h-9 rounded-lg bg-slate-800/40 border border-slate-700/60 flex items-center justify-center overflow-hidden">
+            <CompanyLogo className="w-8" priority />
           </div>
           <div>
             <div className="text-sm font-semibold text-white leading-tight">Playtest</div>

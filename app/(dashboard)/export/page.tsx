@@ -56,7 +56,10 @@ export default function ExportPage() {
       gaming_profile: t.gamingProfile,
       hardware: t.hardware,
       avg_rating: t.avgRating ?? '',
-      is_outlier: t.isOutlier ?? false,
+      sentiment: t.quality?.sentiment ?? '',
+      straight_lining: t.quality?.straightLining ?? false,
+      robust_z: t.quality?.robustZ !== undefined ? t.quality.robustZ.toFixed(2) : '',
+      flags: (t.quality?.flags ?? []).map((f) => f.type).join('|'),
     }));
     exportToCSV(data, `${project?.name ?? 'playtest'}-testers.csv`);
   };
@@ -113,7 +116,7 @@ export default function ExportPage() {
   ];
 
   return (
-    <div className="px-8 py-8 max-w-3xl">
+    <div className="mx-auto w-full max-w-3xl px-6 lg:px-8 py-8">
       <PageHeader
         title="Export"
         sub="Download your playtest data in various formats"

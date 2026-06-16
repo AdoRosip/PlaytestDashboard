@@ -59,13 +59,13 @@ export default function CategoriesPage() {
   const sorted = [...categoriesWithStats].sort((a, b) => a.avgScore - b.avgScore);
 
   return (
-    <div className="px-8 py-8 max-w-7xl">
+    <div className="mx-auto w-full max-w-[1680px] px-6 lg:px-8 py-8">
       <PageHeader
         title="Categories"
         sub={`${categories.length} categories · ${questions.length} questions`}
       />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
         {sorted.map((item) => (
           <CategoryCard key={item.category.id} {...item} />
         ))}
