@@ -4,8 +4,8 @@ import Link from 'next/link';
 import {
   Users, Star, TrendingUp, ThumbsUp,
   CheckCircle2, ArrowRight, ChevronRight, Brain,
-  AlertTriangle, Clock, Download, Sparkles, Flag,
-  BookOpen, Info,
+  AlertTriangle, Clock, Download, Flag,
+  BookOpen, Info, Trophy, Split,
 } from 'lucide-react';
 import { useDashboardStore, selectFilteredResponses, selectFilteredTesters } from '@/lib/store';
 import type { Question, Severity } from '@/lib/types';
@@ -267,7 +267,10 @@ export default function OverviewPage() {
     const tMap = new Map(testers.map(t => [t.id, t]));
     const globalAvg = allNorm.length ? allNorm.reduce((a, b) => a + b, 0) / allNorm.length : 0;
 
-    const segDelta = (key: 'gamer_type' | 'age_group' | 'hardware_tier', dimLabel: string) => {
+    // Per-group average normalized score for one segment dimension. Only groups
+    // with at least 3 rating responses are kept so a single tester can't define
+    // a segment.
+    const segGroups = (key: 'gamer_type' | 'age_group' | 'hardware_tier') => {
       const groups = new Map<string, number[]>();
       for (const r of responses) {
         if (r.normalizedScore === null || !r.testerId) continue;
@@ -276,27 +279,72 @@ export default function OverviewPage() {
         const label = raw.split(',')[0].trim();
         const arr = groups.get(label) ?? []; arr.push(r.normalizedScore); groups.set(label, arr);
       }
-      let worst: { label: string; avg: number } | null = null;
+      const stats: { label: string; avg: number; n: number }[] = [];
       for (const [label, sc] of groups) {
         if (sc.length < 3) continue;
-        const avg = sc.reduce((a, b) => a + b, 0) / sc.length;
-        if (!worst || avg < worst.avg) worst = { label, avg };
+        stats.push({ label, avg: sc.reduce((a, b) => a + b, 0) / sc.length, n: sc.length });
       }
-      if (!worst || globalAvg - worst.avg < 7) return null;
-      return {
-        dimension: dimLabel,
+      return stats;
+    };
+
+    const SEG_DIMS = [
+      { key: 'gamer_type'   as const, label: 'Gamer Type'    },
+      { key: 'age_group'    as const, label: 'Age Group'     },
+      { key: 'hardware_tier' as const, label: 'Hardware Tier' },
+    ];
+    const dimStats = SEG_DIMS.map(d => ({ ...d, groups: segGroups(d.key) }));
+
+    // ── Struggling segments: a group scoring ≥7pts below global, one per dim ──
+    const segmentCards = dimStats.flatMap(d => {
+      const worst = d.groups.reduce<{ label: string; avg: number } | null>(
+        (acc, g) => (!acc || g.avg < acc.avg ? g : acc), null);
+      if (!worst || globalAvg - worst.avg < 7) return [];
+      return [{
+        dimension: d.label,
         worstLabel: worst.label,
         worstScore: Math.round(worst.avg),
         globalScore: Math.round(globalAvg),
         topArea: catScores.filter(c => c.avg < 55)[0]?.name ?? 'Multiple areas',
-      };
-    };
+      }];
+    });
 
-    const segmentCards = [
-      segDelta('gamer_type',    'Gamer Type'),
-      segDelta('age_group',     'Age Group'),
-      segDelta('hardware_tier', 'Hardware Tier'),
-    ].filter((s): s is NonNullable<typeof s> => s !== null);
+    // ── Champions: the single highest-scoring group ≥5pts above global ───────
+    // A gentler bar than the 7pt "struggling" threshold — a standout segment is
+    // worth celebrating even when it isn't as far ahead as a problem group is behind.
+    let champion: {
+      dimension: string; label: string; score: number; globalScore: number;
+    } | null = null;
+    for (const d of dimStats) {
+      for (const g of d.groups) {
+        if (g.avg - globalAvg < 5) continue;
+        if (!champion || g.avg > champion.score) {
+          champion = {
+            dimension: d.label, label: g.label,
+            score: Math.round(g.avg), globalScore: Math.round(globalAvg),
+          };
+        }
+      }
+    }
+
+    // ── Biggest divider: dimension with the widest best-vs-worst spread ──────
+    let divider: {
+      dimension: string; spread: number;
+      hiLabel: string; hiScore: number; loLabel: string; loScore: number;
+    } | null = null;
+    for (const d of dimStats) {
+      if (d.groups.length < 2) continue;
+      const sorted = [...d.groups].sort((a, b) => b.avg - a.avg);
+      const hi = sorted[0], lo = sorted[sorted.length - 1];
+      const spread = hi.avg - lo.avg;
+      if (spread < 10) continue;
+      if (!divider || spread > divider.spread) {
+        divider = {
+          dimension: d.label, spread: Math.round(spread),
+          hiLabel: hi.label, hiScore: Math.round(hi.avg),
+          loLabel: lo.label, loScore: Math.round(lo.avg),
+        };
+      }
+    }
 
     // ── Best & worst rated questions ───────────────────────────────────────
     // Average normalized score per rating question (excluding admin/internal).
@@ -338,6 +386,8 @@ export default function OverviewPage() {
       strengths,
       concerns,
       segmentCards,
+      champion,
+      divider,
       avgPlaytime,
       totalPlaytime,
       maxTier,
@@ -360,8 +410,7 @@ export default function OverviewPage() {
 
   if (!project) return null;
 
-  const hasThemes = themes.length > 0;
-  const dateStr = new Date(project.createdAt).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+  const dateStr =new Date(project.createdAt).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
   const participantCount = countRespondents(responses);
   const responseCount = responses.length;
 
@@ -504,7 +553,7 @@ export default function OverviewPage() {
             <span className="text-xs font-medium text-slate-400 leading-tight">Avg Playtime</span>
             <InfoTooltip text="Mean session length across all testers. Parsed from the playtime question — handles numeric hours, text like '1h 30m' or '90 minutes', and HH:MM clock format." />
           </div>
-          <div className={`text-2xl font-bold ${d.avgPlaytime !== null ? 'text-white' : 'text-slate-600'}`}>
+          <div className={`text-2xl font-bold ${d.avgPlaytime !== null ? 'text-[#00FFFF]' : 'text-slate-600'}`}>
             {formatHours(d.avgPlaytime)}
           </div>
           <div className="text-[10px] text-slate-500 mt-0.5">
@@ -521,7 +570,7 @@ export default function OverviewPage() {
             <span className="text-xs font-medium text-slate-400 leading-tight">Total Playtime</span>
             <InfoTooltip text="Sum of all testers' session lengths. Parsed from the same playtime question as Avg Playtime." />
           </div>
-          <div className={`text-2xl font-bold ${d.totalPlaytime !== null ? 'text-white' : 'text-slate-600'}`}>
+          <div className={`text-2xl font-bold ${d.totalPlaytime !== null ? 'text-[#00FFFF]' : 'text-slate-600'}`}>
             {formatHours(d.totalPlaytime)}
           </div>
           <div className="text-[10px] text-slate-500 mt-0.5">
@@ -538,7 +587,7 @@ export default function OverviewPage() {
             <span className="text-xs font-medium text-slate-400 leading-tight">Progression Reached</span>
             <InfoTooltip text="Average tier/level reached across testers, parsed from the progress question. Accepts numbers, Roman numerals, and word forms (e.g. 'reached Tier III'). Sub-label shows the single furthest tier hit by any tester." />
           </div>
-          <div className={`text-2xl font-bold ${d.avgTier !== null ? 'text-white' : 'text-slate-600'}`}>
+          <div className={`text-2xl font-bold ${d.avgTier !== null ? 'text-[#00FFFF]' : 'text-slate-600'}`}>
             {progressionValue}
           </div>
           <div className="text-[10px] text-slate-500 mt-0.5">{progressionSub}</div>
@@ -569,7 +618,7 @@ export default function OverviewPage() {
               <span className="text-xs font-medium text-slate-400 leading-tight">Tests Completed</span>
               <InfoTooltip text="Number of unique testers with at least one recorded response. Shown when no tutorial/onboarding question is detected in the form." />
             </div>
-            <div className="text-2xl font-bold text-white">{participantCount}</div>
+            <div className="text-2xl font-bold text-[#00FFFF]">{participantCount}</div>
             <div className="text-[10px] text-slate-500 mt-0.5">
               {participantCount === project.totalResponses
                 ? 'all tests shown'
@@ -672,7 +721,7 @@ export default function OverviewPage() {
       </div>
 
       {/* ── SECTION 4: PLAYER SEGMENT INSIGHTS ──────────────────────── */}
-      {d.segmentCards.length > 0 && (
+      {(d.segmentCards.length > 0 || d.champion || d.divider) && (
         <>
           <SectionLabel action={
             <Link href="/testers" className="flex items-center gap-1 text-indigo-400 hover:text-indigo-300 transition-colors">
@@ -683,6 +732,66 @@ export default function OverviewPage() {
           </SectionLabel>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
+            {/* Champions — best-performing segment */}
+            {d.champion && (
+              <div className="bg-slate-800/20 rounded-2xl border border-slate-700/60 p-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-6 h-6 rounded-full bg-emerald-900/40 flex items-center justify-center">
+                    <Trophy className="w-3.5 h-3.5 text-emerald-400" />
+                  </div>
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">{d.champion.dimension}</span>
+                  <InfoTooltip text="Your strongest segment: the player group scoring highest above the overall average (at least +5 points). Scores are averaged on a normalized 0–100 scale; only groups with 3+ rating responses qualify." />
+                </div>
+                <p className="text-sm font-semibold text-slate-200 mb-3 leading-snug">
+                  <span className="text-emerald-400">{d.champion.label}</span> players are your champions
+                </p>
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="flex-1 text-center rounded-xl bg-emerald-900/20 border border-emerald-700/30 py-2.5">
+                    <div className="text-xl font-bold text-emerald-400">{d.champion.score}</div>
+                    <div className="text-[10px] text-slate-500 mt-0.5 truncate px-1">{d.champion.label}</div>
+                  </div>
+                  <ArrowRight className="w-4 h-4 text-slate-600 flex-shrink-0" />
+                  <div className="flex-1 text-center rounded-xl bg-slate-800/40 border border-slate-700 py-2.5">
+                    <div className="text-xl font-bold text-slate-300">{d.champion.globalScore}</div>
+                    <div className="text-[10px] text-slate-500 mt-0.5">Global avg</div>
+                  </div>
+                </div>
+                <div className="text-[11px] text-slate-500 bg-slate-800/40 rounded-lg px-3 py-2">
+                  Scoring <span className="font-medium text-emerald-300">+{d.champion.score - d.champion.globalScore}</span> above average
+                </div>
+              </div>
+            )}
+
+            {/* Biggest divider — widest best-vs-worst spread */}
+            {d.divider && (
+              <div className="bg-slate-800/20 rounded-2xl border border-slate-700/60 p-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-6 h-6 rounded-full bg-amber-900/40 flex items-center justify-center">
+                    <Split className="w-3.5 h-3.5 text-amber-400" />
+                  </div>
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Biggest Divider</span>
+                  <InfoTooltip text="The segment dimension where opinions split most — the widest score gap between its highest- and lowest-rating groups (at least 10 points). Points to what best explains the variance in player satisfaction." />
+                </div>
+                <p className="text-sm font-semibold text-slate-200 mb-3 leading-snug">
+                  <span className="text-amber-400">{d.divider.dimension}</span> splits players most
+                </p>
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="flex-1 text-center rounded-xl bg-emerald-900/20 border border-emerald-700/30 py-2.5">
+                    <div className="text-xl font-bold text-emerald-400">{d.divider.hiScore}</div>
+                    <div className="text-[10px] text-slate-500 mt-0.5 truncate px-1">{d.divider.hiLabel}</div>
+                  </div>
+                  <span className="text-[11px] font-bold text-slate-500 flex-shrink-0">{d.divider.spread}pt</span>
+                  <div className="flex-1 text-center rounded-xl bg-red-900/20 border border-red-700/30 py-2.5">
+                    <div className="text-xl font-bold text-red-400">{d.divider.loScore}</div>
+                    <div className="text-[10px] text-slate-500 mt-0.5 truncate px-1">{d.divider.loLabel}</div>
+                  </div>
+                </div>
+                <div className="text-[11px] text-slate-500 bg-slate-800/40 rounded-lg px-3 py-2">
+                  <span className="font-medium text-slate-300">{d.divider.spread}-point</span> gap between groups
+                </div>
+              </div>
+            )}
+
             {d.segmentCards.map((seg, i) => (
               <div key={i} className="bg-slate-800/20 rounded-2xl border border-slate-700/60 p-5">
                 <div className="flex items-center gap-2 mb-3">
@@ -690,6 +799,7 @@ export default function OverviewPage() {
                     <Brain className="w-3.5 h-3.5 text-violet-400" />
                   </div>
                   <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">{seg.dimension}</span>
+                  <InfoTooltip text="A player segment scoring significantly below the overall average (at least 7 points lower). 'Most affected' shows the weakest category area dragging this group down. Only groups with 3+ rating responses qualify." />
                 </div>
                 <p className="text-sm font-semibold text-slate-200 mb-3 leading-snug">
                   <span className="text-indigo-400">{seg.worstLabel}</span> players scored significantly lower
@@ -712,33 +822,6 @@ export default function OverviewPage() {
             ))}
           </div>
         </>
-      )}
-
-      {/* ── SECTION 5: AI INSIGHTS BANNER ───────────────────────────── */}
-      {hasThemes ? (
-        <div className="bg-indigo-900/20 border border-indigo-700/40 rounded-2xl px-6 py-4 flex items-center justify-between mb-10">
-          <div className="flex items-center gap-3">
-            <Sparkles className="w-4 h-4 text-indigo-400 flex-shrink-0" />
-            <span className="text-sm text-indigo-300 font-medium">
-              {themes.length} AI-detected themes across {new Set(themes.map(t => t.categoryId).filter(Boolean)).size} categories
-            </span>
-          </div>
-          <Link href="/themes" className="flex items-center gap-1 text-xs font-medium text-indigo-400 hover:text-indigo-300 transition-colors">
-            View themes <ChevronRight className="w-3.5 h-3.5" />
-          </Link>
-        </div>
-      ) : (
-        <div className="bg-slate-800/20 border border-slate-700/60 rounded-2xl px-6 py-4 flex items-center justify-between mb-10">
-          <div className="flex items-center gap-3">
-            <Sparkles className="w-4 h-4 text-slate-500 flex-shrink-0" />
-            <span className="text-sm text-slate-500">
-              Add AI analysis to surface qualitative patterns in open-ended responses
-            </span>
-          </div>
-          <Link href="/themes" className="flex items-center gap-1 text-xs font-medium text-indigo-400 hover:text-indigo-300 transition-colors">
-            Run Analysis <ChevronRight className="w-3.5 h-3.5" />
-          </Link>
-        </div>
       )}
 
       {/* ── FOOTER ──────────────────────────────────────────────────── */}

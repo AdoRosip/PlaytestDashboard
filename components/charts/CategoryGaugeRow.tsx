@@ -82,7 +82,7 @@ export default function CategoryGaugeRow({ categories }: Props) {
   }
 
   return (
-    <div className="flex items-start justify-between gap-4 overflow-x-auto pb-2 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-slate-700">
+    <div className="flex items-start justify-around gap-4 overflow-x-auto pb-2 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-slate-700">
       {categories.map((cat) => (
         <Gauge key={cat.id} {...cat} />
       ))}

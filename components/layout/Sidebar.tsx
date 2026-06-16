@@ -17,7 +17,7 @@ const NAV_SECTIONS = [
       { href: '/categories', label: 'Categories', icon: Layers },
       { href: '/questions',  label: 'Questions',  icon: HelpCircle },
       { href: '/testers',    label: 'Testers',    icon: Users },
-      { href: '/builder',    label: 'Category Builder', icon: FolderTree },
+      { href: '/builder',    label: 'Category Builder (Beta)', icon: FolderTree },
     ],
   },
   {
