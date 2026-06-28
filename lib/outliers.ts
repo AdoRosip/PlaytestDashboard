@@ -190,6 +190,12 @@ export function isHarshCritic(q?: TesterQuality): boolean {
   return q?.sentiment === 'harsh';
 }
 
+/** A sentiment outlier in *either* direction — far harsher OR far more generous
+ *  than the group. Drives the "Exclude outliers" filter. */
+export function isSentimentOutlier(q?: TesterQuality): boolean {
+  return q?.sentiment === 'harsh' || q?.sentiment === 'generous';
+}
+
 /** "Concerning" flag used for the legacy isOutlier convenience + ⚠️ icon. */
 export function isConcerning(q?: TesterQuality): boolean {
   return isHarshCritic(q) || isQualityFlagged(q);

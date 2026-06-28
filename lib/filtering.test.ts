@@ -6,6 +6,7 @@ import {
   filterTestersByIds,
   hasActiveFilters,
   countActiveFilters,
+  sentimentBand,
 } from './filtering';
 
 // ─── Fixture builders ────────────────────────────────────────────────────────
@@ -57,13 +58,15 @@ function response(testerId: string | null, questionId: string, overrides: Partia
 const noFilters: FilterState = {
   ageGroups: [],
   genders: [],
+  continents: [],
   countries: [],
   hardwareTiers: [],
   sessionPlaytime: null,
+  playerSentiment: null,
   playedFactorio: false,
   playedSatisfactory: false,
   excludeStraightLiners: false,
-  excludeHarshCritics: false,
+  excludeSentimentOutliers: false,
 };
 
 const f = (patch: Partial<FilterState>): FilterState => ({ ...noFilters, ...patch });
@@ -232,25 +235,74 @@ describe('computeFilteredTesterIds', () => {
     const harsh = tester('harsh', {
       quality: { benchmarkN: 10, sentiment: 'harsh', straightLining: false, flags: [{ type: 'harsh_critic', detail: '' }] },
     });
+    const generous = tester('generous', {
+      quality: { benchmarkN: 10, sentiment: 'generous', straightLining: false, flags: [{ type: 'overly_positive', detail: '' }] },
+    });
     const normal = tester('normal', {
       quality: { benchmarkN: 10, sentiment: 'typical', straightLining: false, flags: [] },
     });
-    const all = [sl, harsh, normal];
+    const all = [sl, harsh, generous, normal];
 
     it('excludeStraightLiners drops only straight-liners', () => {
       const result = computeFilteredTesterIds({ testers: all, responses: [], questions: [], filters: f({ excludeStraightLiners: true }) });
-      expect(ids(result)).toEqual(['harsh', 'normal']);
+      expect(ids(result)).toEqual(['generous', 'harsh', 'normal']);
     });
 
-    it('excludeHarshCritics drops only harsh critics', () => {
-      const result = computeFilteredTesterIds({ testers: all, responses: [], questions: [], filters: f({ excludeHarshCritics: true }) });
+    it('excludeSentimentOutliers drops outliers in both directions (harsh + generous)', () => {
+      const result = computeFilteredTesterIds({ testers: all, responses: [], questions: [], filters: f({ excludeSentimentOutliers: true }) });
       expect(ids(result)).toEqual(['normal', 'sl']);
     });
 
     it('both exclusions combine', () => {
-      const result = computeFilteredTesterIds({ testers: all, responses: [], questions: [], filters: f({ excludeStraightLiners: true, excludeHarshCritics: true }) });
+      const result = computeFilteredTesterIds({ testers: all, responses: [], questions: [], filters: f({ excludeStraightLiners: true, excludeSentimentOutliers: true }) });
       expect(ids(result)).toEqual(['normal']);
     });
+  });
+
+  describe('player sentiment band', () => {
+    // Bands key off the "overall enjoyment" question, scored on a 0–5 scale
+    // (normalizedScore / 20): <3 detractors · 3–4 almost believers · >4 believers.
+    const enjoyQ = question('enjoy', 'How much did you enjoy the game overall?');
+    const testers = [
+      tester('det'), tester('low_edge'), tester('mid'),
+      tester('high_edge'), tester('bel'), tester('unrated'),
+    ];
+    // normalizedScore = rating * 20
+    const responses = [
+      response('det', 'enjoy', { normalizedScore: 42 }),       // 2.1 → detractor
+      response('low_edge', 'enjoy', { normalizedScore: 60 }),  // 3.0 inclusive → almost
+      response('mid', 'enjoy', { normalizedScore: 70 }),       // 3.5 → almost
+      response('high_edge', 'enjoy', { normalizedScore: 80 }), // 4.0 inclusive → almost
+      response('bel', 'enjoy', { normalizedScore: 96 }),       // 4.8 → believer
+      // 'unrated' never answered the enjoyment question → unclassified
+    ];
+    const questions = [enjoyQ];
+
+    it('selects only the almost-believers band (3–4 inclusive)', () => {
+      const result = computeFilteredTesterIds({
+        testers, responses, questions, filters: f({ playerSentiment: 'almost_believers' }),
+      });
+      expect(ids(result)).toEqual(['high_edge', 'low_edge', 'mid']);
+    });
+
+    it('selects detractors and believers, excluding unrated testers', () => {
+      expect(
+        ids(computeFilteredTesterIds({ testers, responses, questions, filters: f({ playerSentiment: 'detractors' }) })),
+      ).toEqual(['det']);
+      expect(
+        ids(computeFilteredTesterIds({ testers, responses, questions, filters: f({ playerSentiment: 'believers' }) })),
+      ).toEqual(['bel']);
+    });
+  });
+});
+
+describe('sentimentBand', () => {
+  it('classifies by enjoyment rating with inclusive 3–4 almost-believers band', () => {
+    expect(sentimentBand(undefined)).toBeNull();
+    expect(sentimentBand(2.9)).toBe('detractors');
+    expect(sentimentBand(3.0)).toBe('almost_believers');
+    expect(sentimentBand(4.0)).toBe('almost_believers');
+    expect(sentimentBand(4.1)).toBe('believers');
   });
 });
 

@@ -1,7 +1,7 @@
 import * as XLSX from 'xlsx';
 import type { QuestionType, SegmentKey, TesterSegments, Tester, Question, Response, Category, Project } from './types';
 import { computeTesterQuality, isConcerning } from './outliers';
-import { computeNormalizedScore } from './scoring';
+import { computeNormalizedScore, isRatingType } from './scoring';
 
 const IGNORED_SHEETS = ['sheet2'];
 const RESPONSES_KEYWORDS = ['response', 'answer', 'form'];
@@ -15,11 +15,15 @@ function detectSheetRole(name: string): 'responses' | 'registration' | 'ignore' 
   return 'responses'; // default first sheet to responses
 }
 
-// Broad pattern for question-type classification (any mention of time/date concepts)
-const TIMESTAMP_PATTERNS = /timestamp|submitted|date|time/i;
-// Strict pattern for meta-column detection — only short, standalone timestamp fields
-// (avoids swallowing long question headers that happen to mention "timestamp")
+// Strict, anchored pattern for meta-column detection — only short, standalone
+// timestamp fields. An anchored match (rather than a broad substring search)
+// keeps long question headers that merely mention "time"/"date" from being
+// mis-typed as a timestamp column — e.g. "...automation meaningfully evolved
+// over time?" is a rating question, not a timestamp.
 const META_TIMESTAMP_PATTERN = /^(timestamp|submitted|submission.?time|date|created.?at|response.?date|time.?stamp)$/i;
+// Admin/internal field names. Kept loose because real admin columns are terse
+// ("Admin Notes", "Payment Status"), but detectQuestionType gates this behind a
+// word-count guard so a question that merely says "NOTE:" isn't treated as admin.
 const ADMIN_PATTERNS = /admin|internal|note|payment|paid|status|amount|__empty/i;
 const ID_PATTERNS = /\bid\b|tester.?id|user.?id|uid/i;
 const EMAIL_PATTERNS = /email/i;
@@ -68,23 +72,52 @@ function suggestCategory(questionText: string): string | null {
   }
   return null;
 }
+
+// ---------------------------------------------------------------------------
+// Inverse-scoring auto-detection — negatively-valenced rating questions where a
+// HIGHER answer means a WORSE experience (e.g. "how frustrated were you?").
+// Matching questions get isInverseScored=true so computeNormalizedScore flips
+// them, exactly like the manual "↓ Inverted" toggle in the builder — no need to
+// flip them by hand after every import. Only applied to rating questions.
+// ---------------------------------------------------------------------------
+const INVERSE_SCORING_PATTERNS: RegExp[] = [
+  /feel\s+frustrated|frustrated.*confused.*bored|quitting the game/i, // frequency of frustration / boredom / quitting
+  /friction|unnecessary frustration/i,                               // friction / frustration during gameplay
+  /disorienting|disorient/i,                                         // movement felt disorienting or difficult
+  /repetitive/i,                                                     // mining became repetitive too quickly
+  /feel stuck|stuck or unsure|unsure how to progress/i,             // feeling stuck / unable to progress
+];
+
+function isInverseScoredQuestion(text: string): boolean {
+  return INVERSE_SCORING_PATTERNS.some((p) => p.test(text));
+}
 const UPLOAD_PATTERNS = /upload|attachment|file|link|evidence/i;
 const YES_NO_VALUES = new Set(['yes', 'no', 'true', 'false', '1', '0']);
 
 function detectQuestionType(header: string, values: string[]): QuestionType {
-  if (TIMESTAMP_PATTERNS.test(header)) return 'timestamp';
-  if (ADMIN_PATTERNS.test(header)) return 'internal_admin';
+  // Meta columns (timestamp / admin) are short field names, never long question
+  // prose. Guard on word count so a real question that contains "time"
+  // ("...evolved over time?") or a "NOTE:" instruction prefix isn't mis-typed as
+  // a meta column — those mis-types render as an empty card on the category page.
+  const wordCount = header.trim().split(/\s+/).length;
+  if (META_TIMESTAMP_PATTERN.test(header)) return 'timestamp';
+  if (wordCount <= 4 && ADMIN_PATTERNS.test(header)) return 'internal_admin';
   if (UPLOAD_PATTERNS.test(header)) return 'file_upload';
 
   const nonEmpty = values.filter((v) => v.trim().length > 0);
   if (nonEmpty.length === 0) return 'unknown';
 
-  // check if all values are numeric
-  const allNumeric = nonEmpty.every((v) => !isNaN(Number(v)));
-  if (allNumeric) {
-    const nums = nonEmpty.map(Number);
-    const max = Math.max(...nums);
-    const min = Math.min(...nums);
+  // Rating detection — tolerant of a few non-numeric outliers. On a 1–5 frequency
+  // scale a tester will occasionally type "Never" / "N/A" instead of a number;
+  // that shouldn't demote the whole question out of rating analysis (and, for
+  // negatively-valenced ones, out of inverse scoring). As long as the strong
+  // majority of answers are numbers in a 1–5 / 1–10 range it's a rating; the
+  // stray text answers parse to a null score downstream.
+  const numeric = nonEmpty.map(Number).filter((n) => !isNaN(n));
+  const numericFrac = numeric.length / nonEmpty.length;
+  if (numericFrac === 1 || (numeric.length >= 5 && numericFrac >= 0.85)) {
+    const max = Math.max(...numeric);
+    const min = Math.min(...numeric);
     if (min >= 1 && max <= 5) return 'rating_1_5';
     if (min >= 1 && max <= 10) return 'rating_1_10';
   }
@@ -321,15 +354,18 @@ export function parseExcelFile(buffer: ArrayBuffer, fileName: string): ParseResu
   const questions: Question[] = questionCols.map((col, i) => {
     const values = responseRows.map((r) => String(r[col] ?? ''));
     const type = detectQuestionType(col, values);
+    const text = col.replace(/\r\n/g, ' ').trim(); // flatten multi-line Google Form headers
     return {
       id: `q_${String(i).padStart(3, '0')}`,
       projectId: 'proj_import',
-      text: col.replace(/\r\n/g, ' ').trim(), // flatten multi-line Google Form headers
+      text,
       type,
       categoryId: suggestCategory(col),
       sourceColumn: col,
       scaleMin: type === 'rating_1_5' ? 1 : type === 'rating_1_10' ? 1 : undefined,
       scaleMax: type === 'rating_1_5' ? 5 : type === 'rating_1_10' ? 10 : undefined,
+      // Auto-flip negatively-valenced ratings (high answer = worse experience).
+      isInverseScored: isRatingType(type) && isInverseScoredQuestion(text) ? true : undefined,
     };
   });
 

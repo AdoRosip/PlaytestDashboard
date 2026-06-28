@@ -21,12 +21,15 @@ interface RatingBarChartProps {
   data: { value: number; count: number; pct: number }[];
   scale?: 5 | 10;
   onBarClick?: (value: number) => void;
+  // When set, this bar is emphasized and the others are dimmed (drill-down active).
+  selectedValue?: number;
 }
 
-export default function RatingBarChart({ data, scale = 5, onBarClick }: RatingBarChartProps) {
+export default function RatingBarChart({ data, scale = 5, onBarClick, selectedValue }: RatingBarChartProps) {
   const colorMap = scale === 10 ? COLORS_10 : COLORS;
 
   return (
+    <>
     <ResponsiveContainer width="100%" height={200} minWidth={0}>
       <BarChart data={data} margin={{ top: 4, right: 4, bottom: 4, left: -20 }}>
         <XAxis
@@ -66,10 +69,22 @@ export default function RatingBarChart({ data, scale = 5, onBarClick }: RatingBa
           } : undefined}
         >
           {data.map((entry) => (
-            <Cell key={entry.value} fill={colorMap[entry.value] ?? '#0066FF'} />
+            <Cell
+              key={entry.value}
+              fill={colorMap[entry.value] ?? '#0066FF'}
+              fillOpacity={selectedValue === undefined || selectedValue === entry.value ? 1 : 0.25}
+              stroke={selectedValue === entry.value ? '#FFFFFF' : undefined}
+              strokeWidth={selectedValue === entry.value ? 1.5 : 0}
+            />
           ))}
         </Bar>
       </BarChart>
     </ResponsiveContainer>
+    {/* Scale legend — clarifies the axis direction (1 = worst, max = best). */}
+    <div className="flex items-center justify-between px-1 mt-1 text-[11px] text-white/45">
+      <span>1 = Lowest</span>
+      <span>{scale} = Highest</span>
+    </div>
+    </>
   );
 }

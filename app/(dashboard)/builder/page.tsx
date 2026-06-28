@@ -5,7 +5,6 @@ import { useDashboardStore } from '@/lib/store';
 import PageHeader from '@/components/ui/PageHeader';
 import Badge from '@/components/ui/Badge';
 import { questionTypeLabel } from '@/lib/utils';
-import { isRatingType } from '@/lib/scoring';
 import type { Question, QuestionType } from '@/lib/types';
 
 const QUESTION_TYPES: QuestionType[] = [
@@ -13,8 +12,9 @@ const QUESTION_TYPES: QuestionType[] = [
   'free_text', 'file_upload', 'timestamp', 'internal_admin', 'unknown',
 ];
 
-// Per-question type + scoring-direction controls. Editing recomputes scores and
-// tester quality in the store.
+// Per-question type control. Editing recomputes scores and tester quality in the
+// store. Inverse scoring is auto-detected at import time (see lib/parser.ts), so
+// there's no manual flip here.
 function QuestionMetaControls({ q }: { q: Question }) {
   const updateQuestion = useDashboardStore((s) => s.updateQuestion);
   return (
@@ -29,19 +29,6 @@ function QuestionMetaControls({ q }: { q: Question }) {
           <option key={t} value={t}>{questionTypeLabel(t)}</option>
         ))}
       </select>
-      {isRatingType(q.type) && (
-        <button
-          onClick={() => updateQuestion(q.id, { isInverseScored: !q.isInverseScored })}
-          title="Inverse scoring: when on, a higher answer counts as worse (e.g. 'how frustrated were you?')"
-          className={`px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-colors whitespace-nowrap ${
-            q.isInverseScored
-              ? 'bg-amber-500/15 border-amber-500/40 text-amber-300'
-              : 'border-slate-700 text-slate-500 hover:text-slate-300 hover:border-slate-600'
-          }`}
-        >
-          {q.isInverseScored ? '↓ Inverted' : '↑ Normal'}
-        </button>
-      )}
     </div>
   );
 }

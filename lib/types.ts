@@ -182,15 +182,26 @@ export interface SegmentComparison {
   }[];
 }
 
+// Player sentiment bands, derived from each tester's avg experience rating.
+// Detractors rate low, "Almost Believers" sit on the fence (3–4), Believers
+// rate high. Used to read feedback from one mindset at a time.
+export type SentimentBand = 'detractors' | 'almost_believers' | 'believers';
+
 export interface FilterState {
   ageGroups: string[];
   genders: string[];
+  // Continent groups (Europe, Asia, …). Replaces the per-country filter in the
+  // UI; the per-country `countries` field is retained but currently unused.
+  continents: string[];
   countries: string[];
   hardwareTiers: string[];
   sessionPlaytime: null | '<1h' | '1-3h' | '3-6h' | '6h+';
+  // Restrict to a single player-sentiment band (null = all bands).
+  playerSentiment: SentimentBand | null;
   playedFactorio: boolean;
   playedSatisfactory: boolean;
   // Data-quality exclusions (default off — removing testers changes headline scores)
   excludeStraightLiners: boolean;
-  excludeHarshCritics: boolean;
+  // Drops sentiment outliers in *both* directions (harsh critics + overly positive).
+  excludeSentimentOutliers: boolean;
 }

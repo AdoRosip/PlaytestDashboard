@@ -1,19 +1,20 @@
 'use client';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
   Users, Star, TrendingUp, ThumbsUp,
-  CheckCircle2, ArrowRight, ChevronRight, Brain,
+  ArrowRight, ChevronRight, Brain,
   AlertTriangle, Clock, Download, Flag,
   BookOpen, Info, Trophy, Split,
+  Sparkles, Lightbulb, RefreshCw,
 } from 'lucide-react';
 import { useDashboardStore, selectFilteredResponses, selectFilteredTesters } from '@/lib/store';
 import type { Question, Severity } from '@/lib/types';
+import type { FlawRecommendationsResult } from '@/app/api/flaw-recommendations/route';
 import { countRespondents } from '@/lib/responseStats';
 import CompanyLogo from '@/components/brand/CompanyLogo';
 import CategoryGaugeRow from '@/components/charts/CategoryGaugeRow';
 import QuestionHighlights from '@/components/charts/QuestionHighlights';
-import SentimentBar from '@/components/ui/SentimentBar';
 import PlayerDemoWidget from '@/components/ui/PlayerDemoWidget';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -152,12 +153,6 @@ export default function OverviewPage() {
       };
     };
 
-    const catQuote = (catId: string) => {
-      const qIds = new Set(questions.filter(q => q.categoryId === catId && q.type === 'free_text').map(q => q.id));
-      const rs = responses.filter(r => qIds.has(r.questionId) && r.rawAnswer.trim().length >= 30 && r.rawAnswer.trim().length <= 200);
-      return rs[0]?.rawAnswer ?? null;
-    };
-
     // ── Playtime stats ─────────────────────────────────────────────────────
     const playtimeQ = questions.find(q =>
       !/factorio|satisfactory/i.test(q.text) &&
@@ -231,36 +226,44 @@ export default function OverviewPage() {
         )
       : null;
 
-    // ── Global sentiment ───────────────────────────────────────────────────
-    const globalSentiment = allNorm.length > 0 ? {
-      positive: Math.round(allNorm.filter(s => s >= 60).length / allNorm.length * 100),
-      neutral:  Math.round(allNorm.filter(s => s >= 35 && s < 60).length / allNorm.length * 100),
-      negative: Math.round(allNorm.filter(s => s < 35).length / allNorm.length * 100),
-    } : { positive: 0, neutral: 0, negative: 0 };
-
     // ── Category scores ────────────────────────────────────────────────────
     const catScores = categories
       .filter(c => !/admin|internal|evidence|background|recording/i.test(c.name))
       .flatMap(c => { const s = catStats(c.id); return s ? [{ ...c, avg: s.avg, n: s.n }] : []; })
       .sort((a, b) => b.avg - a.avg);
 
-    // ── Strengths & concerns ───────────────────────────────────────────────
-    const strengths = catScores.slice(0, 3).map(c => ({
-      title: c.name, id: c.id,
-      score: Math.round(c.avg), n: c.n,
-      quote: catQuote(c.id),
-    }));
-
-    const concerns = [...catScores].slice(-3).reverse().map(c => {
+    // ── Biggest flaws: the worst-scoring areas + their evidence ────────────
+    // The lowest 3 categories, richest first, carrying the themes and the
+    // representative negative quotes the AI recommendation endpoint needs.
+    const flaws = [...catScores].slice(-3).reverse().map(c => {
       const qIds = new Set(questions.filter(q => q.categoryId === c.id).map(q => q.id));
       const rVals = responses.filter(r => qIds.has(r.questionId) && r.normalizedScore !== null);
       const negativePct = rVals.length
         ? Math.round((rVals.filter(r => r.normalizedScore! < 40).length / rVals.length) * 100)
         : 0;
-      const catThemes = themes
-        .filter(t => t.categoryId === c.id)
-        .map(t => ({ label: t.label, severity: t.severity as Severity }));
-      return { id: c.id, title: c.name, score: Math.round(c.avg), n: c.n, negativePct, catThemes };
+      const catThemes = themes.filter(t => t.categoryId === c.id);
+      // Quotes the testers actually wrote: theme exemplars first, then any
+      // substantive free-text answers in this category. Deduped, capped at 4.
+      const themeQuotes = catThemes.flatMap(t => t.representativeQuotes ?? []);
+      const freeTextQuotes = responses
+        .filter(r =>
+          qIds.has(r.questionId) && r.numericValue === null &&
+          r.rawAnswer.trim().length >= 30 && r.rawAnswer.trim().length <= 220)
+        .map(r => r.rawAnswer.trim());
+      const quotes = [...new Set([...themeQuotes, ...freeTextQuotes])].slice(0, 4);
+      return {
+        id: c.id,
+        title: c.name,
+        score: Math.round(c.avg),
+        n: c.n,
+        negativePct,
+        themes: catThemes.map(t => ({
+          label: t.label,
+          summary: t.summary,
+          severity: t.severity as Severity,
+        })),
+        quotes,
+      };
     });
 
     // ── Segment insights ───────────────────────────────────────────────────
@@ -383,8 +386,7 @@ export default function OverviewPage() {
 
     return {
       catScores,
-      strengths,
-      concerns,
+      flaws,
       segmentCards,
       champion,
       divider,
@@ -400,7 +402,6 @@ export default function OverviewPage() {
       retStats,
       npsStats,
       tutorialPct,
-      globalSentiment,
       bestQuestions,
       worstQuestions,
       questionCount,
@@ -408,11 +409,56 @@ export default function OverviewPage() {
     };
   }, [questions, responses, categories, testers, themes]);
 
+  // ── AI recommendations for the biggest flaws (button-triggered) ───────────
+  const [aiRecs,    setAiRecs]    = useState<FlawRecommendationsResult | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError,   setAiError]   = useState<string | null>(null);
+
+  const runFlawRecs = async () => {
+    if (d.flaws.length === 0) return;
+    setAiLoading(true);
+    setAiError(null);
+    try {
+      const res = await fetch('/api/flaw-recommendations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          gameName: project?.gameName || project?.name || '',
+          flaws: d.flaws.map(f => ({
+            area: f.title,
+            score: f.score,
+            negativePct: f.negativePct,
+            themes: f.themes,
+            quotes: f.quotes,
+          })),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error((data as { error?: string }).error ?? `HTTP ${res.status}`);
+      setAiRecs(data as FlawRecommendationsResult);
+    } catch (err) {
+      setAiError(err instanceof Error ? err.message : 'Failed to generate recommendations');
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  // Auto-generate recommendations once the flaws are known, and again whenever
+  // the worst areas actually change (e.g. filters shift the bottom 3). The
+  // signature guards against firing on unrelated re-renders / duplicate calls.
+  const flawSignature = d.flaws.map(f => `${f.id}:${f.score}`).join('|');
+  const lastRunSig = useRef<string | null>(null);
+  useEffect(() => {
+    if (!flawSignature || lastRunSig.current === flawSignature) return;
+    lastRunSig.current = flawSignature;
+    runFlawRecs();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [flawSignature]);
+
   if (!project) return null;
 
   const dateStr =new Date(project.createdAt).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
   const participantCount = countRespondents(responses);
-  const responseCount = responses.length;
 
   // ── Hero tile helpers ────────────────────────────────────────────────────
   const enjoyDisplay  = d.enjoyStats  ? `${d.enjoyStats.avg.toFixed(1)} / ${d.enjoyStats.max}`  : '—';
@@ -644,77 +690,111 @@ export default function OverviewPage() {
       {/* ── SECTION 3: THREE-COLUMN INSIGHTS ─────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.4fr_1fr] gap-5 mb-10">
 
-        {/* ── Left: TOP INSIGHTS + WHAT PLAYERS ARE SAYING ─────────── */}
+        {/* ── Left: BEST & WORST QUESTIONS ─────────────────────────── */}
+        <QuestionHighlights best={d.bestQuestions} worst={d.worstQuestions} />
+
+        {/* ── Middle: BIGGEST FLAWS + AI RECOMMENDATIONS (wider) ───── */}
         <div className="flex flex-col gap-4">
+          <div className="bg-slate-800/20 rounded-2xl border border-slate-700/60 p-5 flex-1 flex flex-col">
 
-          {/* Top Insights */}
-          <div className="bg-slate-800/20 rounded-2xl border border-slate-700/60 p-5 flex-1">
-            <div className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-4">
-              Top Insights
+            {/* Header + AI trigger */}
+            <div className="flex items-center justify-between gap-2 mb-1">
+              <div className="flex items-center gap-2 min-w-0">
+                <AlertTriangle className="w-3.5 h-3.5 text-red-400 flex-shrink-0" />
+                <span className="text-[11px] font-bold uppercase tracking-widest text-slate-400">Biggest Flaws</span>
+              </div>
+              {d.flaws.length > 0 && (
+                <button
+                  onClick={runFlawRecs}
+                  disabled={aiLoading}
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium bg-indigo-600/20 border border-indigo-500/40 text-indigo-300 hover:bg-indigo-600/30 hover:border-indigo-400/60 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex-shrink-0"
+                >
+                  {aiLoading
+                    ? <><RefreshCw className="w-3 h-3 animate-spin" /> Generating…</>
+                    : aiRecs
+                    ? <><RefreshCw className="w-3 h-3" /> Re-run</>
+                    : <><Sparkles className="w-3 h-3" /> AI Fixes</>}
+                </button>
+              )}
             </div>
+            <p className="text-xs text-slate-500 mb-4">Lowest-scoring areas — where players pushed back hardest</p>
 
-            {d.strengths.length === 0 && d.concerns.length === 0 ? (
-              <p className="text-xs text-slate-500 text-center py-8">Upload playtest responses to see insights</p>
+            {/* Worst-scoring areas */}
+            {d.flaws.length === 0 ? (
+              <p className="text-xs text-slate-500 text-center py-8">Upload playtest responses to see flaws</p>
             ) : (
-              <div className="space-y-2">
-                {d.strengths.slice(0, 2).map((s, i) => (
+              <div className="space-y-2.5">
+                {d.flaws.map((f) => (
                   <Link
-                    key={i}
-                    href={`/categories/${s.id}`}
-                    className="flex items-start gap-2.5 p-2.5 rounded-xl bg-emerald-900/10 border border-emerald-700/20 hover:border-emerald-600/40 transition-colors group"
+                    key={f.id}
+                    href={`/categories/${f.id}`}
+                    className="block p-3 rounded-xl border border-slate-700/60 hover:border-red-500/40 hover:bg-red-900/10 transition-colors group"
                   >
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 mt-0.5 flex-shrink-0" />
-                    <div className="min-w-0">
-                      <div className="text-xs font-semibold text-slate-200 group-hover:text-emerald-300 transition-colors">{s.title}</div>
-                      <div className="text-[10px] text-emerald-500 mt-0.5">Score {s.score} · {s.n} responses</div>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-semibold text-slate-200 group-hover:text-red-300 transition-colors truncate">{f.title}</span>
+                      <span className="text-sm font-bold text-red-400 flex-shrink-0">{f.score}</span>
                     </div>
-                  </Link>
-                ))}
-                {d.concerns.slice(0, 2).map((c) => (
-                  <Link
-                    key={c.id}
-                    href={`/categories/${c.id}`}
-                    className="flex items-start gap-2.5 p-2.5 rounded-xl border border-slate-700/60 hover:border-red-500/30 hover:bg-red-900/10 transition-colors group"
-                  >
-                    <AlertTriangle className="w-3.5 h-3.5 text-red-400 mt-0.5 flex-shrink-0" />
-                    <div className="min-w-0">
-                      <div className="text-xs font-semibold text-slate-200 group-hover:text-red-300 transition-colors">{c.title}</div>
-                      <div className="text-[10px] text-red-500 mt-0.5">
-                        Score {c.score} · {c.negativePct > 0 ? `${c.negativePct}% low` : `${c.n} responses`}
-                      </div>
-                      {c.catThemes[0] && (
-                        <SevBadge sev={c.catThemes[0].severity} />
+                    <div className="mt-2 h-1.5 rounded-full bg-slate-700/50 overflow-hidden">
+                      <div className="h-full rounded-full bg-red-500/70" style={{ width: `${Math.max(2, f.score)}%` }} />
+                    </div>
+                    <div className="flex items-center gap-2 mt-2 flex-wrap">
+                      {f.negativePct > 0 && (
+                        <span className="text-[10px] text-red-500">{f.negativePct}% rated low</span>
                       )}
+                      {f.themes[0] && <SevBadge sev={f.themes[0].severity} />}
                     </div>
                   </Link>
                 ))}
-                {(d.strengths.length > 2 || d.concerns.length > 2) && (
-                  <Link href="/categories" className="flex items-center gap-1 text-[10px] text-indigo-400 hover:text-indigo-300 transition-colors mt-1 px-1">
-                    View all categories <ChevronRight className="w-3 h-3" />
-                  </Link>
+              </div>
+            )}
+
+            {/* AI-generated recommendations */}
+            {(aiLoading || aiError || aiRecs) && (
+              <div className="mt-4 pt-4 border-t border-slate-700/60">
+                <div className="flex items-center gap-1.5 mb-3">
+                  <Lightbulb className="w-3.5 h-3.5 text-indigo-400" />
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-indigo-400">AI Recommendations</span>
+                </div>
+
+                {aiLoading && (
+                  <div className="space-y-2.5 animate-pulse">
+                    {[0, 1, 2].map(i => (
+                      <div key={i} className="rounded-lg bg-slate-800/60 h-16" />
+                    ))}
+                  </div>
+                )}
+
+                {aiError && !aiLoading && (
+                  <div className="rounded-lg bg-red-900/20 border border-red-700/40 px-3 py-2.5 text-[11px] text-red-400">
+                    {aiError}
+                  </div>
+                )}
+
+                {aiRecs && !aiLoading && (
+                  aiRecs.recommendations.length === 0 ? (
+                    <p className="text-[11px] text-slate-500">No recommendations returned.</p>
+                  ) : (
+                    <div className="space-y-2.5">
+                      {aiRecs.recommendations.map((r, i) => (
+                        <div key={i} className="rounded-lg bg-slate-900/50 border border-slate-700/40 px-3 py-2.5">
+                          <div className="flex items-center gap-2 mb-1.5">
+                            <span className="text-xs font-semibold text-slate-200 truncate">{r.area}</span>
+                            <span className="ml-auto flex-shrink-0"><SevBadge sev={r.priority} /></span>
+                          </div>
+                          <p className="text-[11px] text-slate-400 leading-relaxed mb-1.5">{r.problem}</p>
+                          <div className="flex gap-1.5">
+                            <Lightbulb className="w-3 h-3 text-indigo-400 flex-shrink-0 mt-0.5" />
+                            <p className="text-[11px] text-indigo-200 leading-relaxed">{r.recommendation}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )
                 )}
               </div>
             )}
           </div>
-
-          {/* What Players Are Saying */}
-          {(d.globalSentiment.positive > 0 || d.globalSentiment.negative > 0) && (
-            <div className="bg-slate-800/20 rounded-2xl border border-slate-700/60 p-5">
-              <div className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-3">
-                What Players Are Saying
-              </div>
-              <div className="text-xs text-slate-500 mb-3">Overall response sentiment across {responseCount} responses</div>
-              <SentimentBar
-                positive={d.globalSentiment.positive}
-                neutral={d.globalSentiment.neutral}
-                negative={d.globalSentiment.negative}
-              />
-            </div>
-          )}
         </div>
-
-        {/* ── Middle: BEST & WORST QUESTIONS ───────────────────────── */}
-        <QuestionHighlights best={d.bestQuestions} worst={d.worstQuestions} />
 
         {/* ── Right: WHO ARE YOUR PLAYERS ──────────────────────────── */}
         <PlayerDemoWidget testers={testers} />
