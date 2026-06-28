@@ -477,7 +477,7 @@ export default function OverviewPage() {
       <div className="flex items-start justify-between mb-10">
         <div>
           <div className="text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1">
-            Playtest Report Overview
+            Playlytix Report Overview
           </div>
           <div className="flex items-center gap-3">
             <CompanyLogo className="w-12" priority />
