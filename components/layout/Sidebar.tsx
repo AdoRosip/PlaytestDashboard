@@ -51,7 +51,7 @@ export default function Sidebar() {
             <CompanyLogo className="w-8" priority />
           </div>
           <div>
-            <div className="text-sm font-semibold text-white leading-tight">Playtest</div>
+            <div className="text-sm font-semibold text-white leading-tight">Playlytix</div>
             <div className="text-xs text-slate-500 leading-tight">Insights</div>
           </div>
         </div>
