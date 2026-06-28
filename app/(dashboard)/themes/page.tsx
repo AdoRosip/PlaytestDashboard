@@ -191,16 +191,6 @@ export default function ThemesPage() {
                       </div>
                     </div>
 
-                    {/* Frequency bar */}
-                    <div className="w-24 flex-shrink-0">
-                      <div className="h-1.5 bg-slate-700/60 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-indigo-500/70 rounded-full"
-                          style={{ width: `${Math.min(100, (theme.frequency / Math.max(...themes.map((t) => t.frequency), 1)) * 100)}%` }}
-                        />
-                      </div>
-                    </div>
-
                     {isOpen ? (
                       <ChevronUp className="w-4 h-4 text-slate-500" />
                     ) : (

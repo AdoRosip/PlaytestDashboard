@@ -10,7 +10,7 @@ interface Props {
 }
 
 const BREAKDOWN_SEGMENTS: SegmentKey[] = [
-  'age_group', 'gaming_hours', 'hardware_tier', 'country', 'platform', 'gender',
+  'age_group', 'gaming_hours', 'hardware_tier', 'country', 'gender',
 ];
 
 export default function SegmentBreakdown({ responses, testers, scale }: Props) {

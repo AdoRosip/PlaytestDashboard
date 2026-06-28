@@ -9,77 +9,13 @@ import { formatTesterId } from '@/lib/utils';
 import { flagLabel } from '@/lib/outliers';
 import type { TesterFlagType } from '@/lib/types';
 import GeoDistributionMap from '@/components/charts/GeoDistributionMap';
+import { continentFor } from '@/lib/geo';
 
 type DistributionRow = {
   label: string;
   count: number;
   pct: number;
 };
-
-const COUNTRY_TO_CONTINENT: Record<string, string> = {
-  argentina: 'South America',
-  australia: 'Oceania',
-  austria: 'Europe',
-  belgium: 'Europe',
-  brazil: 'South America',
-  bulgaria: 'Europe',
-  canada: 'North America',
-  chile: 'South America',
-  china: 'Asia',
-  colombia: 'South America',
-  croatia: 'Europe',
-  czechia: 'Europe',
-  'czech republic': 'Europe',
-  denmark: 'Europe',
-  egypt: 'Africa',
-  estonia: 'Europe',
-  finland: 'Europe',
-  france: 'Europe',
-  germany: 'Europe',
-  greece: 'Europe',
-  hungary: 'Europe',
-  india: 'Asia',
-  indonesia: 'Asia',
-  ireland: 'Europe',
-  italy: 'Europe',
-  japan: 'Asia',
-  malaysia: 'Asia',
-  mexico: 'North America',
-  netherlands: 'Europe',
-  'new zealand': 'Oceania',
-  norway: 'Europe',
-  philippines: 'Asia',
-  poland: 'Europe',
-  portugal: 'Europe',
-  romania: 'Europe',
-  serbia: 'Europe',
-  singapore: 'Asia',
-  slovakia: 'Europe',
-  slovenia: 'Europe',
-  'south africa': 'Africa',
-  'south korea': 'Asia',
-  spain: 'Europe',
-  sweden: 'Europe',
-  switzerland: 'Europe',
-  thailand: 'Asia',
-  turkey: 'Europe',
-  uk: 'Europe',
-  'united kingdom': 'Europe',
-  usa: 'North America',
-  us: 'North America',
-  'united states': 'North America',
-  'united states of america': 'North America',
-  vietnam: 'Asia',
-};
-
-function normaliseCountry(country: string): string {
-  return country.trim().toLowerCase();
-}
-
-function continentFor(country: string): string {
-  if (!country.trim()) return 'Unknown';
-  return COUNTRY_TO_CONTINENT[normaliseCountry(country)] ?? 'Unknown';
-}
 
 function distribution(values: string[], total: number): DistributionRow[] {
   const counts = new Map<string, number>();

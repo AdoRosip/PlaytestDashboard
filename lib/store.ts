@@ -84,13 +84,15 @@ interface DashboardState {
 const defaultFilters: FilterState = {
   ageGroups: [],
   genders: [],
+  continents: [],
   countries: [],
   hardwareTiers: [],
   sessionPlaytime: null,
+  playerSentiment: null,
   playedFactorio: false,
   playedSatisfactory: false,
   excludeStraightLiners: false,
-  excludeHarshCritics: false,
+  excludeSentimentOutliers: false,
 };
 
 export const useDashboardStore = create<DashboardState>()(

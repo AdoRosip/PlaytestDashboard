@@ -123,7 +123,7 @@ export const mockQuestions: Question[] = [
 
   { id: 'q_005', projectId: 'proj_001', categoryId: 'cat_02', sourceColumn: 'q_005',
     text: 'How often did you feel frustrated, confused, bored, or like quitting the game?',
-    type: 'rating_1_5', scaleMin: 1, scaleMax: 5,
+    type: 'rating_1_5', scaleMin: 1, scaleMax: 5, isInverseScored: true,
     avgScore: 2.4, responseCount: 177, lowScorePct: 52 },
 
   { id: 'q_006', projectId: 'proj_001', categoryId: 'cat_02', sourceColumn: 'q_006',
@@ -132,7 +132,7 @@ export const mockQuestions: Question[] = [
 
   { id: 'q_023', projectId: 'proj_001', categoryId: 'cat_02', sourceColumn: 'q_023',
     text: 'How much friction or unnecessary frustration did you experience during gameplay?',
-    type: 'rating_1_5', scaleMin: 1, scaleMax: 5,
+    type: 'rating_1_5', scaleMin: 1, scaleMax: 5, isInverseScored: true,
     avgScore: 2.6, responseCount: 177, lowScorePct: 46 },
 
   { id: 'q_034', projectId: 'proj_001', categoryId: 'cat_02', sourceColumn: 'q_034',
@@ -192,7 +192,7 @@ export const mockQuestions: Question[] = [
 
   { id: 'q_009', projectId: 'proj_001', categoryId: 'cat_04', sourceColumn: 'q_009',
     text: 'How often did you feel stuck or unsure how to progress?',
-    type: 'rating_1_5', scaleMin: 1, scaleMax: 5,
+    type: 'rating_1_5', scaleMin: 1, scaleMax: 5, isInverseScored: true,
     avgScore: 2.9, responseCount: 177, lowScorePct: 42 },
 
   { id: 'q_010', projectId: 'proj_001', categoryId: 'cat_04', sourceColumn: 'q_010',
@@ -470,13 +470,14 @@ export const mockTesters: Tester[] = [
 // Sample responses for demo mode — referencing real question IDs
 // ---------------------------------------------------------------------------
 export const mockResponses: Response[] = [
-  // q_005 — frustration frequency (rating)
-  { id: 'r_001', projectId: 'proj_001', testerId: 'tstr_01', questionId: 'q_005', rawAnswer: '2', numericValue: 2, normalizedScore: 25,  submittedAt: '2026-05-01T14:22:00Z', matchStatus: 'matched' },
-  { id: 'r_002', projectId: 'proj_001', testerId: 'tstr_02', questionId: 'q_005', rawAnswer: '4', numericValue: 4, normalizedScore: 75,  submittedAt: '2026-05-01T15:10:00Z', matchStatus: 'matched' },
-  { id: 'r_003', projectId: 'proj_001', testerId: 'tstr_03', questionId: 'q_005', rawAnswer: '1', numericValue: 1, normalizedScore: 0,   submittedAt: '2026-05-01T16:00:00Z', matchStatus: 'matched' },
+  // q_005 — frustration frequency (rating, inverse-scored: higher raw = worse,
+  // so normalizedScore is flipped — raw 1 "never frustrated" = 100).
+  { id: 'r_001', projectId: 'proj_001', testerId: 'tstr_01', questionId: 'q_005', rawAnswer: '2', numericValue: 2, normalizedScore: 75,  submittedAt: '2026-05-01T14:22:00Z', matchStatus: 'matched' },
+  { id: 'r_002', projectId: 'proj_001', testerId: 'tstr_02', questionId: 'q_005', rawAnswer: '4', numericValue: 4, normalizedScore: 25,  submittedAt: '2026-05-01T15:10:00Z', matchStatus: 'matched' },
+  { id: 'r_003', projectId: 'proj_001', testerId: 'tstr_03', questionId: 'q_005', rawAnswer: '1', numericValue: 1, normalizedScore: 100, submittedAt: '2026-05-01T16:00:00Z', matchStatus: 'matched' },
   { id: 'r_004', projectId: 'proj_001', testerId: 'tstr_04', questionId: 'q_005', rawAnswer: '3', numericValue: 3, normalizedScore: 50,  submittedAt: '2026-05-01T16:30:00Z', matchStatus: 'matched' },
-  { id: 'r_005', projectId: 'proj_001', testerId: 'tstr_06', questionId: 'q_005', rawAnswer: '5', numericValue: 5, normalizedScore: 100, submittedAt: '2026-05-01T17:30:00Z', matchStatus: 'matched' },
-  { id: 'r_006', projectId: 'proj_001', testerId: 'tstr_07', questionId: 'q_005', rawAnswer: '2', numericValue: 2, normalizedScore: 25,  submittedAt: '2026-05-01T18:00:00Z', matchStatus: 'matched' },
+  { id: 'r_005', projectId: 'proj_001', testerId: 'tstr_06', questionId: 'q_005', rawAnswer: '5', numericValue: 5, normalizedScore: 0,   submittedAt: '2026-05-01T17:30:00Z', matchStatus: 'matched' },
+  { id: 'r_006', projectId: 'proj_001', testerId: 'tstr_07', questionId: 'q_005', rawAnswer: '2', numericValue: 2, normalizedScore: 75,  submittedAt: '2026-05-01T18:00:00Z', matchStatus: 'matched' },
 
   // q_006 — what caused frustration (free text follow-up)
   { id: 'r_010', projectId: 'proj_001', testerId: 'tstr_02', questionId: 'q_006', rawAnswer: "The tutorial didn't explain how to start the conveyor chain. I spent 10 minutes clicking things randomly.", numericValue: null, normalizedScore: null, submittedAt: '2026-05-01T15:11:00Z', matchStatus: 'matched' },

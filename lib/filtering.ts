@@ -1,4 +1,51 @@
-import type { FilterState, Question, Response, Tester } from './types';
+import type { FilterState, Question, Response, SentimentBand, Tester } from './types';
+import { isSentimentOutlier } from './outliers';
+import { continentFor } from './geo';
+
+// ─── Player-sentiment bands ──────────────────────────────────────────────────
+// Classify a tester by their answer to the single "overall enjoyment" question
+// (How much did you enjoy the game overall?), expressed on a 0–5 scale — *not*
+// their average across all rating questions. "Almost Believers" are the
+// fence-sitters who scored 3–4 — interested but not sold. Boundaries are
+// inclusive on the almost-believers band so every classifiable tester lands in
+// exactly one band:
+//   score < 3 → detractors · 3 ≤ score ≤ 4 → almost believers · score > 4 → believers
+// Testers who didn't answer the enjoyment question stay unclassified.
+export const SENTIMENT_BAND_LABELS: Record<SentimentBand, string> = {
+  detractors: 'Detractors',
+  almost_believers: 'Almost Believers',
+  believers: 'Believers',
+};
+
+export function sentimentBand(enjoyRating: number | undefined): SentimentBand | null {
+  if (enjoyRating === undefined) return null;
+  if (enjoyRating < 3) return 'detractors';
+  if (enjoyRating > 4) return 'believers';
+  return 'almost_believers';
+}
+
+/** Matches the "How much did you enjoy the game overall?" question. */
+export const ENJOY_OVERALL_RE = /enjoy.*overall|overall.*enjoy/i;
+
+/**
+ * Map of testerId → overall-enjoyment rating on a 0–5 scale, derived from the
+ * enjoyment question's normalized (0–100) score so it matches how `avgRating`
+ * is scaled (avgNorm / 20). Testers without an answer are absent from the map.
+ */
+export function buildEnjoyRatingMap(
+  responses: Response[],
+  questions: Question[],
+): Map<string, number> {
+  const map = new Map<string, number>();
+  const q = questions.find((q) => ENJOY_OVERALL_RE.test(q.text));
+  if (!q) return map;
+  for (const r of responses) {
+    if (r.questionId === q.id && r.testerId && r.normalizedScore !== null) {
+      map.set(r.testerId, r.normalizedScore / 20);
+    }
+  }
+  return map;
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Pure filter logic.
@@ -25,13 +72,15 @@ export function hasActiveFilters(f: FilterState): boolean {
   return (
     f.ageGroups.length > 0 ||
     f.genders.length > 0 ||
+    f.continents.length > 0 ||
     f.countries.length > 0 ||
     f.hardwareTiers.length > 0 ||
     f.sessionPlaytime !== null ||
+    f.playerSentiment !== null ||
     f.playedFactorio ||
     f.playedSatisfactory ||
     f.excludeStraightLiners ||
-    f.excludeHarshCritics
+    f.excludeSentimentOutliers
   );
 }
 
@@ -96,6 +145,8 @@ export function computeFilteredTesterIds(input: FilterInput): Set<string> | null
 
   const playtimeMap =
     filters.sessionPlaytime !== null ? buildPlaytimeMap(responses, questions) : null;
+  const enjoyMap =
+    filters.playerSentiment !== null ? buildEnjoyRatingMap(responses, questions) : null;
   const factorioTesters = filters.playedFactorio
     ? buildPlayedGameSet(/factorio/i, responses, questions)
     : null;
@@ -107,6 +158,10 @@ export function computeFilteredTesterIds(input: FilterInput): Set<string> | null
   for (const t of testers) {
     if (filters.ageGroups.length > 0 && !filters.ageGroups.includes(t.ageGroup)) continue;
     if (filters.genders.length > 0 && !filters.genders.includes(t.segments.gender ?? '')) continue;
+    if (filters.continents.length > 0) {
+      const c = t.country || t.segments.country || '';
+      if (!filters.continents.includes(continentFor(c))) continue;
+    }
     if (filters.countries.length > 0) {
       const c = t.country || t.segments.country || '';
       if (!filters.countries.includes(c)) continue;
@@ -122,10 +177,13 @@ export function computeFilteredTesterIds(input: FilterInput): Set<string> | null
       if (pt === undefined) continue;
       if (!matchesPlaytimeBucket(filters.sessionPlaytime, pt)) continue;
     }
+    if (filters.playerSentiment !== null && sentimentBand(enjoyMap!.get(t.id)) !== filters.playerSentiment) {
+      continue;
+    }
     if (factorioTesters && !factorioTesters.has(t.id)) continue;
     if (satTesters && !satTesters.has(t.id)) continue;
     if (filters.excludeStraightLiners && t.quality?.straightLining) continue;
-    if (filters.excludeHarshCritics && t.quality?.sentiment === 'harsh') continue;
+    if (filters.excludeSentimentOutliers && isSentimentOutlier(t.quality)) continue;
     result.add(t.id);
   }
   return result;
@@ -150,12 +208,14 @@ export function countActiveFilters(f: FilterState): number {
   return (
     f.ageGroups.length +
     f.genders.length +
+    f.continents.length +
     f.countries.length +
     f.hardwareTiers.length +
     (f.sessionPlaytime !== null ? 1 : 0) +
+    (f.playerSentiment !== null ? 1 : 0) +
     (f.playedFactorio ? 1 : 0) +
     (f.playedSatisfactory ? 1 : 0) +
     (f.excludeStraightLiners ? 1 : 0) +
-    (f.excludeHarshCritics ? 1 : 0)
+    (f.excludeSentimentOutliers ? 1 : 0)
   );
 }
