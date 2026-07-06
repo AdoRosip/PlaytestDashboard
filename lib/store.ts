@@ -14,6 +14,7 @@ import {
 } from './filtering';
 import { computeTesterQuality, isConcerning } from './outliers';
 import { computeNormalizedScore, scaleForType } from './scoring';
+import { getGameConfigByName, type GameConfig } from './games';
 
 /**
  * Recompute tester quality (avgRating / flags / outlier) over the current
@@ -135,6 +136,8 @@ export const useDashboardStore = create<DashboardState>()(
       questions: data.questions,
       responses: data.responses,
       themes: [],
+      analysisStatus: 'idle',
+      analysisError: null,
       isLoaded: true,
     });
   },
@@ -205,7 +208,8 @@ export const useDashboardStore = create<DashboardState>()(
   clearThemes: () => set({ themes: [], analysisStatus: 'idle', analysisError: null }),
 
   runThemeAnalysis: async () => {
-    const { questions, responses, categories } = get();
+    const { questions, responses, categories, analysisStatus } = get();
+    if (analysisStatus === 'running') return;
     set({ analysisStatus: 'running', analysisError: null, themes: [] });
 
     try {
@@ -387,6 +391,10 @@ export const selectFilteredTesters = (state: DashboardState) => {
 
 export const selectActiveFilterCount = (state: DashboardState): number =>
   countActiveFilters(state.filters);
+
+/** The active game config, resolved from the loaded project's gameName. */
+export const selectGameConfig = (state: DashboardState): GameConfig =>
+  getGameConfigByName(state.project?.gameName);
 
 // ─── Other derived selectors ─────────────────────────────────────────────────
 

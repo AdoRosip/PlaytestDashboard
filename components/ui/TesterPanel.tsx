@@ -1,8 +1,10 @@
 'use client';
-import { X, Star, AlertTriangle } from 'lucide-react';
-import { useDashboardStore } from '@/lib/store';
+import { X, Star, AlertTriangle, UserX, Target, PenLine } from 'lucide-react';
+import { useDashboardStore, selectGameConfig } from '@/lib/store';
 import { formatDate, formatTesterId } from '@/lib/utils';
 import { flagLabel } from '@/lib/outliers';
+import { genreFit, engagement, testerGenres, testerPlaystyles, ENGAGEMENT_LABELS } from '@/lib/testerProfile';
+import type { EngagementTier } from '@/lib/testerProfile';
 import { SEGMENT_LABELS } from '@/lib/types';
 import type { SegmentKey } from '@/lib/types';
 
@@ -12,6 +14,13 @@ const SEGMENT_GROUPS: { label: string; keys: SegmentKey[] }[] = [
   { label: 'Setup',         keys: ['hardware_tier', 'has_controller', 'has_mic'] },
 ];
 
+const ENGAGEMENT_STYLE: Record<EngagementTier, string> = {
+  detailed: 'text-emerald-300 border-emerald-500/40 bg-emerald-500/10',
+  brief:    'text-sky-300 border-sky-500/40 bg-sky-500/10',
+  minimal:  'text-slate-300 border-slate-500/40 bg-slate-500/10',
+  none:     'text-slate-500 border-slate-700 bg-slate-800/40',
+};
+
 export default function TesterPanel() {
   const testerPanelOpen    = useDashboardStore((s) => s.testerPanelOpen);
   const activeTesterId     = useDashboardStore((s) => s.activeTesterId);
@@ -19,9 +28,15 @@ export default function TesterPanel() {
   const testers            = useDashboardStore((s) => s.testers);
   const responses          = useDashboardStore((s) => s.responses);
   const questions          = useDashboardStore((s) => s.questions);
+  const config             = useDashboardStore(selectGameConfig);
 
   const tester         = testers.find((t) => t.id === activeTesterId);
   const testerResponses = responses.filter((r) => r.testerId === activeTesterId);
+
+  const fit    = tester ? genreFit(tester, config) : null;
+  const eng    = tester ? engagement(tester.id, responses, questions) : null;
+  const genres = tester ? testerGenres(tester) : [];
+  const playstyles = tester ? testerPlaystyles(tester) : [];
 
   return (
     <>
@@ -68,6 +83,19 @@ export default function TesterPanel() {
                 </div>
               </div>
 
+              {tester.inRegistry === false && (
+                <div className="mb-4 flex items-start gap-2 rounded-lg bg-amber-500/5 border border-amber-500/20 px-3 py-2">
+                  <UserX className="w-3.5 h-3.5 text-amber-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <div className="text-xs font-semibold text-amber-300">Not in registry</div>
+                    <div className="text-[11px] text-slate-400 leading-relaxed">
+                      This email wasn&apos;t found in the Playlytix registry, so no demographic
+                      profile is available. Their feedback is still counted.
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {tester.quality && tester.quality.flags.length > 0 && (
                 <div className="mb-4 space-y-1.5">
                   {tester.quality.flags.map((f) => (
@@ -98,6 +126,88 @@ export default function TesterPanel() {
                 </div>
               </div>
             </div>
+
+            {/* Tester quality — engagement + genre fit */}
+            <div className="px-6 py-4 border-b border-slate-800">
+              <div className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-3">
+                Tester Quality
+              </div>
+              <div className="space-y-2">
+                {eng && (
+                  <div className={`flex items-center gap-2 rounded-lg border px-3 py-2 ${ENGAGEMENT_STYLE[eng.tier]}`}>
+                    <PenLine className="w-3.5 h-3.5 flex-shrink-0" />
+                    <div className="min-w-0">
+                      <div className="text-xs font-semibold">{ENGAGEMENT_LABELS[eng.tier]}</div>
+                      <div className="text-[11px] opacity-80">
+                        {eng.answered}/{eng.freeTextTotal} written answers · ~{Math.round(eng.avgWords)} words avg
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {fit && fit.target.length > 0 && (
+                  <div className={`flex items-center gap-2 rounded-lg border px-3 py-2 ${
+                    fit.unknown ? 'text-slate-500 border-slate-700 bg-slate-800/40'
+                    : fit.isFit ? 'text-cyan-300 border-cyan-500/40 bg-cyan-500/10'
+                    : 'text-slate-400 border-slate-600 bg-slate-800/40'
+                  }`}>
+                    <Target className="w-3.5 h-3.5 flex-shrink-0" />
+                    <div className="min-w-0">
+                      <div className="text-xs font-semibold">
+                        {fit.unknown ? 'Genre taste unknown' : fit.isFit ? 'Target-genre player' : 'Outside target genres'}
+                      </div>
+                      <div className="text-[11px] opacity-80">
+                        {fit.unknown
+                          ? 'not in the Type-of-Gamer data'
+                          : `plays ${fit.matched.length} of ${fit.target.length} target genres${fit.matched.length ? ` · ${fit.matched.join(', ')}` : ''}`}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Player taste — genres & playstyles from the Type-of-Gamer data */}
+            {(genres.length > 0 || playstyles.length > 0) && (
+              <div className="px-6 py-4 border-b border-slate-800">
+                <div className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-3">
+                  Player Taste
+                </div>
+                {genres.length > 0 && (
+                  <div className="mb-3">
+                    <div className="text-[10px] text-slate-600 uppercase tracking-widest mb-2">Genres</div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {genres.map((g) => {
+                        const isTarget = (config.targetGenres ?? []).some((t) => t.match.test(g));
+                        return (
+                          <span
+                            key={g}
+                            className={`rounded-full px-2 py-0.5 text-[11px] border ${
+                              isTarget
+                                ? 'border-cyan-500/50 bg-cyan-500/10 text-cyan-300'
+                                : 'border-slate-700 bg-slate-900/40 text-slate-300'
+                            }`}
+                          >
+                            {g}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+                {playstyles.length > 0 && (
+                  <div>
+                    <div className="text-[10px] text-slate-600 uppercase tracking-widest mb-2">Playstyles</div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {playstyles.map((p) => (
+                        <span key={p} className="rounded-full px-2 py-0.5 text-[11px] border border-slate-700 bg-slate-900/40 text-slate-300">
+                          {p}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Segments from registration */}
             <div className="px-6 py-4 border-b border-slate-800">

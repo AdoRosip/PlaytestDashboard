@@ -3,6 +3,8 @@ import { useCallback, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Upload, FileSpreadsheet, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { parseExcelFile } from '@/lib/parser';
+import { enrichTestersFromRegistry } from '@/lib/registryMatch';
+import { GAME_LIST, DEFAULT_GAME_ID, getGameConfig } from '@/lib/games';
 import { useDashboardStore } from '@/lib/store';
 import CompanyLogo from '@/components/brand/CompanyLogo';
 
@@ -15,6 +17,7 @@ export default function UploadPage() {
   const [status, setStatus] = useState<'idle' | 'parsing' | 'done' | 'error'>('idle');
   const [warnings, setWarnings] = useState<string[]>([]);
   const [error, setError] = useState('');
+  const [gameId, setGameId] = useState<string>(DEFAULT_GAME_ID);
 
   const handleFile = useCallback(async (file: File) => {
     if (!file.name.match(/\.(xlsx|xls)$/i)) {
@@ -27,17 +30,21 @@ export default function UploadPage() {
     setError('');
 
     try {
+      const config = getGameConfig(gameId);
       const buffer = await file.arrayBuffer();
-      const result = parseExcelFile(buffer, file.name);
-      setWarnings(result.warnings);
-      loadFromExcel(result);
+      const result = parseExcelFile(buffer, file.name, config);
+      // Enrich participant testers against the Supabase registry by email. This
+      // is a no-op (leaves testers as parsed) when the backend isn't configured.
+      const { result: enriched, warning } = await enrichTestersFromRegistry(result);
+      setWarnings(warning ? [...enriched.warnings, warning] : enriched.warnings);
+      loadFromExcel(enriched);
       setStatus('done');
       setTimeout(() => router.push('/overview'), 1200);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to parse file');
       setStatus('error');
     }
-  }, [loadFromExcel, router]);
+  }, [loadFromExcel, router, gameId]);
 
   const onDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -64,9 +71,31 @@ export default function UploadPage() {
 
       <div className="w-full max-w-lg">
         <h1 className="text-2xl font-bold text-white text-center mb-2">Upload your playtest data</h1>
-        <p className="text-sm text-slate-400 text-center mb-8">
-          Upload the Excel file exported from Google Forms. We&apos;ll parse the Responses and Synced Registration sheets automatically.
+        <p className="text-sm text-slate-400 text-center mb-6">
+          Upload the feedback Excel file exported from Google Forms. We&apos;ll detect
+          questions automatically and link testers to the registry by email.
         </p>
+
+        {/* Game selector */}
+        <div className="mb-6">
+          <label className="block text-xs font-medium text-slate-400 mb-2">Which game is this feedback for?</label>
+          <div className="grid grid-cols-2 gap-2">
+            {GAME_LIST.map((g) => (
+              <button
+                key={g.id}
+                type="button"
+                onClick={() => setGameId(g.id)}
+                className={`py-2.5 px-3 rounded-lg border text-sm font-medium transition-colors ${
+                  gameId === g.id
+                    ? 'border-indigo-400 bg-indigo-500/10 text-white'
+                    : 'border-slate-700 bg-slate-800/40 text-slate-300 hover:border-slate-500'
+                }`}
+              >
+                {g.gameName}
+              </button>
+            ))}
+          </div>
+        </div>
 
         {/* Drop zone */}
         <label
@@ -159,8 +188,9 @@ export default function UploadPage() {
         </button>
 
         <p className="text-xs text-slate-600 text-center mt-4">
-          Parsing happens locally in your browser. Response text is only sent to a
-          third-party AI service if you choose to run AI analysis later.
+          Feedback is parsed locally in your browser. Tester profiles are looked up
+          from your Playlytix registry (stored in Supabase) by email. Response text is
+          only sent to a third-party AI service if you choose to run AI analysis later.
         </p>
       </div>
     </div>

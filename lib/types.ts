@@ -22,7 +22,9 @@ export type SegmentKey =
   | 'industry'
   | 'hardware_tier'
   | 'has_controller'
-  | 'has_mic';
+  | 'has_mic'
+  | 'genres'
+  | 'playstyles';
 
 export type TesterSegments = Partial<Record<SegmentKey, string>>;
 
@@ -40,6 +42,8 @@ export const SEGMENT_LABELS: Record<SegmentKey, string> = {
   hardware_tier:  'Hardware Tier',
   has_controller: 'Controller',
   has_mic:        'Microphone',
+  genres:         'Genres',
+  playstyles:     'Playstyles',
 };
 
 export type Severity = 'Low' | 'Medium' | 'High' | 'Critical';
@@ -71,6 +75,15 @@ export interface TesterQuality {
 export interface Tester {
   id: string;
   testerId: string;
+  /** Stable cross-game registry id from Playlytix (absent for unmatched testers). */
+  playlytixId?: number;
+  /**
+   * Whether this tester's email was found in the Playlytix registry.
+   * `true` = matched, `false` = looked up but NOT found (email not in registry),
+   * `undefined` = not looked up (registry backend off or lookup failed) — so we
+   * don't falsely flag everyone as unmatched when we simply didn't check.
+   */
+  inRegistry?: boolean;
   email: string;
   discord: string;
   segments: TesterSegments;
