@@ -2,16 +2,18 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
-  Users, Star, TrendingUp, ThumbsUp,
+  Users, Star,
   ArrowRight, ChevronRight, Brain,
   AlertTriangle, Clock, Download, Flag,
-  BookOpen, Info, Trophy, Split,
+  BookOpen, Trophy, Split,
   Sparkles, Lightbulb, RefreshCw,
 } from 'lucide-react';
-import { useDashboardStore, selectFilteredResponses, selectFilteredTesters } from '@/lib/store';
-import type { Question, Severity } from '@/lib/types';
+import { useDashboardStore, selectFilteredResponses, selectFilteredTesters, selectGameConfig } from '@/lib/store';
+import type { Severity } from '@/lib/types';
 import type { FlawRecommendationsResult } from '@/app/api/flaw-recommendations/route';
 import { countRespondents } from '@/lib/responseStats';
+import InfoTooltip from '@/components/ui/InfoTooltip';
+import QualitativeOverview from './QualitativeOverview';
 import CompanyLogo from '@/components/brand/CompanyLogo';
 import CategoryGaugeRow from '@/components/charts/CategoryGaugeRow';
 import QuestionHighlights from '@/components/charts/QuestionHighlights';
@@ -46,18 +48,6 @@ function SectionLabel({ children, action }: { children: React.ReactNode; action?
         <div className="w-16 h-px bg-slate-700" />
       </div>
       {action && <div className="text-xs text-slate-400">{action}</div>}
-    </div>
-  );
-}
-
-function InfoTooltip({ text }: { text: string }) {
-  return (
-    <div className="relative group ml-auto flex-shrink-0">
-      <Info className="w-3 h-3 text-slate-600 hover:text-slate-400 cursor-help transition-colors" />
-      <div className="absolute bottom-full right-0 mb-2 w-56 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-[11px] text-slate-300 leading-relaxed shadow-xl invisible group-hover:visible opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 pointer-events-none">
-        {text}
-        <span className="absolute top-full right-2 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-slate-700" />
-      </div>
     </div>
   );
 }
@@ -126,12 +116,23 @@ function formatTier(value: number | null): string {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function OverviewPage() {
+  // Dispatch on the active game's overview mode: qualitative (free-text-heavy
+  // forms like Wannabe Trashman) gets a purpose-built layout; scoring
+  // (rating-heavy forms like Exovia) keeps the category-scorecard layout below.
+  const project = useDashboardStore((s) => s.project);
+  const overviewMode = useDashboardStore((s) => selectGameConfig(s).overviewMode);
+  if (project && overviewMode === 'qualitative') return <QualitativeOverview />;
+  return <ScoringOverview />;
+}
+
+function ScoringOverview() {
   const project    = useDashboardStore(s => s.project);
   const questions  = useDashboardStore(s => s.questions);
   const responses  = useDashboardStore(selectFilteredResponses);
   const categories = useDashboardStore(s => s.categories);
   const testers    = useDashboardStore(selectFilteredTesters);
   const themes     = useDashboardStore(s => s.themes);
+  const config     = useDashboardStore(selectGameConfig);
 
   const d = useMemo(() => {
     // ── helpers ────────────────────────────────────────────────────────────
@@ -196,20 +197,13 @@ export default function OverviewPage() {
       ? Math.round(allNorm.reduce((a, b) => a + b, 0) / allNorm.length)
       : null;
 
-    // ── KPI questions ──────────────────────────────────────────────────────
-    const q = (pat: RegExp): Question | undefined => questions.find(q => pat.test(q.text));
-    const enjoyQ   = q(/enjoy.*overall|overall.*enjoy/i);
-    const clarityQ = q(/game.?mechanic.*overall|how.*intuitive/i);
-    const retQ     = q(/continue.*playing/i);
-    const npsQ     = q(/recommend.*friend/i);
-
-    // Use each question's detected scale (falls back to a sensible default if the
-    // parser didn't record one) instead of assuming a fixed 5- or 10-point scale.
-    const scaleOf = (qq: Question | undefined, fallback: number) => qq?.scaleMax ?? fallback;
-    const enjoyStats   = enjoyQ   ? qSentiment(enjoyQ.id,   scaleOf(enjoyQ,   5)) : null;
-    const clarityStats = clarityQ ? qSentiment(clarityQ.id, scaleOf(clarityQ, 5)) : null;
-    const retStats     = retQ     ? qSentiment(retQ.id,     scaleOf(retQ,    10)) : null;
-    const npsStats     = npsQ     ? qSentiment(npsQ.id,     scaleOf(npsQ,    10)) : null;
+    // ── KPI questions (config-driven — see the active game's config.kpis) ────
+    // Each KPI is matched to a question by regex; we use the question's detected
+    // scale, falling back to the KPI's declared scaleMax.
+    const kpiStats = config.kpis.map((kpi) => {
+      const qq = questions.find((q) => kpi.pattern.test(q.text));
+      return { key: kpi.key, label: kpi.label, stats: qq ? qSentiment(qq.id, qq.scaleMax ?? kpi.scaleMax) : null };
+    });
 
     // ── Tutorial completion ────────────────────────────────────────────────
     const tutorialQ = questions.find(q =>
@@ -397,17 +391,14 @@ export default function OverviewPage() {
       avgTier,
       tierN: progressValues.length,
       overallScore,
-      enjoyStats,
-      clarityStats,
-      retStats,
-      npsStats,
+      kpiStats,
       tutorialPct,
       bestQuestions,
       worstQuestions,
       questionCount,
       dateRange,
     };
-  }, [questions, responses, categories, testers, themes]);
+  }, [questions, responses, categories, testers, themes, config]);
 
   // ── AI recommendations for the biggest flaws (button-triggered) ───────────
   const [aiRecs,    setAiRecs]    = useState<FlawRecommendationsResult | null>(null);
@@ -461,9 +452,6 @@ export default function OverviewPage() {
   const participantCount = countRespondents(responses);
 
   // ── Hero tile helpers ────────────────────────────────────────────────────
-  const enjoyDisplay  = d.enjoyStats  ? `${d.enjoyStats.avg.toFixed(1)} / ${d.enjoyStats.max}`  : '—';
-  const retPct        = d.retStats    ? `${Math.round(d.retStats.avg / d.retStats.max * 100)}%`   : '—';
-  const npsPct        = d.npsStats    ? `${Math.round(d.npsStats.avg / d.npsStats.max * 100)}%`   : '—';
   const tutorialDisplay = d.tutorialPct !== null ? `${d.tutorialPct}%` : null;
   const progressionValue = formatTier(d.avgTier);
   const progressionSub = d.avgTier !== null
@@ -539,56 +527,24 @@ export default function OverviewPage() {
       {/* ── SECTION 1: HERO KPI TILES ────────────────────────────────── */}
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7 gap-4 mb-10">
 
-        {/* Overall Satisfaction */}
-        <div className="bg-slate-800/30 rounded-2xl border border-slate-700/60 p-5">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="w-7 h-7 rounded-lg bg-slate-700/60 flex items-center justify-center">
-              <Star className="w-3.5 h-3.5 text-slate-400" />
+        {/* Config-driven KPI tiles — one per active game's config.kpis */}
+        {d.kpiStats.map((kpi) => (
+          <div key={kpi.key} className="bg-slate-800/30 rounded-2xl border border-slate-700/60 p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-7 h-7 rounded-lg bg-slate-700/60 flex items-center justify-center">
+                <Star className="w-3.5 h-3.5 text-slate-400" />
+              </div>
+              <span className="text-xs font-medium text-slate-400 leading-tight">{kpi.label}</span>
+              <InfoTooltip text={`Average rating from the "${kpi.label}" question, matched automatically by keywords. Shown as average / scale max.`} />
             </div>
-            <span className="text-xs font-medium text-slate-400 leading-tight">Overall Satisfaction</span>
-            <InfoTooltip text="Average rating from the 'overall enjoyment' question (1–5 scale). Question matched automatically by keywords like 'enjoy overall'." />
-          </div>
-          <div className={`text-2xl font-bold ${d.enjoyStats ? 'text-[#00FFFF]' : 'text-slate-600'}`}>
-            {enjoyDisplay}
-          </div>
-          <div className="text-[10px] text-slate-500 mt-0.5">
-            {d.enjoyStats ? `n=${d.enjoyStats.n} responses` : 'no enjoyment question detected'}
-          </div>
-        </div>
-
-        {/* Continue Playing */}
-        <div className="bg-slate-800/30 rounded-2xl border border-slate-700/60 p-5">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="w-7 h-7 rounded-lg bg-slate-700/60 flex items-center justify-center">
-              <TrendingUp className="w-3.5 h-3.5 text-slate-400" />
+            <div className={`text-2xl font-bold ${kpi.stats ? 'text-[#00FFFF]' : 'text-slate-600'}`}>
+              {kpi.stats ? `${kpi.stats.avg.toFixed(1)} / ${kpi.stats.max}` : '—'}
             </div>
-            <span className="text-xs font-medium text-slate-400 leading-tight">Want to Continue Playing</span>
-            <InfoTooltip text="Derived from the 'continue playing' question. Shown as a percentage of the question's max score. Matched by keywords like 'continue playing'." />
-          </div>
-          <div className={`text-2xl font-bold ${d.retStats ? 'text-[#00FFFF]' : 'text-slate-600'}`}>
-            {retPct}
-          </div>
-          <div className="text-[10px] text-slate-500 mt-0.5">
-            {d.retStats ? `${d.retStats.avg.toFixed(1)} / ${d.retStats.max} avg score` : 'no retention question detected'}
-          </div>
-        </div>
-
-        {/* Would Recommend */}
-        <div className="bg-slate-800/30 rounded-2xl border border-slate-700/60 p-5">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="w-7 h-7 rounded-lg bg-slate-700/60 flex items-center justify-center">
-              <ThumbsUp className="w-3.5 h-3.5 text-slate-400" />
+            <div className="text-[10px] text-slate-500 mt-0.5">
+              {kpi.stats ? `${kpi.stats.positive}% positive · n=${kpi.stats.n}` : 'no matching question detected'}
             </div>
-            <span className="text-xs font-medium text-slate-400 leading-tight">Would Recommend</span>
-            <InfoTooltip text="NPS-style metric from the 'recommend to a friend' question. Converted to a percentage of the question's max score. Matched by keywords like 'recommend friend'." />
           </div>
-          <div className={`text-2xl font-bold ${d.npsStats ? 'text-[#00FFFF]' : 'text-slate-600'}`}>
-            {npsPct}
-          </div>
-          <div className="text-[10px] text-slate-500 mt-0.5">
-            {d.npsStats ? `${d.npsStats.avg.toFixed(1)} / ${d.npsStats.max} avg score` : 'no recommendation question detected'}
-          </div>
-        </div>
+        ))}
 
         {/* Avg Playtime */}
         <div className="bg-slate-800/30 rounded-2xl border border-slate-700/60 p-5">

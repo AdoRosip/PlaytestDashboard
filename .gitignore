@@ -36,6 +36,11 @@ yarn-error.log*
 # vercel
 .vercel
 
+# raw playtest data (contains tester PII — never commit)
+/wannabeTrashmanAssests
+*.xlsx
+*.xls
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

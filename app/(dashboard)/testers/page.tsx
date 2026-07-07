@@ -1,12 +1,13 @@
 'use client';
 import { useMemo, useState } from 'react';
-import { Search, Star, AlertTriangle, Globe, Gamepad2, Clock, Monitor } from 'lucide-react';
-import { useDashboardStore, selectFilteredTesters } from '@/lib/store';
+import { Search, Star, AlertTriangle, Globe, Gamepad2, Clock, Monitor, UserX, Target, PenLine } from 'lucide-react';
+import { useDashboardStore, selectFilteredTesters, selectGameConfig } from '@/lib/store';
 import PageHeader from '@/components/ui/PageHeader';
 import EmptyState from '@/components/ui/EmptyState';
 import { Users } from 'lucide-react';
 import { formatTesterId } from '@/lib/utils';
 import { flagLabel } from '@/lib/outliers';
+import { genreFit, engagement, testerGenres, testerPlaystyles } from '@/lib/testerProfile';
 import type { TesterFlagType } from '@/lib/types';
 import GeoDistributionMap from '@/components/charts/GeoDistributionMap';
 import { continentFor } from '@/lib/geo';
@@ -56,9 +57,53 @@ function DistributionBars({ rows, maxRows = 6 }: { rows: DistributionRow[]; maxR
 
 export default function TestersPage() {
   const testers = useDashboardStore(selectFilteredTesters);
+  const responses = useDashboardStore((s) => s.responses);
+  const questions = useDashboardStore((s) => s.questions);
+  const config = useDashboardStore(selectGameConfig);
   const openTesterPanel = useDashboardStore((s) => s.openTesterPanel);
   const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState<'all' | TesterFlagType>('all');
+  const [filter, setFilter] = useState<'all' | TesterFlagType | 'unmatched' | 'target_genre' | 'detailed'>('all');
+
+  // Per-tester taste/quality intel, keyed by tester id.
+  const intel = useMemo(() => {
+    const map = new Map<string, { isFit: boolean; detailed: boolean }>();
+    for (const t of testers) {
+      map.set(t.id, {
+        isFit: genreFit(t, config).isFit,
+        detailed: engagement(t.id, responses, questions).tier === 'detailed',
+      });
+    }
+    return map;
+  }, [testers, responses, questions, config]);
+
+  const targetGenreCount = useMemo(() => [...intel.values()].filter((v) => v.isFit).length, [intel]);
+  const detailedCount = useMemo(() => [...intel.values()].filter((v) => v.detailed).length, [intel]);
+
+  // Credibility lens: do target-genre players rate the primary KPI differently?
+  const lens = useMemo(() => {
+    const kpi = config.kpis[0];
+    if (!kpi) return null;
+    const kpiQ = questions.find((q) => kpi.pattern.test(q.text));
+    if (!kpiQ) return null;
+    const fitIds = new Set(testers.filter((t) => intel.get(t.id)?.isFit).map((t) => t.id));
+    const avg = (predicate: (id: string) => boolean) => {
+      const vals = responses
+        .filter((r) => r.questionId === kpiQ.id && r.numericValue !== null && r.testerId && predicate(r.testerId))
+        .map((r) => r.numericValue!);
+      return vals.length ? { avg: vals.reduce((a, b) => a + b, 0) / vals.length, n: vals.length } : null;
+    };
+    const fit = avg((id) => fitIds.has(id));
+    const others = avg((id) => !fitIds.has(id));
+    if (!fit || !others) return null;
+    return { label: kpi.label, max: kpi.scaleMax, fit, others };
+  }, [testers, responses, questions, config, intel]);
+
+  // Testers whose email was looked up but NOT found in the Playlytix registry.
+  // (inRegistry === false is a definite "not found"; undefined means we didn't look up.)
+  const unmatchedCount = useMemo(
+    () => testers.filter((t) => t.inRegistry === false).length,
+    [testers],
+  );
 
   // Which flag types are actually present, with counts (drives the filter chips).
   const flagCounts = useMemo(() => {
@@ -81,12 +126,16 @@ export default function TestersPage() {
       const raw = t.segments.gamer_type || t.gamingProfile || '';
       return raw.split(',').map((v) => v.trim()).filter(Boolean);
     });
+    const genres = testers.flatMap((t) => testerGenres(t));
+    const playstyles = testers.flatMap((t) => testerPlaystyles(t));
 
     const countryRows = distribution(countries, total).filter((row) => row.label !== 'Unknown');
     const continentRows = distribution(continents, total);
     const ageRows = distribution(ages, total);
     const hardwareRows = distribution(hardware, total);
     const gamerRows = distribution(gamerTypes, Math.max(gamerTypes.length, 1));
+    const genreRows = distribution(genres, Math.max(genres.length, 1));
+    const playstyleRows = distribution(playstyles, Math.max(playstyles.length, 1));
     const matchedProfiles = testers.filter((t) => t.email || t.discord || Object.keys(t.segments).length > 0).length;
 
     return {
@@ -95,6 +144,8 @@ export default function TestersPage() {
       ageRows,
       hardwareRows,
       gamerRows,
+      genreRows,
+      playstyleRows,
       matchedProfiles,
       topCountry: countryRows[0]?.label ?? 'Unknown',
       topContinent: continentRows[0]?.label ?? 'Unknown',
@@ -106,7 +157,15 @@ export default function TestersPage() {
       const q = search.toLowerCase();
       const matchSearch = !q || t.testerId.toLowerCase().includes(q) || t.email.toLowerCase().includes(q) || t.discord.toLowerCase().includes(q);
       const matchFilter =
-        filter === 'all' ? true : (t.quality?.flags.some((f) => f.type === filter) ?? false);
+        filter === 'all'
+          ? true
+          : filter === 'unmatched'
+            ? t.inRegistry === false
+            : filter === 'target_genre'
+              ? (intel.get(t.id)?.isFit ?? false)
+              : filter === 'detailed'
+                ? (intel.get(t.id)?.detailed ?? false)
+                : (t.quality?.flags.some((f) => f.type === filter) ?? false);
       return matchSearch && matchFilter;
     })
     .sort((a, b) => {
@@ -130,6 +189,9 @@ export default function TestersPage() {
         title="Testers"
         sub={(() => {
           const parts = [`${testers.length} testers`];
+          if (targetGenreCount) parts.push(`${targetGenreCount} target-genre`);
+          if (detailedCount) parts.push(`${detailedCount} detailed responders`);
+          if (unmatchedCount) parts.push(`${unmatchedCount} not in registry`);
           if (flagCounts.harsh_critic) parts.push(`${flagCounts.harsh_critic} harsh critics`);
           if (flagCounts.straight_liner) parts.push(`${flagCounts.straight_liner} straight-lining`);
           return parts.join(' · ');
@@ -216,6 +278,59 @@ export default function TestersPage() {
         </div>
       </div>
 
+      {/* Player taste + credibility lens */}
+      {(overview.genreRows.length > 0 || lens) && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-8">
+          {overview.genreRows.length > 0 && (
+            <div className="rounded-xl border border-slate-700/60 bg-slate-800/20 p-5">
+              <div className="text-sm font-semibold text-white mb-1">Genre Preferences</div>
+              <p className="text-xs text-slate-400 mb-4">From the Type-of-Gamer data · target genres drive credibility</p>
+              <DistributionBars rows={overview.genreRows} maxRows={6} />
+            </div>
+          )}
+          {overview.playstyleRows.length > 0 && (
+            <div className="rounded-xl border border-slate-700/60 bg-slate-800/20 p-5">
+              <div className="text-sm font-semibold text-white mb-1">Playstyles</div>
+              <p className="text-xs text-slate-400 mb-4">How these testers prefer to play</p>
+              <DistributionBars rows={overview.playstyleRows} maxRows={6} />
+            </div>
+          )}
+          {lens && (
+            <div className="rounded-xl border border-cyan-700/40 bg-cyan-500/5 p-5">
+              <div className="flex items-center gap-2 mb-1">
+                <Target className="w-4 h-4 text-cyan-400" />
+                <div className="text-sm font-semibold text-white">Credibility Lens</div>
+              </div>
+              <p className="text-xs text-slate-400 mb-4">
+                Do players who actually like this genre feel differently about <span className="text-slate-300">{lens.label}</span>?
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-lg bg-slate-900/40 border border-cyan-600/30 p-3">
+                  <div className="text-[10px] text-cyan-300/80 uppercase tracking-wide mb-1">Target-genre</div>
+                  <div className="text-xl font-bold text-cyan-300">{lens.fit.avg.toFixed(1)} <span className="text-xs text-slate-500">/ {lens.max}</span></div>
+                  <div className="text-[10px] text-slate-500 mt-0.5">n={lens.fit.n}</div>
+                </div>
+                <div className="rounded-lg bg-slate-900/40 border border-slate-700/50 p-3">
+                  <div className="text-[10px] text-slate-500 uppercase tracking-wide mb-1">Everyone else</div>
+                  <div className="text-xl font-bold text-slate-200">{lens.others.avg.toFixed(1)} <span className="text-xs text-slate-500">/ {lens.max}</span></div>
+                  <div className="text-[10px] text-slate-500 mt-0.5">n={lens.others.n}</div>
+                </div>
+              </div>
+              <div className="text-[11px] text-slate-400 mt-3">
+                {(() => {
+                  const diff = lens.fit.avg - lens.others.avg;
+                  const mag = Math.abs(diff).toFixed(1);
+                  if (Math.abs(diff) < 0.2) return 'Target-genre players rate it about the same as everyone else.';
+                  return diff > 0
+                    ? `Target-genre players rate it ${mag} higher — the intended audience responds well.`
+                    : `Target-genre players rate it ${mag} lower — a caution sign with the intended audience.`;
+                })()}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Controls */}
       <div className="flex items-center gap-3 mb-6">
         <div className="flex-1 relative">
@@ -243,6 +358,45 @@ export default function TestersPage() {
               {f === 'all' ? 'All' : `${flagLabel(f)} (${flagCounts[f]})`}
             </button>
           ))}
+        {targetGenreCount > 0 && (
+          <button
+            onClick={() => setFilter(filter === 'target_genre' ? 'all' : 'target_genre')}
+            className={`px-3 py-2 rounded-lg text-xs font-medium transition-colors border whitespace-nowrap flex items-center gap-1.5 ${
+              filter === 'target_genre'
+                ? 'bg-cyan-600/20 border-cyan-500/40 text-cyan-300'
+                : 'border-slate-700 text-slate-400 hover:text-slate-200 hover:border-slate-500'
+            }`}
+          >
+            <Target className="w-3.5 h-3.5" />
+            Target-genre ({targetGenreCount})
+          </button>
+        )}
+        {detailedCount > 0 && (
+          <button
+            onClick={() => setFilter(filter === 'detailed' ? 'all' : 'detailed')}
+            className={`px-3 py-2 rounded-lg text-xs font-medium transition-colors border whitespace-nowrap flex items-center gap-1.5 ${
+              filter === 'detailed'
+                ? 'bg-emerald-600/20 border-emerald-500/40 text-emerald-300'
+                : 'border-slate-700 text-slate-400 hover:text-slate-200 hover:border-slate-500'
+            }`}
+          >
+            <PenLine className="w-3.5 h-3.5" />
+            Detailed responders ({detailedCount})
+          </button>
+        )}
+        {unmatchedCount > 0 && (
+          <button
+            onClick={() => setFilter(filter === 'unmatched' ? 'all' : 'unmatched')}
+            className={`px-3 py-2 rounded-lg text-xs font-medium transition-colors border whitespace-nowrap flex items-center gap-1.5 ${
+              filter === 'unmatched'
+                ? 'bg-amber-600/20 border-amber-500/40 text-amber-300'
+                : 'border-slate-700 text-slate-400 hover:text-slate-200 hover:border-slate-500'
+            }`}
+          >
+            <UserX className="w-3.5 h-3.5" />
+            Not in registry ({unmatchedCount})
+          </button>
+        )}
       </div>
 
       {/* Table */}
@@ -278,6 +432,25 @@ export default function TestersPage() {
                         title={t.quality.flags.map((f) => `${flagLabel(f.type)}: ${f.detail}`).join('\n')}
                       >
                         <AlertTriangle className="w-3.5 h-3.5 text-yellow-400" />
+                      </span>
+                    )}
+                    {t.inRegistry === false && (
+                      <span
+                        className="flex-shrink-0 inline-flex items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-300 cursor-help"
+                        title="This tester's email was not found in the Playlytix registry — no profile/demographics available."
+                      >
+                        <UserX className="w-3 h-3" />
+                        Not in registry
+                      </span>
+                    )}
+                    {intel.get(t.id)?.isFit && (
+                      <span className="flex-shrink-0 cursor-help" title="Target-genre player — plays a genre this game is aimed at.">
+                        <Target className="w-3.5 h-3.5 text-cyan-400" />
+                      </span>
+                    )}
+                    {intel.get(t.id)?.detailed && (
+                      <span className="flex-shrink-0 cursor-help" title="Detailed responder — gave thorough written feedback.">
+                        <PenLine className="w-3.5 h-3.5 text-emerald-400" />
                       </span>
                     )}
                   </div>

@@ -2,6 +2,7 @@ import * as XLSX from 'xlsx';
 import type { QuestionType, SegmentKey, TesterSegments, Tester, Question, Response, Category, Project } from './types';
 import { computeTesterQuality, isConcerning } from './outliers';
 import { computeNormalizedScore, isRatingType } from './scoring';
+import { categoryForQuestion, type GameConfig } from './games';
 
 const IGNORED_SHEETS = ['sheet2'];
 const RESPONSES_KEYWORDS = ['response', 'answer', 'form'];
@@ -25,71 +26,21 @@ const META_TIMESTAMP_PATTERN = /^(timestamp|submitted|submission.?time|date|crea
 // ("Admin Notes", "Payment Status"), but detectQuestionType gates this behind a
 // word-count guard so a question that merely says "NOTE:" isn't treated as admin.
 const ADMIN_PATTERNS = /admin|internal|note|payment|paid|status|amount|__empty/i;
-const ID_PATTERNS = /\bid\b|tester.?id|user.?id|uid/i;
-const EMAIL_PATTERNS = /email/i;
-const DISCORD_PATTERNS = /discord/i;
+export const ID_PATTERNS = /\bid\b|tester.?id|user.?id|uid/i;
+export const EMAIL_PATTERNS = /email/i;
+export const DISCORD_PATTERNS = /discord/i;
 
 // ---------------------------------------------------------------------------
-// Category auto-assignment — maps question text to a category ID.
-// Each rule is [categoryId, regex]. First match wins.
-// Rules are ordered from most-specific to most-generic.
+// Category auto-assignment + inverse-scoring detection are game-specific and
+// now live in the active GameConfig (lib/games/*). The helpers below close over
+// a config's rules; the parser builds them once per import.
 // ---------------------------------------------------------------------------
-const CATEGORY_RULES: [string, RegExp][] = [
-  // Admin / Internal (must come first — catch evaluation score, amount, empty cols)
-  ['cat_15', /evaluation.?score|admin.?note|__empty|amount/i],
-
-  // Technical & Evidence (performance, recordings, uploads)
-  ['cat_09', /record.*(gameplay|image)|upload|footage|timestamp.*(confused|frustrated|stuck|exciting)|notes.*file|files.*upload|performance.?issue|fps.?drop|stuttering|floater.*fps|explosions/i],
-
-  // Player Background
-  ['cat_01', /similar.?game|which.*game.*played|hours.*factorio|hours.*satisfactory|factorio|satisfactory/i],
-
-  // Core Mechanics — Zero Gravity & Mining
-  ['cat_06', /zero.?gravity|navigating.*zero|movement.*disorienting|disorienting.*difficult|improve.*movement|movement.*improve|mining.?ore|laser.*mining|mining.*laser|mining.*repetitive|repetitive.*mining|improve.*mining|mining.*improve/i],
-
-  // Automation & Factory Systems (logistics + automation + space transport)
-  ['cat_07', /automated.?system.*work.?together|floater.?management|accelerator|resources.*flow|visually.?reward|logistics.*resource.*transport|resource.*transport.*system|managing.*moving.*resource|moving.*resources/i],
-
-  // UI & Quality of Life
-  ['cat_08', /user.?interface.*overall|navigate.*menu|menu.*navigat|parts.*user.?interface|quality.?of.?life/i],
-
-  // Game Clarity & Onboarding (mechanics, objectives, guidance, stuck, trial-error)
-  ['cat_04', /game.?mechanic.*overall|mechanic.*unclear|mechanic.*confus|new.?mechanic.*introduced|help.*understand|objective.*instruction|instruction.*manual|audio.?log|what.*looking.?for|stuck.*unsure.*progress|unsure.*how.*progress|caused.*this.*feeling|when.*this.*happened|intuitive.*trial|trial.*error/i],
-
-  // Progression & Engagement (progress system, tier reached, pacing, factory growth)
-  ['cat_05', /progression.?system|how.?far.*progress|stopped.?progress|pacing.*unlock|factory.?automat.*evolv|automat.*evolv|most.?exciting/i],
-
-  // Retention & Market Fit (continue, recommend, stand out, why continue/stop)
-  ['cat_03', /continue.*playing.*test|recommend.*friend|stand.?out.?compared|continue.*or.*stop|want.*to.*continue/i],
-
-  // Overall Experience (enjoyment, frustration, quit moments, favourite part, hours)
-  ['cat_02', /enjoy.*game.*overall|playtest.*stopped|stopped.*playing|frustrated.*confused.*bored|friction.*frustration|friction.*unnecessary|how.?many.?hours.*play|favourite|favorite/i],
-];
-
-function suggestCategory(questionText: string): string | null {
-  for (const [catId, pattern] of CATEGORY_RULES) {
-    if (pattern.test(questionText)) return catId;
-  }
-  return null;
+function makeSuggestCategory(config: GameConfig) {
+  return (questionText: string): string | null => categoryForQuestion(config, questionText);
 }
 
-// ---------------------------------------------------------------------------
-// Inverse-scoring auto-detection — negatively-valenced rating questions where a
-// HIGHER answer means a WORSE experience (e.g. "how frustrated were you?").
-// Matching questions get isInverseScored=true so computeNormalizedScore flips
-// them, exactly like the manual "↓ Inverted" toggle in the builder — no need to
-// flip them by hand after every import. Only applied to rating questions.
-// ---------------------------------------------------------------------------
-const INVERSE_SCORING_PATTERNS: RegExp[] = [
-  /feel\s+frustrated|frustrated.*confused.*bored|quitting the game/i, // frequency of frustration / boredom / quitting
-  /friction|unnecessary frustration/i,                               // friction / frustration during gameplay
-  /disorienting|disorient/i,                                         // movement felt disorienting or difficult
-  /repetitive/i,                                                     // mining became repetitive too quickly
-  /feel stuck|stuck or unsure|unsure how to progress/i,             // feeling stuck / unable to progress
-];
-
-function isInverseScoredQuestion(text: string): boolean {
-  return INVERSE_SCORING_PATTERNS.some((p) => p.test(text));
+function makeIsInverseScored(config: GameConfig) {
+  return (text: string): boolean => config.inverseScoringPatterns.some((p) => p.test(text));
 }
 const UPLOAD_PATTERNS = /upload|attachment|file|link|evidence/i;
 const YES_NO_VALUES = new Set(['yes', 'no', 'true', 'false', '1', '0']);
@@ -132,14 +83,14 @@ function detectQuestionType(header: string, values: string[]): QuestionType {
   return 'free_text';
 }
 
-function findColumn(headers: string[], patterns: RegExp[]): string | null {
+export function findColumn(headers: string[], patterns: RegExp[]): string | null {
   for (const header of headers) {
     if (patterns.some((p) => p.test(header))) return header;
   }
   return null;
 }
 
-function safeIso(value: unknown): string {
+export function safeIso(value: unknown): string {
   if (!value) return new Date().toISOString();
   // xlsx with cellDates:true gives us a real Date object
   if (value instanceof Date) {
@@ -171,13 +122,16 @@ const SEGMENT_RULES: [SegmentKey, RegExp][] = [
   ['industry',      /industr/i],
   ['has_controller',/do you have a controller/i],
   ['has_mic',       /do you have a microphone/i],
+  // Genre / playstyle enrichment from the "Type of Gamer" registry file.
+  ['genres',        /what genres|genres.*play/i],
+  ['playstyles',    /preferred playstyle|playstyles?/i],
 ];
 
 const HW_CPU_PATTERN = /^\s*cpu\s*$/i;
 const HW_GPU_PATTERN = /\bgpu\b|display\s*adapter|graphics\s*card|video\s*card|\bvga\b/i;
 const HW_RAM_PATTERN = /^\s*ram\s*$|\bsystem\s*memory\b/i;
 
-function classifySegmentColumn(header: string): SegmentKey | 'hw_cpu' | 'hw_gpu' | 'hw_ram' | null {
+export function classifySegmentColumn(header: string): SegmentKey | 'hw_cpu' | 'hw_gpu' | 'hw_ram' | null {
   if (HW_CPU_PATTERN.test(header)) return 'hw_cpu';
   if (HW_GPU_PATTERN.test(header)) return 'hw_gpu';
   if (HW_RAM_PATTERN.test(header)) return 'hw_ram';
@@ -187,7 +141,7 @@ function classifySegmentColumn(header: string): SegmentKey | 'hw_cpu' | 'hw_gpu'
   return null;
 }
 
-function deriveHardwareTier(ram: string, gpu: string): 'Low' | 'Mid' | 'High' | 'Unknown' {
+export function deriveHardwareTier(ram: string, gpu: string): 'Low' | 'Mid' | 'High' | 'Unknown' {
   const g = gpu.trim();
 
   // ── HIGH ────────────────────────────────────────────────────────────
@@ -260,9 +214,11 @@ export interface ParseResult {
   warnings: string[];
 }
 
-export function parseExcelFile(buffer: ArrayBuffer, fileName: string): ParseResult {
+export function parseExcelFile(buffer: ArrayBuffer, fileName: string, config: GameConfig): ParseResult {
   const workbook = XLSX.read(buffer, { type: 'array', cellDates: true });
   const warnings: string[] = [];
+  const suggestCategory = makeSuggestCategory(config);
+  const isInverseScoredQuestion = makeIsInverseScored(config);
 
   // Identify sheets
   let responsesSheet: XLSX.WorkSheet | null = null;
@@ -435,18 +391,7 @@ export function parseExcelFile(buffer: ArrayBuffer, fileName: string): ParseResu
     });
   });
 
-  const defaultCategories: Category[] = [
-    { id: 'cat_01', projectId: 'proj_import', name: 'Player Background',            description: 'Gaming history and genre experience — used as a segmentation lens', order: 1,  color: '#00FFFF' },
-    { id: 'cat_02', projectId: 'proj_import', name: 'Overall Experience',           description: 'Enjoyment, frustration, favourite moments, and session length', order: 2,  color: '#0066FF' },
-    { id: 'cat_03', projectId: 'proj_import', name: 'Retention & Market Fit',       description: 'Replay intent, NPS, and what makes the game stand out', order: 3,  color: '#6366F1' },
-    { id: 'cat_04', projectId: 'proj_import', name: 'Game Clarity & Onboarding',   description: 'Mechanic comprehension, objectives, guidance, and feeling stuck', order: 4,  color: '#0000EE' },
-    { id: 'cat_05', projectId: 'proj_import', name: 'Progression & Engagement',    description: 'Progress depth, pacing, stopping reasons, and peak excitement', order: 5,  color: '#FFF' },
-    { id: 'cat_06', projectId: 'proj_import', name: 'Core Mechanics',              description: 'Zero-gravity movement and laser mining feel', order: 6,  color: '#00FFFF' },
-    { id: 'cat_07', projectId: 'proj_import', name: 'Automation & Factory Systems',description: 'Logistics, resource transport, automation satisfaction', order: 7,  color: '#0066FF' },
-    { id: 'cat_08', projectId: 'proj_import', name: 'UI & Quality of Life',        description: 'Interface clarity, menu navigation, and QoL requests', order: 8,  color: '#6366F1' },
-    { id: 'cat_09', projectId: 'proj_import', name: 'Technical & Evidence',        description: 'Performance issues, bugs, and gameplay recordings', order: 9,  color: '#0000EE' },
-    { id: 'cat_15', projectId: 'proj_import', name: 'Admin / Internal',            description: 'Internal scoring and payment data — excluded from report', order: 10, color: '#334155' },
-  ];
+  const defaultCategories: Category[] = config.categories;
 
   // ── Tester avg rating + outlier / quality detection ───────────────────────
   // Robust per-question-deviation method, implemented in lib/outliers.ts.
@@ -462,7 +407,7 @@ export function parseExcelFile(buffer: ArrayBuffer, fileName: string): ParseResu
   const project: Project = {
     id: 'proj_import',
     name: fileName.replace(/\.(xlsx|xls)$/i, ''),
-    gameName: 'Exovia',
+    gameName: config.gameName,
     playtestName: fileName,
     createdAt: new Date().toISOString(),
     totalResponses: participantTesters.length,
