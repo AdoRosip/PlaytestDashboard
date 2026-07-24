@@ -28,6 +28,31 @@ export function getGameConfigByName(gameName: string | undefined | null): GameCo
   return found ?? GAME_CONFIGS[DEFAULT_GAME_ID];
 }
 
+/** How resolveGameConfigForTestName arrived at its answer — surfaced in the UI so a wrong guess is visible. */
+export type GameMatchSource = 'explicit' | 'name-match' | 'default';
+
+/**
+ * Playlytix portal tests carry only a free-text `TestName` (e.g. "Wannabe
+ * Trashman — Alpha Wave 3"), not a game id — the API has no game concept.
+ * We guess by checking whether the test name mentions a known game, and fall
+ * back to the default game otherwise. Always call with `explicitGameId` first
+ * (a `?game=` override) so a bad guess can be corrected without a code change.
+ */
+export function resolveGameConfigForTestName(
+  testName: string | undefined | null,
+  explicitGameId?: string | null,
+): { config: GameConfig; matchedBy: GameMatchSource } {
+  if (explicitGameId && GAME_CONFIGS[explicitGameId]) {
+    return { config: GAME_CONFIGS[explicitGameId], matchedBy: 'explicit' };
+  }
+  const name = (testName ?? '').toLowerCase();
+  if (name) {
+    const found = GAME_LIST.find((g) => name.includes(g.gameName.toLowerCase()));
+    if (found) return { config: found, matchedBy: 'name-match' };
+  }
+  return { config: GAME_CONFIGS[DEFAULT_GAME_ID], matchedBy: 'default' };
+}
+
 /** First category rule whose regex matches the question text wins (or null). */
 export function categoryForQuestion(config: GameConfig, questionText: string): string | null {
   for (const [catId, pattern] of config.categoryRules) {
