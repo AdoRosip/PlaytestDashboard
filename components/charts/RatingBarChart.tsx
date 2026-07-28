@@ -21,12 +21,13 @@ interface RatingBarChartProps {
   data: { value: number; count: number; pct: number }[];
   scale?: 5 | 10;
   onBarClick?: (value: number) => void;
-  // When set, this bar is emphasized and the others are dimmed (drill-down active).
-  selectedValue?: number;
+  // Selected bars stay emphasized while unselected bars are dimmed.
+  selectedValues?: number[];
 }
 
-export default function RatingBarChart({ data, scale = 5, onBarClick, selectedValue }: RatingBarChartProps) {
+export default function RatingBarChart({ data, scale = 5, onBarClick, selectedValues }: RatingBarChartProps) {
   const colorMap = scale === 10 ? COLORS_10 : COLORS;
+  const selectionActive = Boolean(selectedValues?.length);
 
   return (
     <>
@@ -44,7 +45,7 @@ export default function RatingBarChart({ data, scale = 5, onBarClick, selectedVa
           tickLine={false}
         />
         <Tooltip
-          cursor={{ fill: 'rgba(255,255,255,0.04)' }}
+          cursor={false}
           contentStyle={{
             background: '#0B1021',
             border: '1px solid rgba(0, 255, 255, 0.32)',
@@ -63,6 +64,10 @@ export default function RatingBarChart({ data, scale = 5, onBarClick, selectedVa
           dataKey="count"
           radius={[4, 4, 0, 0]}
           cursor={onBarClick ? 'pointer' : 'default'}
+          // Recharts sizes each background rectangle to the full plot height and
+          // forwards this Bar's events to it. Keeping it transparent makes the
+          // whole rating column clickable even when the visible bar is tiny.
+          background={onBarClick ? { fill: 'transparent', stroke: 'none', cursor: 'pointer' } : false}
           onClick={onBarClick ? (_barData: unknown, index: number) => {
             const rating = data[index]?.value;
             if (rating !== undefined) onBarClick(rating);
@@ -72,9 +77,8 @@ export default function RatingBarChart({ data, scale = 5, onBarClick, selectedVa
             <Cell
               key={entry.value}
               fill={colorMap[entry.value] ?? '#0066FF'}
-              fillOpacity={selectedValue === undefined || selectedValue === entry.value ? 1 : 0.25}
-              stroke={selectedValue === entry.value ? '#FFFFFF' : undefined}
-              strokeWidth={selectedValue === entry.value ? 1.5 : 0}
+              fillOpacity={!selectionActive || selectedValues?.includes(entry.value) ? 1 : 0.25}
+              stroke="none"
             />
           ))}
         </Bar>

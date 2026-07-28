@@ -1,14 +1,16 @@
 'use client';
 import { use, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, MessageSquare, User, Clock, Sparkles, RefreshCw, Lightbulb, X, Brain } from 'lucide-react';
+import { ArrowLeft, MessageSquare, User, Clock, Sparkles, RefreshCw, Lightbulb, X, Brain, Filter, CalendarDays } from 'lucide-react';
 import type { QuestionAnalysisResult } from '@/app/api/question-analysis/route';
 import { useDashboardStore, selectFilteredResponses } from '@/lib/store';
 import PageHeader from '@/components/ui/PageHeader';
 import Badge from '@/components/ui/Badge';
 import RatingBarChart from '@/components/charts/RatingBarChart';
 import SegmentBreakdown from '@/components/charts/SegmentBreakdown';
-import { questionTypeLabel, scoreColor, formatDate, computeRatingDistribution, formatTesterId } from '@/lib/utils';
+import CollapsibleSection from '@/components/ui/CollapsibleSection';
+import { questionTypeLabel, scoreColor, formatDate, computeRatingDistribution, formatTesterLabel } from '@/lib/utils';
+import { applyDrill, buildPerQuestionSets, matchingTesterIds, toggleDrill, type DrillSelection } from '@/lib/crossFilter';
 
 // TODO: AI analysis results are local state and are cleared on navigation.
 // Future improvement: persist in Zustand store keyed by questionId so results
@@ -20,7 +22,6 @@ export default function QuestionDetailPage({ params }: { params: Promise<{ id: s
   const categories      = useDashboardStore((s) => s.categories);
   const responses       = useDashboardStore(selectFilteredResponses);
   const testers         = useDashboardStore((s) => s.testers);
-  const openDrawer      = useDashboardStore((s) => s.openDrawer);
   const openTesterPanel = useDashboardStore((s) => s.openTesterPanel);
   const router          = useRouter();
 
@@ -28,19 +29,46 @@ export default function QuestionDetailPage({ params }: { params: Promise<{ id: s
   const [aiAnalysis,  setAiAnalysis]  = useState<QuestionAnalysisResult | null>(null);
   const [aiLoading,   setAiLoading]   = useState(false);
   const [aiError,     setAiError]     = useState<string | null>(null);
+  const [ratingFilter, setRatingFilter] = useState<DrillSelection>({});
 
   const question      = questions.find((q) => q.id === id);
-  const qResponses    = responses.filter((r) => r.questionId === id);
   const scale         = (question?.type === 'rating_1_10' ? 10 : 5) as 5 | 10;
+  const selectedRatings = ratingFilter[id];
+  const ratingFilterActive = Boolean(selectedRatings?.length);
+  const allQuestionResponses = useMemo(
+    () => responses.filter((r) => r.questionId === id),
+    [responses, id],
+  );
+  const selectedTesterIds = useMemo(() => {
+    if (!selectedRatings?.length) return null;
+    return matchingTesterIds(buildPerQuestionSets(responses, { [id]: selectedRatings }));
+  }, [responses, id, selectedRatings]);
+  const qResponses = useMemo(
+    () => applyDrill(allQuestionResponses, selectedTesterIds),
+    [allQuestionResponses, selectedTesterIds],
+  );
   const ratingResponses   = qResponses.filter((r) => r.normalizedScore !== null);
   const freeTextResponses = qResponses.filter((r) => r.numericValue === null && r.rawAnswer);
 
   const ratingDist = useMemo(() => {
     // Recompute from the live response set (the memoised selector hands us a new
     // array identity whenever filters change, so this stays in sync).
-    const rr = responses.filter((r) => r.questionId === id && r.normalizedScore !== null);
+    const rr = allQuestionResponses.filter((r) => r.normalizedScore !== null);
     return rr.length > 0 ? computeRatingDistribution(rr, scale) : null;
-  }, [responses, id, scale]);
+  }, [allQuestionResponses, scale]);
+
+  const toggleRatingFilter = (value: number) => {
+    setRatingFilter((current) => toggleDrill(current, id, value));
+    // An existing analysis describes a different response set after the filter changes.
+    setAiAnalysis(null);
+    setAiError(null);
+  };
+
+  const clearRatingFilter = () => {
+    setRatingFilter({});
+    setAiAnalysis(null);
+    setAiError(null);
+  };
 
   const playtimeMap = useMemo(() => {
     const playtimeQ = questions.find((q) =>
@@ -120,7 +148,7 @@ export default function QuestionDetailPage({ params }: { params: Promise<{ id: s
 
         <PageHeader
           title={question.text}
-          sub={`${questionTypeLabel(question.type)} · ${qResponses.length} responses`}
+          sub={`${questionTypeLabel(question.type)} · ${qResponses.length}${ratingFilterActive ? ` of ${allQuestionResponses.length}` : ''} responses`}
           actions={
             <div className="flex items-center gap-2">
               {cat && <Badge label={cat.name} variant="accent" />}
@@ -139,41 +167,80 @@ export default function QuestionDetailPage({ params }: { params: Promise<{ id: s
           }
         />
 
-        {/* Stats row — rating questions only */}
-        {isRating && <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-          {avg && (
-            <div className="rounded-xl border border-slate-700/60 bg-slate-800/20 p-4 text-center">
-              <div className={`text-2xl font-bold ${scoreColor(
-                question.type === 'rating_1_5' ? ((parseFloat(avg) - 1) / 4) * 100 : parseFloat(avg) * 10
-              )}`}>{avg}</div>
-              <div className="text-xs text-slate-500 mt-1">Average</div>
+        {ratingFilterActive && (
+          <div className="mb-6 flex items-center justify-between gap-4 rounded-xl border border-indigo-500/40 bg-indigo-950/60 px-4 py-3">
+            <div className="flex items-center gap-2 text-xs text-indigo-200">
+              <Filter className="w-3.5 h-3.5" />
+              Showing testers who scored
+              <span className="flex items-center gap-1">
+                {selectedRatings?.map((value, index) => (
+                  <span key={value} className="flex items-center gap-1">
+                    {index > 0 && <span className="text-indigo-300/60">or</span>}
+                    <span className="rounded-md bg-slate-950/60 px-2 py-0.5 font-semibold text-white">{value}</span>
+                  </span>
+                ))}
+              </span>
+              <span className="text-indigo-300/70">
+                {selectedTesterIds?.size ?? 0} matching {selectedTesterIds?.size === 1 ? 'tester' : 'testers'}
+              </span>
             </div>
-          )}
-          <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-4 text-center">
-            <div className="text-2xl font-bold text-red-400">{lowCount}</div>
-            <div className="text-xs text-slate-500 mt-1">Low scores</div>
+            <button
+              onClick={clearRatingFilter}
+              className="text-xs font-medium text-indigo-300 transition-colors hover:text-white"
+            >
+              Clear
+            </button>
           </div>
-          <div className="rounded-xl border border-yellow-500/20 bg-yellow-500/5 p-4 text-center">
-            <div className="text-2xl font-bold text-yellow-400">{midCount}</div>
-            <div className="text-xs text-slate-500 mt-1">Neutral</div>
-          </div>
-          <div className="rounded-xl border border-green-500/20 bg-green-500/5 p-4 text-center">
-            <div className="text-2xl font-bold text-green-400">{highCount}</div>
-            <div className="text-xs text-slate-500 mt-1">High scores</div>
-          </div>
-        </div>}
+        )}
+
+        {/* Stats row — rating questions only */}
+        {isRating && (
+          <CollapsibleSection
+            title="Score Summary"
+            description="Average and score distribution for the visible responses"
+            className="mb-6"
+          >
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+              {avg && (
+                <div className="rounded-xl border border-slate-700/60 bg-slate-800/20 p-4 text-center">
+                  <div className={`text-2xl font-bold ${scoreColor(
+                    question.type === 'rating_1_5' ? ((parseFloat(avg) - 1) / 4) * 100 : parseFloat(avg) * 10
+                  )}`}>{avg}</div>
+                  <div className="text-xs text-slate-500 mt-1">Average</div>
+                </div>
+              )}
+              <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-4 text-center">
+                <div className="text-2xl font-bold text-red-400">{lowCount}</div>
+                <div className="text-xs text-slate-500 mt-1">Low scores</div>
+              </div>
+              <div className="rounded-xl border border-yellow-500/20 bg-yellow-500/5 p-4 text-center">
+                <div className="text-2xl font-bold text-yellow-400">{midCount}</div>
+                <div className="text-xs text-slate-500 mt-1">Neutral</div>
+              </div>
+              <div className="rounded-xl border border-green-500/20 bg-green-500/5 p-4 text-center">
+                <div className="text-2xl font-bold text-green-400">{highCount}</div>
+                <div className="text-xs text-slate-500 mt-1">High scores</div>
+              </div>
+            </div>
+          </CollapsibleSection>
+        )}
 
         {/* Rating distribution chart */}
         {ratingDist && (
-          <div className="rounded-xl border border-slate-700/60 bg-slate-800/20 p-5 mb-6">
-            <div className="text-sm font-semibold text-white mb-1">Rating Distribution</div>
-            <p className="text-xs text-slate-400 mb-4">Click any bar to see the responses behind that rating</p>
+          <CollapsibleSection
+            title="Rating Distribution"
+            description={ratingFilterActive
+              ? `Filtering this page to scores ${selectedRatings?.join(' or ')}. Click a selected bar to remove it, or another bar to add it.`
+              : 'Click one or more bars to include testers behind those ratings.'}
+            className="mb-6"
+          >
             <RatingBarChart
               data={ratingDist}
               scale={scale}
-              onBarClick={(val) => openDrawer(id, val)}
+              selectedValues={selectedRatings}
+              onBarClick={toggleRatingFilter}
             />
-          </div>
+          </CollapsibleSection>
         )}
 
         {/* Segment breakdown */}
@@ -187,8 +254,11 @@ export default function QuestionDetailPage({ params }: { params: Promise<{ id: s
 
         {/* Multiple choice / Yes-No distribution */}
         {mcDist.length > 0 && (
-          <div className="rounded-xl border border-slate-700/60 bg-slate-800/20 p-5 mb-6">
-            <div className="text-sm font-semibold text-white mb-4">Response Breakdown</div>
+          <CollapsibleSection
+            title="Response Breakdown"
+            description="Distribution of answers across the visible responses"
+            className="mb-6"
+          >
             <div className="space-y-2.5">
               {mcDist.map(({ label, count, pct }) => (
                 <div key={label} className="flex items-center gap-3">
@@ -201,16 +271,21 @@ export default function QuestionDetailPage({ params }: { params: Promise<{ id: s
                 </div>
               ))}
             </div>
-          </div>
+          </CollapsibleSection>
         )}
 
         {/* Multiple choice / Yes-No individual responses */}
         {(question.type === 'multiple_choice' || question.type === 'yes_no') && qResponses.length > 0 && (
-          <div className="rounded-xl border border-slate-700/60 bg-slate-800/20 p-5 mb-6">
-            <h2 className="text-sm font-semibold text-white mb-3">
-              Individual Responses
-              <span className="text-xs font-normal text-slate-500 ml-2">({qResponses.length})</span>
-            </h2>
+          <CollapsibleSection
+            title="Individual Responses"
+            description="Answers and tester context"
+            meta={(
+              <span className="rounded-full border border-slate-700 bg-slate-900/50 px-2.5 py-1 text-[11px] text-slate-400">
+                {qResponses.length}
+              </span>
+            )}
+            className="mb-6"
+          >
             <div className="space-y-1.5 overflow-y-auto max-h-[480px] pr-2 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-slate-700">
               {qResponses.slice(0, 30).map((r) => {
                 const tester = testers.find((t) => t.id === r.testerId);
@@ -219,7 +294,7 @@ export default function QuestionDetailPage({ params }: { params: Promise<{ id: s
                   <div key={r.id} className="flex items-center gap-3 rounded-lg border border-slate-700/40 bg-slate-900/30 px-4 py-2.5">
                     <span className="flex-1 text-xs text-slate-300 min-w-0 truncate" title={r.rawAnswer}>{r.rawAnswer}</span>
                     <div className="flex items-center gap-1.5 flex-shrink-0">
-                      <span className="text-xs text-slate-500">{tester ? formatTesterId(tester.testerId) : 'Unknown'}</span>
+                      <span className="text-xs text-slate-500">{tester ? formatTesterLabel(tester) : 'Unknown tester'}</span>
                       {tester?.ageGroup && (
                         <span className="text-[10px] bg-slate-800 text-slate-500 px-1.5 py-0.5 rounded">{tester.ageGroup}</span>
                       )}
@@ -244,17 +319,21 @@ export default function QuestionDetailPage({ params }: { params: Promise<{ id: s
                 <p className="text-xs text-slate-500 text-center py-2">+{qResponses.length - 30} more responses</p>
               )}
             </div>
-          </div>
+          </CollapsibleSection>
         )}
 
         {/* Free text responses */}
         {question.type === 'free_text' && (
-          <div className="rounded-xl border border-slate-700/60 bg-slate-800/20 p-5">
-            <div className="flex items-center gap-2 mb-4">
-              <MessageSquare className="w-4 h-4 text-indigo-400" />
-              <h2 className="text-sm font-semibold text-white">All Responses</h2>
-              <span className="text-xs text-slate-500">({freeTextResponses.length})</span>
-            </div>
+          <CollapsibleSection
+            title="All Responses"
+            description="Written feedback and tester context"
+            meta={(
+              <span className="flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900/50 px-2.5 py-1 text-[11px] text-slate-400">
+                <MessageSquare className="h-3 w-3 text-indigo-400" />
+                {freeTextResponses.length}
+              </span>
+            )}
+          >
             <div className="space-y-3 overflow-y-auto max-h-[480px] pr-2 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-slate-700">
               {freeTextResponses.map((r) => {
                 const tester = testers.find((t) => t.id === r.testerId);
@@ -267,7 +346,7 @@ export default function QuestionDetailPage({ params }: { params: Promise<{ id: s
                     <div className="flex items-center justify-between flex-wrap gap-2">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <User className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
-                        <span className="text-xs text-slate-400">{tester ? formatTesterId(tester.testerId) : 'Unknown'}</span>
+                        <span className="text-xs text-slate-400">{tester ? formatTesterLabel(tester) : 'Unknown tester'}</span>
                         {tester?.ageGroup && (
                           <span className="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full">{tester.ageGroup}</span>
                         )}
@@ -296,59 +375,110 @@ export default function QuestionDetailPage({ params }: { params: Promise<{ id: s
                 );
               })}
             </div>
-          </div>
+          </CollapsibleSection>
         )}
 
         {/* Rating responses list */}
         {question.type !== 'free_text' && ratingResponses.length > 0 && (
-          <div className="rounded-xl border border-slate-700/60 bg-slate-800/20 p-5">
-            <h2 className="text-sm font-semibold text-white mb-4">Individual Responses</h2>
-            <p className="text-xs text-slate-500 mb-3">Click a bar in the chart above to filter by specific score</p>
-            <div className="space-y-2 overflow-y-auto max-h-[480px] pr-2 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-slate-700">
-              {ratingResponses.slice(0, 15).map((r) => {
-                const tester = testers.find((t) => t.id === r.testerId);
-                const playtime = r.testerId ? playtimeMap.get(r.testerId) : undefined;
-                return (
-                  <div key={r.id} className="flex items-center gap-3 rounded-lg border border-slate-700/40 bg-slate-900/30 px-4 py-2.5">
-                    <span className="text-lg font-bold text-white w-6 flex-shrink-0">{r.numericValue}</span>
-                    <div className="flex-1 flex items-center gap-1.5 flex-wrap min-w-0">
-                      <span className="text-xs text-slate-400">{tester ? formatTesterId(tester.testerId) : 'Unknown'}</span>
-                      {tester?.ageGroup && (
-                        <span className="text-[10px] bg-slate-800 text-slate-500 px-1.5 py-0.5 rounded">{tester.ageGroup}</span>
-                      )}
-                      {tester?.segments.hardware_tier && (
-                        <span className="text-[10px] bg-slate-800 text-slate-500 px-1.5 py-0.5 rounded">{tester.segments.hardware_tier} hw</span>
-                      )}
-                      {playtime && (
-                        <span className="text-[10px] bg-slate-800 text-slate-500 px-1.5 py-0.5 rounded flex items-center gap-1">
-                          <Clock className="w-2.5 h-2.5" />{playtime}h
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <span className="text-[10px] text-slate-600">{formatDate(r.submittedAt)}</span>
-                      {tester && (
-                        <button
-                          onClick={() => openTesterPanel(tester.id)}
-                          className="text-xs font-medium text-indigo-400 hover:text-indigo-300 transition-colors border border-indigo-400/30 hover:border-indigo-300/50 rounded px-2 py-0.5"
-                        >
-                          Profile →
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-              {ratingResponses.length > 15 && (
-                <button
-                  onClick={() => openDrawer(id)}
-                  className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors w-full text-center py-2"
-                >
-                  View all {ratingResponses.length} responses in drawer →
-                </button>
-              )}
+          <CollapsibleSection
+            title="Individual Responses"
+            description="Click bars in the chart above to filter by one or more scores."
+            meta={(
+              <span className="rounded-full border border-slate-700 bg-slate-900/50 px-2.5 py-1 text-[11px] text-slate-400">
+                {ratingResponses.length} {ratingResponses.length === 1 ? 'response' : 'responses'}
+              </span>
+            )}
+          >
+            <div className="max-h-[520px] overflow-auto scrollbar-thin scrollbar-track-transparent scrollbar-thumb-slate-700">
+              <table className="w-full min-w-[760px] border-separate border-spacing-y-2 text-left">
+                <thead className="sticky top-0 z-10 bg-[#111726]">
+                  <tr className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                    <th scope="col" className="w-24 px-4 pb-1">Score</th>
+                    <th scope="col" className="px-4 pb-1">Tester</th>
+                    <th scope="col" className="w-[300px] px-4 pb-1">Tester profile</th>
+                    <th scope="col" className="w-36 px-4 pb-1">Submitted</th>
+                    <th scope="col" className="w-24 px-4 pb-1 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ratingResponses.map((r) => {
+                    const tester = testers.find((t) => t.id === r.testerId);
+                    const playtime = r.testerId ? playtimeMap.get(r.testerId) : undefined;
+                    const testerLabel = tester ? formatTesterLabel(tester) : 'Unknown tester';
+                    const testerReference = tester?.inRegistry === true
+                      ? 'Registry tester'
+                      : tester?.inRegistry === false
+                        ? 'Response-only tester'
+                        : null;
+                    const hasProfileDetails = Boolean(tester?.ageGroup || tester?.segments.hardware_tier || playtime);
+                    const cellClass = 'border-y border-slate-700/50 bg-slate-900/40 px-4 py-3';
+
+                    return (
+                      <tr key={r.id} className="group">
+                        <td className={`${cellClass} rounded-l-lg border-l`}>
+                          <div
+                            className="inline-flex min-w-14 items-baseline justify-center gap-1 rounded-lg border border-indigo-500/30 bg-indigo-500/10 px-2.5 py-1.5"
+                            aria-label={`Score ${r.numericValue} out of ${scale}`}
+                          >
+                            <span className="text-lg font-bold leading-none text-white">{r.numericValue}</span>
+                            <span className="text-[10px] text-indigo-300/70">/ {scale}</span>
+                          </div>
+                        </td>
+                        <td className={cellClass}>
+                          <div className="flex min-w-0 items-center gap-2.5">
+                            <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-slate-800">
+                              <User className="h-3.5 w-3.5 text-slate-400" />
+                            </div>
+                            <div className="min-w-0">
+                              <div className="truncate text-xs font-medium text-slate-200" title={testerLabel}>{testerLabel}</div>
+                              {testerReference && <div className="mt-0.5 text-[10px] text-slate-500">{testerReference}</div>}
+                            </div>
+                          </div>
+                        </td>
+                        <td className={cellClass}>
+                          {hasProfileDetails ? (
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              {tester?.ageGroup && (
+                                <span className="rounded bg-slate-800 px-2 py-0.5 text-[10px] text-slate-400">Age {tester.ageGroup}</span>
+                              )}
+                              {tester?.segments.hardware_tier && (
+                                <span className="rounded bg-slate-800 px-2 py-0.5 text-[10px] text-slate-400">{tester.segments.hardware_tier} hardware</span>
+                              )}
+                              {playtime && (
+                                <span className="flex items-center gap-1 rounded bg-slate-800 px-2 py-0.5 text-[10px] text-slate-400">
+                                  <Clock className="h-2.5 w-2.5" />{playtime} played
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-xs text-slate-600">No profile data</span>
+                          )}
+                        </td>
+                        <td className={cellClass}>
+                          <div className="flex items-center gap-2 whitespace-nowrap text-xs text-slate-400">
+                            <CalendarDays className="h-3.5 w-3.5 text-slate-600" />
+                            <time dateTime={r.submittedAt}>{formatDate(r.submittedAt)}</time>
+                          </div>
+                        </td>
+                        <td className={`${cellClass} rounded-r-lg border-r text-right`}>
+                          {tester ? (
+                            <button
+                              onClick={() => openTesterPanel(tester.id)}
+                              className="rounded-md border border-indigo-400/30 px-2.5 py-1 text-xs font-medium text-indigo-400 transition-colors hover:border-indigo-300/50 hover:text-indigo-300"
+                            >
+                              Profile →
+                            </button>
+                          ) : (
+                            <span className="text-xs text-slate-600">—</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
-          </div>
+          </CollapsibleSection>
         )}
       </div>
 

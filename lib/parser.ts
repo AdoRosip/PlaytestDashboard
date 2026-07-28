@@ -3,6 +3,7 @@ import type { QuestionType, SegmentKey, TesterSegments, Tester, Question, Respon
 import { computeTesterQuality, isConcerning } from './outliers';
 import { computeNormalizedScore, isRatingType } from './scoring';
 import { categoryForQuestion, type GameConfig } from './games';
+import { isEmailLike } from './testerIdentity';
 
 const IGNORED_SHEETS = ['sheet2'];
 const RESPONSES_KEYWORDS = ['response', 'answer', 'form'];
@@ -357,7 +358,9 @@ export function parseExcelFile(buffer: ArrayBuffer, fileName: string, config: Ga
       const placeholderId = `tstr_unmatched_${rowIdx}`;
       tester = {
         id: placeholderId,
-        testerId: rawId || rawEmail || `Unknown-${rowIdx}`,
+        // Email is only a private matching key. It must never become the
+        // display identifier when the questionnaire has no tester id.
+        testerId: rawId && !isEmailLike(rawId) ? rawId : `Unmatched-${rowIdx}`,
         email: rawEmail,
         discord: rawDiscord,
         segments: {},

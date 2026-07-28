@@ -1,7 +1,7 @@
 'use client';
 import { X, User } from 'lucide-react';
 import { useDashboardStore, selectQuestion, selectFilteredResponses } from '@/lib/store';
-import { formatDate, formatTesterId } from '@/lib/utils';
+import { formatDate, formatTesterLabel } from '@/lib/utils';
 import Badge from './Badge';
 
 export default function EvidenceDrawer() {
@@ -77,7 +77,7 @@ export default function EvidenceDrawer() {
                       </div>
                       <div>
                         <div className="text-xs font-medium text-slate-200">
-                          {tester ? formatTesterId(tester.testerId) : 'Unknown'}
+                          {tester ? formatTesterLabel(tester) : 'Unknown tester'}
                         </div>
                         <div className="text-[10px] text-slate-500">
                           {tester ? `${tester.ageGroup} · ${tester.country}` : 'Unmatched'}

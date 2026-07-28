@@ -2,6 +2,7 @@
 import { Download, FileText, Table2 } from 'lucide-react';
 import { useDashboardStore } from '@/lib/store';
 import PageHeader from '@/components/ui/PageHeader';
+import { formatTesterLabel } from '@/lib/utils';
 
 function exportToCSV(data: object[], filename: string) {
   if (!data.length) return;
@@ -32,8 +33,7 @@ export default function ExportPage() {
       const t = testers.find((t) => t.id === r.testerId);
       return {
         response_id: r.id,
-        tester_id: t?.testerId ?? '',
-        email: t?.email ?? '',
+        tester_id: t ? formatTesterLabel(t) : '',
         question: q?.text ?? r.questionId,
         question_type: q?.type ?? '',
         answer: r.rawAnswer,
@@ -48,9 +48,7 @@ export default function ExportPage() {
 
   const handleExportTesters = () => {
     const data = testers.map((t) => ({
-      tester_id: t.testerId,
-      email: t.email,
-      discord: t.discord,
+      tester_id: formatTesterLabel(t),
       age_group: t.ageGroup,
       country: t.country,
       gaming_profile: t.gamingProfile,

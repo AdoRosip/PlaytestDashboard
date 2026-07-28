@@ -134,7 +134,7 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ id: s
             </button>
           </div>
           <div className="flex flex-wrap gap-2">
-            {drillEntries.map(([qid, val]) => {
+            {drillEntries.map(([qid, values]) => {
               const q = questions.find((x) => x.id === qid);
               return (
                 <button
@@ -144,7 +144,8 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ id: s
                   className="group flex items-center gap-2 px-3 py-1.5 rounded-full border border-indigo-400/40 bg-slate-900/60 hover:border-indigo-300 transition-colors"
                 >
                   <span className="text-xs text-slate-300">
-                    {q ? shortenQuestion(q.text) : qid} = <span className="font-semibold text-white">{val}</span>
+                    {q ? shortenQuestion(q.text) : qid} ={' '}
+                    <span className="font-semibold text-white">{values.join(' or ')}</span>
                   </span>
                   <X className="w-3 h-3 text-slate-500 group-hover:text-white" />
                 </button>
@@ -227,7 +228,7 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ id: s
                       <RatingBarChart
                         data={dist}
                         scale={q.type === 'rating_1_10' ? 10 : 5}
-                        selectedValue={drill[q.id]}
+                        selectedValues={drill[q.id]}
                         onBarClick={(val) => toggleDrill(q.id, val)} // was: openDrawer(q.id, val)
                       />
                     </div>
