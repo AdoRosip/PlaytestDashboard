@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
   Users, Star,
@@ -8,8 +8,9 @@ import {
   BookOpen, Trophy, Split,
   Sparkles, Lightbulb, RefreshCw,
 } from 'lucide-react';
-import { useDashboardStore, selectFilteredResponses, selectFilteredTesters, selectGameConfig } from '@/lib/store';
+import { useDashboardStore, selectActiveFilterCount, selectFilteredResponses, selectFilteredTesters, selectGameConfig } from '@/lib/store';
 import type { Severity } from '@/lib/types';
+import { filterThemesForResponses } from '@/lib/themeFiltering';
 import type { FlawRecommendationsResult } from '@/app/api/flaw-recommendations/route';
 import { countRespondents } from '@/lib/responseStats';
 import InfoTooltip from '@/components/ui/InfoTooltip';
@@ -18,6 +19,7 @@ import CompanyLogo from '@/components/brand/CompanyLogo';
 import CategoryGaugeRow from '@/components/charts/CategoryGaugeRow';
 import QuestionHighlights from '@/components/charts/QuestionHighlights';
 import PlayerDemoWidget from '@/components/ui/PlayerDemoWidget';
+import ExpandableOverviewSection from '@/components/ui/ExpandableOverviewSection';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared micro-components
@@ -133,6 +135,11 @@ function ScoringOverview() {
   const testers    = useDashboardStore(selectFilteredTesters);
   const themes     = useDashboardStore(s => s.themes);
   const config     = useDashboardStore(selectGameConfig);
+  const filtersActive = useDashboardStore(selectActiveFilterCount) > 0;
+  const visibleThemes = useMemo(
+    () => filterThemesForResponses(themes, responses, filtersActive),
+    [themes, responses, filtersActive],
+  );
 
   const d = useMemo(() => {
     // ── helpers ────────────────────────────────────────────────────────────
@@ -235,7 +242,7 @@ function ScoringOverview() {
       const negativePct = rVals.length
         ? Math.round((rVals.filter(r => r.normalizedScore! < 40).length / rVals.length) * 100)
         : 0;
-      const catThemes = themes.filter(t => t.categoryId === c.id);
+      const catThemes = visibleThemes.filter(t => t.categoryId === c.id);
       // Quotes the testers actually wrote: theme exemplars first, then any
       // substantive free-text answers in this category. Deduped, capped at 4.
       const themeQuotes = catThemes.flatMap(t => t.representativeQuotes ?? []);
@@ -398,17 +405,35 @@ function ScoringOverview() {
       questionCount,
       dateRange,
     };
-  }, [questions, responses, categories, testers, themes, config]);
+  }, [questions, responses, categories, testers, visibleThemes, config]);
 
   // ── AI recommendations for the biggest flaws (button-triggered) ───────────
-  const [aiRecs,    setAiRecs]    = useState<FlawRecommendationsResult | null>(null);
-  const [aiLoading, setAiLoading] = useState(false);
-  const [aiError,   setAiError]   = useState<string | null>(null);
+  const [storedAiRecs, setStoredAiRecs] = useState<{
+    signature: string;
+    result: FlawRecommendationsResult;
+  } | null>(null);
+  const [aiLoadingSignature, setAiLoadingSignature] = useState<string | null>(null);
+  const [storedAiError, setStoredAiError] = useState<{ signature: string; message: string } | null>(null);
+  const aiRequestId = useRef(0);
+
+  const flawSignature = JSON.stringify(d.flaws.map((f) => ({
+    id: f.id,
+    score: f.score,
+    negativePct: f.negativePct,
+    themes: f.themes,
+    quotes: f.quotes,
+  })));
+
+  const aiRecs = storedAiRecs?.signature === flawSignature ? storedAiRecs.result : null;
+  const aiLoading = aiLoadingSignature === flawSignature;
+  const aiError = storedAiError?.signature === flawSignature ? storedAiError.message : null;
 
   const runFlawRecs = async () => {
     if (d.flaws.length === 0) return;
-    setAiLoading(true);
-    setAiError(null);
+    const requestId = ++aiRequestId.current;
+    const requestedSignature = flawSignature;
+    setAiLoadingSignature(requestedSignature);
+    setStoredAiError(null);
     try {
       const res = await fetch('/api/flaw-recommendations', {
         method: 'POST',
@@ -426,25 +451,20 @@ function ScoringOverview() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error((data as { error?: string }).error ?? `HTTP ${res.status}`);
-      setAiRecs(data as FlawRecommendationsResult);
+      if (requestId === aiRequestId.current) {
+        setStoredAiRecs({ signature: requestedSignature, result: data as FlawRecommendationsResult });
+      }
     } catch (err) {
-      setAiError(err instanceof Error ? err.message : 'Failed to generate recommendations');
+      if (requestId === aiRequestId.current) {
+        setStoredAiError({
+          signature: requestedSignature,
+          message: err instanceof Error ? err.message : 'Failed to generate recommendations',
+        });
+      }
     } finally {
-      setAiLoading(false);
+      if (requestId === aiRequestId.current) setAiLoadingSignature(null);
     }
   };
-
-  // Auto-generate recommendations once the flaws are known, and again whenever
-  // the worst areas actually change (e.g. filters shift the bottom 3). The
-  // signature guards against firing on unrelated re-renders / duplicate calls.
-  const flawSignature = d.flaws.map(f => `${f.id}:${f.score}`).join('|');
-  const lastRunSig = useRef<string | null>(null);
-  useEffect(() => {
-    if (!flawSignature || lastRunSig.current === flawSignature) return;
-    lastRunSig.current = flawSignature;
-    runFlawRecs();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [flawSignature]);
 
   if (!project) return null;
 
@@ -631,6 +651,7 @@ function ScoringOverview() {
       </div>
 
       {/* ── SECTION 2: CORE EXPERIENCE SCORES ────────────────────────── */}
+      <ExpandableOverviewSection title="Core Experience Scores">
       <SectionLabel action={
         <Link href="/categories" className="flex items-center gap-1 text-indigo-400 hover:text-indigo-300 transition-colors">
           All categories <ChevronRight className="w-3 h-3" />
@@ -642,14 +663,18 @@ function ScoringOverview() {
       <div className="bg-slate-800/20 rounded-2xl border border-slate-700/60 p-5 mb-10">
         <CategoryGaugeRow categories={d.catScores} />
       </div>
+      </ExpandableOverviewSection>
 
       {/* ── SECTION 3: THREE-COLUMN INSIGHTS ─────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.4fr_1fr] gap-5 mb-10">
 
         {/* ── Left: BEST & WORST QUESTIONS ─────────────────────────── */}
+        <ExpandableOverviewSection title="Best and Worst Questions">
         <QuestionHighlights best={d.bestQuestions} worst={d.worstQuestions} />
+        </ExpandableOverviewSection>
 
         {/* ── Middle: BIGGEST FLAWS + AI RECOMMENDATIONS (wider) ───── */}
+        <ExpandableOverviewSection title="Biggest Flaws and Recommendations">
         <div className="flex flex-col gap-4">
           <div className="bg-slate-800/20 rounded-2xl border border-slate-700/60 p-5 flex-1 flex flex-col">
 
@@ -751,13 +776,17 @@ function ScoringOverview() {
             )}
           </div>
         </div>
+        </ExpandableOverviewSection>
 
         {/* ── Right: WHO ARE YOUR PLAYERS ──────────────────────────── */}
+        <ExpandableOverviewSection title="Who Are Your Players">
         <PlayerDemoWidget testers={testers} />
+        </ExpandableOverviewSection>
       </div>
 
       {/* ── SECTION 4: PLAYER SEGMENT INSIGHTS ──────────────────────── */}
       {(d.segmentCards.length > 0 || d.champion || d.divider) && (
+        <ExpandableOverviewSection title="Player Segment Insights">
         <>
           <SectionLabel action={
             <Link href="/testers" className="flex items-center gap-1 text-indigo-400 hover:text-indigo-300 transition-colors">
@@ -858,6 +887,7 @@ function ScoringOverview() {
             ))}
           </div>
         </>
+        </ExpandableOverviewSection>
       )}
 
       {/* ── FOOTER ──────────────────────────────────────────────────── */}

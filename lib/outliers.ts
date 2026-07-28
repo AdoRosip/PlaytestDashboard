@@ -1,4 +1,4 @@
-import type { Tester, Question, Response, TesterQuality, TesterFlag } from './types';
+import type { Category, Tester, Question, Response, TesterQuality, TesterFlag } from './types';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tester quality / outlier detection.
@@ -50,15 +50,28 @@ export interface TesterQualityInput {
   questions: Question[];
   responses: Response[];
   config?: OutlierConfig;
+  excludedCategoryIds?: ReadonlySet<string>;
+}
+
+/** Categories that describe the participant, evidence, or internal operations
+ * are not player-experience benchmarks. Derive these per game instead of
+ * hard-coding one game's ids. */
+export function qualityExcludedCategoryIds(categories: Category[]): Set<string> {
+  return new Set(
+    categories
+      .filter((c) => /admin|internal|technical|evidence|background|recording/i.test(c.name))
+      .map((c) => c.id),
+  );
 }
 
 export function computeTesterQuality(input: TesterQualityInput): Map<string, TesterQuality> {
   const cfg = input.config ?? OUTLIER_CONFIG;
   const { testers, questions, responses } = input;
+  const excludedCategoryIds = input.excludedCategoryIds ?? cfg.excludedCategoryIds;
 
   const isBenchmark = (q: Question) =>
     !!q.categoryId &&
-    !cfg.excludedCategoryIds.has(q.categoryId) &&
+    !excludedCategoryIds.has(q.categoryId) &&
     (q.type === 'rating_1_5' || q.type === 'rating_1_10');
 
   const benchmarkQIds = new Set(questions.filter(isBenchmark).map((q) => q.id));
@@ -112,7 +125,7 @@ export function computeTesterQuality(input: TesterQualityInput): Map<string, Tes
     if (benchmarkN >= cfg.minForRating) {
       const avgNorm = a.benchScores.reduce((s, x) => s + x, 0) / benchmarkN;
       q.avgNorm = avgNorm;
-      q.avgRating = Math.round((avgNorm / 20) * 10) / 10;
+      q.avgRating = Math.round((1 + avgNorm / 25) * 10) / 10;
       avgNormSum += avgNorm;
       avgNormN++;
     }
@@ -150,13 +163,19 @@ export function computeTesterQuality(input: TesterQualityInput): Map<string, Tes
     const med = median(severities);
     const mad = median(severities.map((s) => Math.abs(s - med)));
     const groupAvgNorm = avgNormN ? Math.round(avgNormSum / avgNormN) : 0;
+    // A perfectly uniform majority makes MAD zero even when one tester is an
+    // obvious outlier. Fall back to RMS distance from the median in that case;
+    // if everybody is genuinely identical the fallback remains zero.
+    const robustScale = mad > 0
+      ? 1.4826 * mad
+      : Math.sqrt(severities.reduce((sum, s) => sum + (s - med) ** 2, 0) / severities.length);
 
-    if (mad > 0) {
+    if (robustScale > 0) {
       for (const tester of testers) {
         const q = result.get(tester.id);
         const sev = severityByTester.get(tester.id);
         if (!q || sev === undefined) continue;
-        const z = (sev - med) / (1.4826 * mad);
+        const z = (sev - med) / robustScale;
         q.robustZ = z;
         const avgDisplay = q.avgNorm !== undefined ? Math.round(q.avgNorm) : '—';
         if (z < -cfg.harshZ) {

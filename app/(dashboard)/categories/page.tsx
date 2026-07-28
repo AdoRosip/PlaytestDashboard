@@ -1,11 +1,13 @@
 'use client';
-import { useDashboardStore, selectFilteredResponses } from '@/lib/store';
+import { useMemo } from 'react';
+import { useDashboardStore, selectActiveFilterCount, selectFilteredResponses } from '@/lib/store';
 import PageHeader from '@/components/ui/PageHeader';
 import CategoryCard from '@/components/cards/CategoryCard';
 import EmptyState from '@/components/ui/EmptyState';
 import { Layers } from 'lucide-react';
 import type { Severity } from '@/lib/types';
 import { countRespondents } from '@/lib/responseStats';
+import { filterThemesForResponses } from '@/lib/themeFiltering';
 
 function deriveSeverity(score: number, negativePct: number): Severity {
   if (score < 40 || negativePct > 50) return 'Critical';
@@ -18,7 +20,12 @@ export default function CategoriesPage() {
   const categories = useDashboardStore((s) => s.categories);
   const questions   = useDashboardStore((s) => s.questions);
   const responses   = useDashboardStore(selectFilteredResponses);
-  const themes      = useDashboardStore((s) => s.themes);
+  const storedThemes = useDashboardStore((s) => s.themes);
+  const filtersActive = useDashboardStore(selectActiveFilterCount) > 0;
+  const themes = useMemo(
+    () => filterThemesForResponses(storedThemes, responses, filtersActive),
+    [storedThemes, responses, filtersActive],
+  );
 
   if (!categories.length) {
     return (
@@ -36,11 +43,11 @@ export default function CategoriesPage() {
 
     const avgScore = ratingResponses.length > 0
       ? Math.round(ratingResponses.reduce((s, r) => s + (r.normalizedScore ?? 0), 0) / ratingResponses.length)
-      : 0;
+      : null;
 
     const negativePct = ratingResponses.length > 0
       ? Math.round((ratingResponses.filter((r) => (r.normalizedScore ?? 100) < 40).length / ratingResponses.length) * 100)
-      : 0;
+      : null;
 
     const catThemes = themes.filter((t) => t.categoryId === cat.id);
 
@@ -50,13 +57,19 @@ export default function CategoriesPage() {
       questionCount: catQuestions.length,
       respondentCount: countRespondents(catResponses),
       negativePct,
-      severity: deriveSeverity(avgScore, negativePct),
+      severity: avgScore !== null && negativePct !== null
+        ? deriveSeverity(avgScore, negativePct)
+        : null,
       topThemes: catThemes.map((t) => t.label),
     };
   });
 
   // Sort: worst first
-  const sorted = [...categoriesWithStats].sort((a, b) => a.avgScore - b.avgScore);
+  const sorted = [...categoriesWithStats].sort((a, b) => {
+    if (a.avgScore === null) return b.avgScore === null ? 0 : 1;
+    if (b.avgScore === null) return -1;
+    return a.avgScore - b.avgScore;
+  });
 
   return (
     <div className="mx-auto w-full max-w-[1680px] px-6 lg:px-8 py-8">

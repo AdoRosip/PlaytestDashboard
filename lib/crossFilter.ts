@@ -5,24 +5,24 @@ import type { Response } from './types';
 //
 // On a category page the user can click a rating bar (e.g. "5") on one question
 // to filter every *other* question down to the testers who gave that rating.
-// Selecting bars on several questions ANDs the constraints together.
+// Selecting several bars on one question ORs those values together. Selecting
+// bars on several questions ANDs the per-question constraints together.
 //
 // This is a *tester* filter, exactly like the global one in `filtering.ts`:
-// each `{ questionId → rating }` entry resolves to the set of testers who gave
-// that rating on that question, and the active set is the intersection of those
-// sets. Everything else (which responses are visible per question) derives from
-// the intersection.
+// each `{ questionId → ratings[] }` entry resolves to the union of testers who
+// gave any selected rating on that question, and the active set is the
+// intersection of those per-question sets.
 //
 // Kept pure (no React / no store) so it is directly unit-testable; the page
 // component only owns the `DrillSelection` state and renders the result.
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Map of questionId → selected rating value. Entries AND together. */
-export type DrillSelection = Record<string, number>;
+/** Map of questionId → selected rating values. Values OR; questions AND. */
+export type DrillSelection = Record<string, number[]>;
 
 /**
  * Build, for each drilled question, the set of tester ids who answered the
- * selected rating on that question.
+ * any selected rating on that question.
  *
  * Matching mirrors the bar chart's bucketing: the chart rounds `numericValue`
  * to the nearest integer bucket (see `computeRatingDistribution`), so we round
@@ -34,14 +34,16 @@ export function buildPerQuestionSets(
   drill: DrillSelection,
 ): Map<string, Set<string>> {
   const sets = new Map<string, Set<string>>();
-  for (const [qid, val] of Object.entries(drill)) {
+  for (const [qid, values] of Object.entries(drill)) {
+    if (values.length === 0) continue;
+    const selectedValues = new Set(values);
     const s = new Set<string>();
     for (const r of responses) {
       if (
         r.questionId === qid &&
         r.testerId !== null &&
         r.numericValue !== null &&
-        Math.round(r.numericValue) === val
+        selectedValues.has(Math.round(r.numericValue))
       ) {
         s.add(r.testerId);
       }
@@ -89,18 +91,21 @@ export function applyDrill(
   return responses.filter((r) => r.testerId !== null && ids.has(r.testerId));
 }
 
-/** Add a selection, or remove it when the same value is clicked again (toggle). */
+/** Add a value to a question, or remove only that value when clicked again. */
 export function toggleDrill(
   drill: DrillSelection,
   questionId: string,
   value: number,
 ): DrillSelection {
-  if (drill[questionId] === value) {
+  const current = drill[questionId] ?? [];
+  if (current.includes(value)) {
+    const remaining = current.filter((selected) => selected !== value);
+    if (remaining.length > 0) return { ...drill, [questionId]: remaining };
     const next = { ...drill };
     delete next[questionId];
     return next;
   }
-  return { ...drill, [questionId]: value };
+  return { ...drill, [questionId]: [...current, value].sort((a, b) => a - b) };
 }
 
 /** Remove a single question's selection. */

@@ -1,11 +1,11 @@
 'use client';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
   Users, Star, Download, Sparkles, ThumbsUp, ThumbsDown, Lightbulb,
   MessageSquareText, ListChecks, TrendingDown, PenLine, Loader2, RefreshCw,
 } from 'lucide-react';
-import { useDashboardStore, selectFilteredResponses, selectFilteredTesters, selectGameConfig } from '@/lib/store';
+import { useDashboardStore, selectActiveFilterCount, selectFilteredResponses, selectFilteredTesters, selectGameConfig } from '@/lib/store';
 import { countRespondents } from '@/lib/responseStats';
 import { engagement } from '@/lib/testerProfile';
 import {
@@ -15,6 +15,8 @@ import {
 import type { OverviewInsightsResult } from '@/app/api/overview-insights/route';
 import CompanyLogo from '@/components/brand/CompanyLogo';
 import InfoTooltip from '@/components/ui/InfoTooltip';
+import ExpandableOverviewSection from '@/components/ui/ExpandableOverviewSection';
+import { filterThemesForResponses } from '@/lib/themeFiltering';
 
 const COMMERCIAL_KEY = /wishlist|recommend|nps|continue|retention/i;
 const NON_ANSWERS = new Set(['no', 'n/a', 'na', 'none', 'nope', 'nothing', 'idk', '-', '.', 'yes']);
@@ -42,6 +44,11 @@ export default function QualitativeOverview() {
   const runThemeAnalysis = useDashboardStore((s) => s.runThemeAnalysis);
   const config     = useDashboardStore(selectGameConfig);
   const openDrawer = useDashboardStore((s) => s.openDrawer);
+  const filtersActive = useDashboardStore(selectActiveFilterCount) > 0;
+  const visibleThemes = useMemo(
+    () => filterThemesForResponses(themes, responses, filtersActive),
+    [themes, responses, filtersActive],
+  );
 
   const d = useMemo(() => {
     const adminCatIds = new Set(
@@ -143,33 +150,6 @@ export default function QualitativeOverview() {
     }
   }, [insightsPayload]);
 
-  // Use the complete request as the signature so equal answer counts cannot
-  // conceal changed feedback. The ref also prevents React's development-mode
-  // effect replay from issuing a duplicate OpenAI request.
-  const insightsSig = JSON.stringify(insightsPayload);
-  const lastRunSig = useRef<string | null>(null);
-  useEffect(() => {
-    if (d.freeText.length === 0) {
-      lastRunSig.current = null;
-      requestIdRef.current += 1;
-      return;
-    }
-    if (lastRunSig.current === insightsSig) return;
-    lastRunSig.current = insightsSig;
-    generateInsights();
-  }, [d.freeText.length, generateInsights, insightsSig]);
-
-  // Populate recurring themes without requiring a trip to the AI Analysis page.
-  // Existing themes are retained, while idle datasets are analysed once on load.
-  useEffect(() => {
-    if (
-      d.freeText.length === 0
-      || themes.length > 0
-      || themeAnalysisStatus !== 'idle'
-    ) return;
-    void runThemeAnalysis();
-  }, [d.freeText.length, runThemeAnalysis, themeAnalysisStatus, themes.length]);
-
   if (!project) return null;
   const participants = countRespondents(responses);
   const dateStr = new Date(project.createdAt).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
@@ -202,6 +182,7 @@ export default function QualitativeOverview() {
       </div>
 
       {/* Commercial signal + KPI distributions */}
+      <ExpandableOverviewSection title="Headline Signals">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-8">
         {d.kpis.map((kpi) => (
           <div key={kpi.key} className={`rounded-2xl border p-5 ${kpi.isCommercial ? 'border-indigo-600/40 bg-indigo-500/5' : 'border-slate-700/60 bg-slate-800/20'}`}>
@@ -246,8 +227,10 @@ export default function QualitativeOverview() {
           </div>
         ))}
       </div>
+      </ExpandableOverviewSection>
 
       {/* AI Key Takeaways — strengths, concerns, recommendations */}
+      <ExpandableOverviewSection title="Key Takeaways">
       <div className="rounded-2xl border border-slate-700/60 bg-slate-800/20 p-5 mb-8">
         <div className="flex items-center gap-3 mb-4">
           <div className="flex items-center gap-2">
@@ -261,9 +244,22 @@ export default function QualitativeOverview() {
           <p className="text-xs text-slate-600 py-6 text-center">Not enough open-ended answers to analyse.</p>
         )}
 
-        {!insights && d.freeText.length > 0 && !insightsError && (
+        {!insights && d.freeText.length > 0 && insightsLoading && !insightsError && (
           <div className="flex items-center justify-center gap-2 py-10 text-slate-400 text-sm">
             <Loader2 className="w-4 h-4 animate-spin" /> Analysing {d.freeText.reduce((n, f) => n + f.answers.length, 0)} open-ended answers…
+          </div>
+        )}
+
+        {!insights && d.freeText.length > 0 && !insightsLoading && !insightsError && (
+          <div className="rounded-xl border border-dashed border-slate-700 bg-slate-900/30 p-6 text-center">
+            <p className="text-sm text-slate-300 mb-1">Generate AI takeaways from the visible cohort?</p>
+            <p className="text-xs text-slate-500 mb-4">This sends the sampled responses shown in this report to OpenAI.</p>
+            <button
+              onClick={generateInsights}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-indigo-600 hover:bg-indigo-500 text-white transition-colors"
+            >
+              <Sparkles className="w-3.5 h-3.5" /> Generate takeaways
+            </button>
           </div>
         )}
 
@@ -323,10 +319,12 @@ export default function QualitativeOverview() {
           </div>
         )}
       </div>
+      </ExpandableOverviewSection>
 
       {/* Feature demand + recurring feedback themes */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
         {/* Feature demand */}
+        <ExpandableOverviewSection title="Feature Demand">
         <div className="rounded-2xl border border-slate-700/60 bg-slate-800/20 p-5">
           <div className="flex items-center gap-2 mb-1">
             <ListChecks className="w-4 h-4 text-cyan-400" />
@@ -357,8 +355,10 @@ export default function QualitativeOverview() {
             </div>
           )}
         </div>
+        </ExpandableOverviewSection>
 
         {/* Recurring feedback themes */}
+        <ExpandableOverviewSection title="Recurring Feedback Themes">
         <div className="rounded-2xl border border-slate-700/60 bg-slate-800/20 p-5">
           <div className="flex items-center gap-2 mb-1">
             <MessageSquareText className="w-4 h-4 text-indigo-400" />
@@ -372,15 +372,25 @@ export default function QualitativeOverview() {
             </p>
           )}
 
-          {d.freeText.length > 0
-            && themes.length === 0
-            && (themeAnalysisStatus === 'idle' || themeAnalysisStatus === 'running')
-            && (
+          {d.freeText.length > 0 && themes.length === 0 && themeAnalysisStatus === 'running' && (
               <div className="rounded-xl border border-dashed border-slate-700 bg-slate-900/30 p-5 text-center">
                 <Loader2 className="w-5 h-5 text-indigo-400 mx-auto mb-2 animate-spin" />
                 <p className="text-sm text-slate-300">Finding recurring patterns in player feedback…</p>
               </div>
-            )}
+          )}
+
+          {d.freeText.length > 0 && themes.length === 0 && themeAnalysisStatus === 'idle' && (
+            <div className="rounded-xl border border-dashed border-slate-700 bg-slate-900/30 p-5 text-center">
+              <p className="text-sm text-slate-300 mb-1">Find recurring themes with AI?</p>
+              <p className="text-xs text-slate-500 mb-4">This sends open-ended responses to OpenAI.</p>
+              <button
+                onClick={() => void runThemeAnalysis()}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-indigo-600 hover:bg-indigo-500 text-white transition-colors"
+              >
+                <Sparkles className="w-3.5 h-3.5" /> Analyse themes
+              </button>
+            </div>
+          )}
 
           {d.freeText.length > 0 && themes.length === 0 && themeAnalysisStatus === 'done' && (
             <p className="text-xs text-slate-600 py-6 text-center">
@@ -402,9 +412,15 @@ export default function QualitativeOverview() {
             </div>
           )}
 
-          {d.freeText.length > 0 && themes.length > 0 && (
+          {d.freeText.length > 0 && themes.length > 0 && visibleThemes.length === 0 && (
+            <p className="text-xs text-slate-500 py-6 text-center">
+              No stored theme has linked evidence in the current filtered cohort.
+            </p>
+          )}
+
+          {d.freeText.length > 0 && visibleThemes.length > 0 && (
             <div className="space-y-2 max-h-[320px] overflow-y-auto pr-1">
-              {[...themes]
+              {[...visibleThemes]
                 .sort((a, b) => (b.frequency ?? 0) - (a.frequency ?? 0))
                 .slice(0, 8)
                 .map((t) => (
@@ -424,10 +440,12 @@ export default function QualitativeOverview() {
             </div>
           )}
         </div>
+        </ExpandableOverviewSection>
       </div>
 
       {/* Quantified qualitative strip */}
       {d.semi.length > 0 && (
+        <ExpandableOverviewSection title="Quantified Qualitative">
         <div className="rounded-2xl border border-slate-700/60 bg-slate-800/20 p-5 mb-8">
           <div className="flex items-center gap-2 mb-1">
             <TrendingDown className="w-4 h-4 text-slate-400" />
@@ -463,6 +481,7 @@ export default function QualitativeOverview() {
             })}
           </div>
         </div>
+        </ExpandableOverviewSection>
       )}
     </div>
   );

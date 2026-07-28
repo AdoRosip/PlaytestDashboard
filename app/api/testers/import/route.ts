@@ -2,10 +2,13 @@ import { NextResponse } from 'next/server';
 import type { ImportRequest, ImportResult } from '@/lib/registry';
 import { upsertTesters } from '@/lib/supabase/testers';
 import { isBackendConfigured } from '@/lib/supabase/server';
+import { requireDashboardAuth } from '@/lib/server/requestAuth';
 
 export const runtime = 'nodejs';
 
 export async function POST(req: Request) {
+  const authError = requireDashboardAuth(req);
+  if (authError) return authError;
   if (!isBackendConfigured()) {
     return NextResponse.json(
       { error: 'Tester registry backend is not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.' },
@@ -23,6 +26,9 @@ export async function POST(req: Request) {
   const records = body?.records;
   if (!Array.isArray(records) || records.length === 0) {
     return NextResponse.json({ error: 'No registry records provided.' }, { status: 400 });
+  }
+  if (records.length > 100000) {
+    return NextResponse.json({ error: 'Too many registry records in one request.' }, { status: 413 });
   }
 
   try {

@@ -2,6 +2,17 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
+Production deployments fail closed unless dashboard credentials are configured:
+
+```bash
+DASHBOARD_USERNAME=your-user
+DASHBOARD_PASSWORD=use-a-long-random-password
+```
+
+The browser will request these credentials using HTTP Basic authentication. They
+protect the dashboard itself as well as the tester-registry and OpenAI-backed API
+routes. Local development does not require them.
+
 First, run the development server:
 
 ```bash

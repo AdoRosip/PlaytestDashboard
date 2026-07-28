@@ -55,12 +55,45 @@ function rowToRecord(row: TesterRow): RegistryRecord {
   };
 }
 
+function mergeForRefresh(existing: RegistryRecord | undefined, incoming: RegistryRecord): RegistryRecord {
+  if (!existing) return incoming;
+  const segments = { ...existing.segments, ...incoming.segments };
+  if (
+    incoming.segments.hardware_tier === 'Unknown' &&
+    existing.segments.hardware_tier &&
+    existing.segments.hardware_tier !== 'Unknown'
+  ) {
+    segments.hardware_tier = existing.segments.hardware_tier;
+  }
+  return {
+    ...incoming,
+    playlytixId: incoming.playlytixId ?? existing.playlytixId,
+    discord: incoming.discord || existing.discord,
+    segments,
+    cpu: incoming.cpu || existing.cpu,
+    gpu: incoming.gpu || existing.gpu,
+    ram: incoming.ram || existing.ram,
+    steam64: incoming.steam64 || existing.steam64,
+    epic: incoming.epic || existing.epic,
+    psn: incoming.psn || existing.psn,
+    xbox: incoming.xbox || existing.xbox,
+    registeredAt: incoming.registeredAt || existing.registeredAt,
+    rawJson: Object.keys(incoming.rawJson ?? {}).length > 0 ? incoming.rawJson : existing.rawJson,
+  };
+}
+
 /** Upsert registry records on email. Returns the number upserted. */
 export async function upsertTesters(records: RegistryRecord[]): Promise<number> {
   const client = getServiceClient();
   if (!client) throw new Error('Supabase is not configured (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY).');
 
-  const rows = records.map(recordToRow);
+  // Refreshes often omit the optional Type-of-Gamer export. Merge with the
+  // stored profile first so absent enrichment is not interpreted as a request
+  // to erase genres, playstyles, platform ids, or hardware details.
+  const existing = await matchTestersByEmail(records.map((r) => r.email));
+  const rows = records.map((record) =>
+    recordToRow(mergeForRefresh(existing[normalizeEmail(record.email)], record)),
+  );
   // Chunk to stay well under payload limits for large registries.
   const CHUNK = 500;
   let upserted = 0;

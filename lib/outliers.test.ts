@@ -86,7 +86,19 @@ describe('computeTesterQuality — sentiment flags', () => {
     });
     expect(q.get('Tfew')!.severity).toBeUndefined();
     expect(q.get('Tfew')!.sentiment).toBe('typical');
-    expect(q.get('Tfew')!.avgRating).toBeDefined(); // still shows a rating (>= minForRating)
+    expect(q.get('Tfew')!.avgRating).toBe(1.4); // 10/100 maps to 1.4 on a 1–5 display scale
+  });
+
+  it('still flags an obvious outlier when most testers have the same severity', () => {
+    const levels: Record<string, number> = Object.fromEntries(
+      Array.from({ length: 10 }, (_, i) => [`T${i}`, 50]),
+    );
+    levels.Tharsh = 0;
+    const { testers, questions, responses } = flatScenario(levels);
+    const quality = computeTesterQuality({ testers, questions, responses });
+
+    expect(quality.get('Tharsh')!.sentiment).toBe('harsh');
+    expect(quality.get('Tharsh')!.flags.some((flag) => flag.type === 'harsh_critic')).toBe(true);
   });
 });
 

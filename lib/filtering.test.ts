@@ -8,6 +8,7 @@ import {
   countActiveFilters,
   sentimentBand,
 } from './filtering';
+import { computeNormalizedScore } from './scoring';
 
 // ─── Fixture builders ────────────────────────────────────────────────────────
 
@@ -260,20 +261,26 @@ describe('computeFilteredTesterIds', () => {
   });
 
   describe('player sentiment band', () => {
-    // Bands key off the "overall enjoyment" question, scored on a 0–5 scale
-    // (normalizedScore / 20): <3 detractors · 3–4 almost believers · >4 believers.
-    const enjoyQ = question('enjoy', 'How much did you enjoy the game overall?');
+    // Bands key off the "overall enjoyment" question, displayed on its 1–5 scale:
+    // <3 detractors · 3–4 almost believers · >4 believers.
+    const enjoyQ = question('enjoy', 'How much did you enjoy the game overall?', {
+      scaleMin: 1,
+      scaleMax: 5,
+    });
     const testers = [
       tester('det'), tester('low_edge'), tester('mid'),
       tester('high_edge'), tester('bel'), tester('unrated'),
     ];
-    // normalizedScore = rating * 20
+    const scoredResponse = (testerId: string, rating: number) => response(testerId, 'enjoy', {
+      numericValue: rating,
+      normalizedScore: computeNormalizedScore(enjoyQ, rating),
+    });
     const responses = [
-      response('det', 'enjoy', { normalizedScore: 42 }),       // 2.1 → detractor
-      response('low_edge', 'enjoy', { normalizedScore: 60 }),  // 3.0 inclusive → almost
-      response('mid', 'enjoy', { normalizedScore: 70 }),       // 3.5 → almost
-      response('high_edge', 'enjoy', { normalizedScore: 80 }), // 4.0 inclusive → almost
-      response('bel', 'enjoy', { normalizedScore: 96 }),       // 4.8 → believer
+      scoredResponse('det', 2.1),
+      scoredResponse('low_edge', 3),
+      scoredResponse('mid', 3.5),
+      scoredResponse('high_edge', 4),
+      scoredResponse('bel', 4.8),
       // 'unrated' never answered the enjoyment question → unclassified
     ];
     const questions = [enjoyQ];
@@ -319,9 +326,9 @@ describe('filterResponsesByTesterIds', () => {
     expect(filterResponsesByTesterIds(responses, null)).toBe(responses);
   });
 
-  it('keeps matching testers and always keeps null-tester responses', () => {
+  it('keeps only matching testers when a tester filter is active', () => {
     const kept = filterResponsesByTesterIds(responses, new Set(['a']));
-    expect(kept.map((r) => r.testerId)).toEqual(['a', null]);
+    expect(kept.map((r) => r.testerId)).toEqual(['a']);
   });
 });
 

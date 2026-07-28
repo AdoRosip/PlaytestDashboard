@@ -1,7 +1,10 @@
 'use client';
+import { useMemo } from 'react';
 import { Download, FileText, Table2 } from 'lucide-react';
-import { useDashboardStore } from '@/lib/store';
+import { useDashboardStore, selectActiveFilterCount, selectFilteredResponses, selectFilteredTesters } from '@/lib/store';
 import PageHeader from '@/components/ui/PageHeader';
+import { formatTesterLabel } from '@/lib/utils';
+import { filterThemesForResponses } from '@/lib/themeFiltering';
 
 function exportToCSV(data: object[], filename: string) {
   if (!data.length) return;
@@ -21,10 +24,15 @@ function exportToCSV(data: object[], filename: string) {
 
 export default function ExportPage() {
   const project   = useDashboardStore((s) => s.project);
-  const responses = useDashboardStore((s) => s.responses);
+  const responses = useDashboardStore(selectFilteredResponses);
   const questions = useDashboardStore((s) => s.questions);
-  const testers   = useDashboardStore((s) => s.testers);
-  const themes    = useDashboardStore((s) => s.themes);
+  const testers   = useDashboardStore(selectFilteredTesters);
+  const storedThemes = useDashboardStore((s) => s.themes);
+  const filtersActive = useDashboardStore(selectActiveFilterCount) > 0;
+  const themes = useMemo(
+    () => filterThemesForResponses(storedThemes, responses, filtersActive),
+    [storedThemes, responses, filtersActive],
+  );
 
   const handleExportResponses = () => {
     const data = responses.map((r) => {
@@ -32,8 +40,7 @@ export default function ExportPage() {
       const t = testers.find((t) => t.id === r.testerId);
       return {
         response_id: r.id,
-        tester_id: t?.testerId ?? '',
-        email: t?.email ?? '',
+        tester_id: t ? formatTesterLabel(t) : '',
         question: q?.text ?? r.questionId,
         question_type: q?.type ?? '',
         answer: r.rawAnswer,
@@ -48,9 +55,7 @@ export default function ExportPage() {
 
   const handleExportTesters = () => {
     const data = testers.map((t) => ({
-      tester_id: t.testerId,
-      email: t.email,
-      discord: t.discord,
+      tester_id: formatTesterLabel(t),
       age_group: t.ageGroup,
       country: t.country,
       gaming_profile: t.gamingProfile,

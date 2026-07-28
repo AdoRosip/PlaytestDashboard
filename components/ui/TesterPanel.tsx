@@ -1,7 +1,7 @@
 'use client';
 import { X, Star, AlertTriangle, UserX, Target, PenLine } from 'lucide-react';
 import { useDashboardStore, selectGameConfig } from '@/lib/store';
-import { formatDate, formatTesterId } from '@/lib/utils';
+import { formatDate, formatTesterLabel } from '@/lib/utils';
 import { flagLabel } from '@/lib/outliers';
 import { genreFit, engagement, testerGenres, testerPlaystyles, ENGAGEMENT_LABELS } from '@/lib/testerProfile';
 import type { EngagementTier } from '@/lib/testerProfile';
@@ -37,6 +37,7 @@ export default function TesterPanel() {
   const eng    = tester ? engagement(tester.id, responses, questions) : null;
   const genres = tester ? testerGenres(tester) : [];
   const playstyles = tester ? testerPlaystyles(tester) : [];
+  const testerLabel = tester ? formatTesterLabel(tester) : '';
 
   return (
     <>
@@ -72,14 +73,13 @@ export default function TesterPanel() {
             <div className="px-6 py-5 border-b border-slate-800">
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-10 h-10 rounded-full bg-indigo-600/30 flex items-center justify-center text-indigo-300 font-bold text-sm">
-                  {tester.testerId.slice(-2)}
+                  {testerLabel.slice(-2).toUpperCase()}
                 </div>
                 <div>
-                  <div className="text-sm font-semibold text-white">{formatTesterId(tester.testerId)}</div>
-                  <div className="text-xs text-slate-400">{tester.email || tester.discord}</div>
-                  {tester.email && tester.discord && (
-                    <div className="text-xs text-slate-600">{tester.discord}</div>
-                  )}
+                  <div className="text-sm font-semibold text-white">{testerLabel}</div>
+                  <div className="text-xs text-slate-400">
+                    {tester.inRegistry === true ? 'Registry tester' : tester.inRegistry === false ? 'Response-only tester' : 'Tester'}
+                  </div>
                 </div>
               </div>
 
@@ -89,8 +89,8 @@ export default function TesterPanel() {
                   <div>
                     <div className="text-xs font-semibold text-amber-300">Not in registry</div>
                     <div className="text-[11px] text-slate-400 leading-relaxed">
-                      This email wasn&apos;t found in the Playlytix registry, so no demographic
-                      profile is available. Their feedback is still counted.
+                      No matching Playlytix registry profile was found, so demographic data
+                      is unavailable. Their feedback is still counted.
                     </div>
                   </div>
                 </div>

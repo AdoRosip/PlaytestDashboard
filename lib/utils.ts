@@ -84,9 +84,7 @@ export function getInitials(name: string): string {
   return name.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2);
 }
 
-export function formatTesterId(testerId: string): string {
-  return /^\d+$/.test(testerId.trim()) ? `Tester ${testerId.trim()}` : testerId;
-}
+export { formatTesterId, formatTesterLabel } from './testerIdentity';
 
 export interface SegmentRow {
   label: string;

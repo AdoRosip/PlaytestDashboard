@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import type { Response, Tester, SegmentKey } from '@/lib/types';
 import { SEGMENT_LABELS } from '@/lib/types';
+import CollapsibleSection from '@/components/ui/CollapsibleSection';
 
 interface Props {
   responses: Response[];
@@ -36,16 +37,13 @@ export default function SegmentBreakdown({ responses, testers, scale }: Props) {
     }))
     .sort((a, b) => b.avg - a.avg);
 
-  if (rows.length < 2) return null;
-
   return (
-    <div className="rounded-xl border border-slate-700/60 bg-slate-800/20 p-5 mb-6">
-      <div className="flex items-start justify-between gap-4 mb-4">
-        <div>
-          <div className="text-sm font-semibold text-white">Score by Segment</div>
-          <p className="text-xs text-slate-400 mt-0.5">Average rating broken down by tester profile</p>
-        </div>
-        <div className="flex items-center gap-1.5 flex-wrap justify-end">
+    <CollapsibleSection
+      title="Score by Segment"
+      description="Average rating broken down by tester profile"
+      className="mb-6"
+    >
+      <div className="flex flex-wrap items-center justify-end gap-1.5 mb-4">
           {BREAKDOWN_SEGMENTS.map((key) => (
             <button
               key={key}
@@ -59,10 +57,14 @@ export default function SegmentBreakdown({ responses, testers, scale }: Props) {
               {SEGMENT_LABELS[key]}
             </button>
           ))}
-        </div>
       </div>
 
       <div className="space-y-2.5">
+        {rows.length < 2 && (
+          <p className="text-xs text-slate-500 py-3 text-center">
+            Not enough populated groups for {SEGMENT_LABELS[activeKey]}. Try another segment.
+          </p>
+        )}
         {rows.map(({ label, avg, count }) => {
           const pct = (avg / scale) * 100;
           const barColor = pct >= 65 ? '#00FFFF' : pct >= 40 ? '#0066FF' : '#0000EE';
@@ -90,6 +92,6 @@ export default function SegmentBreakdown({ responses, testers, scale }: Props) {
           );
         })}
       </div>
-    </div>
+    </CollapsibleSection>
   );
 }

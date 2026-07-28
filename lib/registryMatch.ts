@@ -61,10 +61,10 @@ export async function enrichTestersFromRegistry(
   // genuine placeholders (no existing profile) — a tester who already carries
   // registration data (e.g. Exovia's embedded "Synced Registration" sheet) is
   // not mislabeled just because their email isn't in this Supabase registry yet.
-  let matched = 0;
+  let registryMatched = 0;
   const testers = result.testers.map((t) => {
     const rec = matches[normalizeEmail(t.email)];
-    if (rec) { matched++; return applyRegistry(t, rec); }
+    if (rec) { registryMatched++; return applyRegistry(t, rec); }
     const hasProfile = Object.keys(t.segments).length > 0;
     return hasProfile ? t : { ...t, inRegistry: false as const };
   });
@@ -80,7 +80,15 @@ export async function enrichTestersFromRegistry(
     return r;
   });
 
-  const unmatched = unmatchedIds.size;
+  const originallyMatchedIds = new Set(
+    result.responses
+      .filter((r) => r.testerId && r.matchStatus === 'matched')
+      .map((r) => r.testerId!),
+  );
+  const matched = testers.filter(
+    (t) => t.inRegistry === true || originallyMatchedIds.has(t.id),
+  ).length;
+  const unmatched = testers.length - matched;
   const enriched: ParseResult = {
     ...result,
     testers,
@@ -92,7 +100,7 @@ export async function enrichTestersFromRegistry(
     matched === 0
       ? 'No testers matched the registry. Import the Playlytix registry first (Registry page).'
       : unmatched > 0
-        ? `${matched} testers linked to the registry; ${unmatched} not found (kept as unmatched).`
+        ? `${registryMatched} testers linked to the Supabase registry; ${unmatched} not found (kept as unmatched).`
         : undefined;
 
   return { result: enriched, warning };

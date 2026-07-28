@@ -1,4 +1,5 @@
 import OpenAI from 'openai';
+import { requireDashboardAuth } from '@/lib/server/requestAuth';
 
 // Client sends a compact, sampled view of the qualitative feedback.
 export interface OverviewInsightsInput {
@@ -26,6 +27,8 @@ export interface OverviewInsightsResult {
 }
 
 export async function POST(req: Request) {
+  const authError = requireDashboardAuth(req);
+  if (authError) return authError;
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     return Response.json({ error: 'OPENAI_API_KEY not set in .env.local' }, { status: 500 });

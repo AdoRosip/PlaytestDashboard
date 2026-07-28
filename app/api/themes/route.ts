@@ -1,8 +1,11 @@
 import OpenAI from 'openai';
 import type { Question, Response as PlaytestResponse, Category } from '@/lib/types';
+import { requireDashboardAuth } from '@/lib/server/requestAuth';
 
 // Requires OPENAI_API_KEY in .env.local
 export async function POST(req: Request) {
+  const authError = requireDashboardAuth(req);
+  if (authError) return authError;
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     return Response.json({ error: 'OPENAI_API_KEY not set in .env.local' }, { status: 500 });

@@ -1,22 +1,25 @@
 'use client';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Sparkles, ChevronDown, ChevronUp, ExternalLink, Info,
   AlertCircle, RefreshCw, Loader2,
 } from 'lucide-react';
-import { useDashboardStore } from '@/lib/store';
+import { useDashboardStore, selectActiveFilterCount, selectFilteredResponses } from '@/lib/store';
 import PageHeader from '@/components/ui/PageHeader';
 import Badge from '@/components/ui/Badge';
 import EmptyState from '@/components/ui/EmptyState';
 import type { Severity } from '@/lib/types';
+import { filterThemesForResponses } from '@/lib/themeFiltering';
 
 const severityOrder: Record<Severity, number> = { Critical: 0, High: 1, Medium: 2, Low: 3 };
 
 export default function ThemesPage() {
-  const themes          = useDashboardStore((s) => s.themes);
+  const storedThemes    = useDashboardStore((s) => s.themes);
   const categories      = useDashboardStore((s) => s.categories);
   const questions       = useDashboardStore((s) => s.questions);
-  const responses       = useDashboardStore((s) => s.responses);
+  const allResponses    = useDashboardStore((s) => s.responses);
+  const responses       = useDashboardStore(selectFilteredResponses);
+  const filtersActive   = useDashboardStore(selectActiveFilterCount) > 0;
   const isLoaded        = useDashboardStore((s) => s.isLoaded);
   const analysisStatus  = useDashboardStore((s) => s.analysisStatus);
   const analysisError   = useDashboardStore((s) => s.analysisError);
@@ -27,7 +30,15 @@ export default function ThemesPage() {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [filter, setFilter]     = useState<Severity | 'All'>('All');
 
+  const themes = useMemo(
+    () => filterThemesForResponses(storedThemes, responses, filtersActive),
+    [storedThemes, responses, filtersActive],
+  );
+
   const freeTextCount = responses.filter(
+    (r) => questions.find((q) => q.id === r.questionId)?.type === 'free_text' && r.rawAnswer?.trim(),
+  ).length;
+  const fullFreeTextCount = allResponses.filter(
     (r) => questions.find((q) => q.id === r.questionId)?.type === 'free_text' && r.rawAnswer?.trim(),
   ).length;
 
@@ -52,6 +63,7 @@ export default function ThemesPage() {
 
   const isRunning = analysisStatus === 'running';
   const hasThemes = themes.length > 0;
+  const hasStoredThemes = storedThemes.length > 0;
 
   return (
     <div className="mx-auto w-full max-w-4xl px-6 lg:px-8 py-8">
@@ -64,7 +76,7 @@ export default function ThemesPage() {
         }
         actions={
           <div className="flex items-center gap-2">
-            {hasThemes && !isRunning && (
+            {hasStoredThemes && !isRunning && (
               <button
                 onClick={clearThemes}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-700 text-xs text-slate-400 hover:text-white hover:border-slate-500 transition-colors"
@@ -73,7 +85,7 @@ export default function ThemesPage() {
                 Clear
               </button>
             )}
-            {(hasThemes || analysisStatus === 'error') && !isRunning && (
+            {(hasStoredThemes || analysisStatus === 'error') && !isRunning && (
               <button
                 onClick={runThemeAnalysis}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-indigo-500/40 bg-indigo-600/20 text-xs text-indigo-300 hover:bg-indigo-600/30 transition-colors"
@@ -91,7 +103,7 @@ export default function ThemesPage() {
         <div className="flex items-center gap-3 rounded-xl border border-indigo-500/20 bg-indigo-950/30 px-4 py-3 mb-6">
           <Loader2 className="w-4 h-4 text-indigo-400 animate-spin flex-shrink-0" />
           <div className="text-xs text-slate-300">
-            Analysing {freeTextCount} free-text responses with ChatGPT
+            Analysing all {fullFreeTextCount} free-text responses with the configured AI provider
             {themes.length > 0 && (
               <> · <span className="text-indigo-300 font-medium">{themes.length} theme{themes.length !== 1 ? 's' : ''} found so far</span></>
             )}
@@ -116,15 +128,15 @@ export default function ThemesPage() {
       )}
 
       {/* No themes yet — show CTA */}
-      {!hasThemes && !isRunning && analysisStatus !== 'error' && (
+      {!hasStoredThemes && !isRunning && analysisStatus !== 'error' && (
         <div className="rounded-xl border border-indigo-500/20 bg-indigo-950/20 p-10 text-center">
           <Sparkles className="w-8 h-8 text-indigo-400 mx-auto mb-3" />
           <h3 className="text-sm font-semibold text-white mb-1">Ready to analyse</h3>
           <p className="text-xs text-slate-400 mb-1 max-w-sm mx-auto">
-            Claude will read all {freeTextCount} free-text responses and identify recurring themes, issues, and patterns across your playtest data.
+            The configured AI provider will read all {fullFreeTextCount} free-text responses and identify recurring themes, issues, and patterns across your playtest data.
           </p>
           <p className="text-[11px] text-slate-600 mb-6">
-            Requires <code className="text-slate-500">OPENAI_API_KEY</code> in <code className="text-slate-500">.env.local</code>
+            This sends the full imported free-text dataset, regardless of the current view filters. Requires <code className="text-slate-500">OPENAI_API_KEY</code> in <code className="text-slate-500">.env.local</code>.
           </p>
           <button
             onClick={runThemeAnalysis}
@@ -133,6 +145,12 @@ export default function ThemesPage() {
             <Sparkles className="w-4 h-4" />
             Run Analysis
           </button>
+        </div>
+      )}
+
+      {hasStoredThemes && !hasThemes && filtersActive && !isRunning && (
+        <div className="rounded-xl border border-slate-700/60 bg-slate-800/20 p-8 text-center text-sm text-slate-400">
+          No stored theme has linked evidence in the current filtered cohort.
         </div>
       )}
 
