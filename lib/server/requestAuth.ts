@@ -17,16 +17,17 @@ function challenge(message = 'Authentication required.'): Response {
 }
 
 /**
- * Protect the dashboard and its service-role/API-key-backed handlers with HTTP
- * Basic authentication. Development remains frictionless, but production
- * fails closed unless both credentials are configured.
+ * Optionally protect the dashboard and its service-role/API-key-backed handlers
+ * with HTTP Basic authentication. Authentication is disabled unless the
+ * deployment explicitly sets DASHBOARD_AUTH_ENABLED=true.
  */
 export function requireDashboardAuth(request: Request): Response | null {
+  if (process.env.DASHBOARD_AUTH_ENABLED !== 'true') return null;
+
   const expectedUser = process.env.DASHBOARD_USERNAME;
   const expectedPassword = process.env.DASHBOARD_PASSWORD;
 
   if (!expectedUser || !expectedPassword) {
-    if (process.env.NODE_ENV !== 'production') return null;
     return new Response(
       'Dashboard authentication is not configured. Set DASHBOARD_USERNAME and DASHBOARD_PASSWORD.',
       { status: 503, headers: { 'Cache-Control': 'no-store' } },
