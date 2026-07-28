@@ -6,8 +6,16 @@ afterEach(() => {
 });
 
 describe('requireDashboardAuth', () => {
-  it('fails closed in production when credentials are not configured', () => {
+  it('is disabled by default, including in production', () => {
     vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('DASHBOARD_USERNAME', '');
+    vi.stubEnv('DASHBOARD_PASSWORD', '');
+
+    expect(requireDashboardAuth(new Request('https://dashboard.test'))).toBeNull();
+  });
+
+  it('fails closed when explicitly enabled without credentials', () => {
+    vi.stubEnv('DASHBOARD_AUTH_ENABLED', 'true');
     vi.stubEnv('DASHBOARD_USERNAME', '');
     vi.stubEnv('DASHBOARD_PASSWORD', '');
 
@@ -15,7 +23,7 @@ describe('requireDashboardAuth', () => {
   });
 
   it('challenges missing and incorrect credentials', () => {
-    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('DASHBOARD_AUTH_ENABLED', 'true');
     vi.stubEnv('DASHBOARD_USERNAME', 'reviewer');
     vi.stubEnv('DASHBOARD_PASSWORD', 'secret');
 
@@ -30,7 +38,7 @@ describe('requireDashboardAuth', () => {
   });
 
   it('allows the configured credentials', () => {
-    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('DASHBOARD_AUTH_ENABLED', 'true');
     vi.stubEnv('DASHBOARD_USERNAME', 'reviewer');
     vi.stubEnv('DASHBOARD_PASSWORD', 'secret:with:colons');
 

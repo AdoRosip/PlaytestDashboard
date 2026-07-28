@@ -2,16 +2,19 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
-Production deployments fail closed unless dashboard credentials are configured:
+Dashboard authentication is disabled by default. If you want to enable HTTP
+Basic authentication later, configure all three variables:
 
 ```bash
+DASHBOARD_AUTH_ENABLED=true
 DASHBOARD_USERNAME=your-user
 DASHBOARD_PASSWORD=use-a-long-random-password
 ```
 
 The browser will request these credentials using HTTP Basic authentication. They
 protect the dashboard itself as well as the tester-registry and OpenAI-backed API
-routes. Local development does not require them.
+routes. Without `DASHBOARD_AUTH_ENABLED=true`, no login is required in local or
+deployed environments.
 
 First, run the development server:
 
