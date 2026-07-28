@@ -12,7 +12,7 @@ import {
   computeFilteredTesterIds, filterResponsesByTesterIds, filterTestersByIds,
   countActiveFilters,
 } from './filtering';
-import { computeTesterQuality, isConcerning } from './outliers';
+import { computeTesterQuality, isConcerning, qualityExcludedCategoryIds } from './outliers';
 import { computeNormalizedScore, scaleForType } from './scoring';
 import { getGameConfigByName, type GameConfig } from './games';
 
@@ -21,8 +21,18 @@ import { getGameConfigByName, type GameConfig } from './games';
  * questions + responses. Used whenever question metadata or category assignment
  * changes, since both alter the benchmark set or the scores feeding it.
  */
-function applyQuality(testers: Tester[], questions: Question[], responses: Response[]): Tester[] {
-  const quality = computeTesterQuality({ testers, questions, responses });
+function applyQuality(
+  testers: Tester[],
+  questions: Question[],
+  responses: Response[],
+  config: GameConfig,
+): Tester[] {
+  const quality = computeTesterQuality({
+    testers,
+    questions,
+    responses,
+    excludedCategoryIds: qualityExcludedCategoryIds(config.categories),
+  });
   return testers.map((t) => {
     const q = quality.get(t.id);
     if (!q) return t;
@@ -96,6 +106,8 @@ const defaultFilters: FilterState = {
   excludeSentimentOutliers: false,
 };
 
+let analysisGeneration = 0;
+
 export const useDashboardStore = create<DashboardState>()(
   persist(
     (set, get) => ({
@@ -117,6 +129,7 @@ export const useDashboardStore = create<DashboardState>()(
   activeTesterId: null,
 
   loadMockData: () => {
+    analysisGeneration += 1;
     set({
       project: mockProject,
       testers: mockTesters,
@@ -125,10 +138,19 @@ export const useDashboardStore = create<DashboardState>()(
       responses: mockResponses,
       themes: mockThemes,
       isLoaded: true,
+      filters: defaultFilters,
+      analysisStatus: 'idle',
+      analysisError: null,
+      drawerOpen: false,
+      drawerQuestionId: null,
+      drawerRatingValue: null,
+      testerPanelOpen: false,
+      activeTesterId: null,
     });
   },
 
   loadFromExcel: (data) => {
+    analysisGeneration += 1;
     set({
       project: data.project,
       testers: data.testers,
@@ -139,6 +161,12 @@ export const useDashboardStore = create<DashboardState>()(
       analysisStatus: 'idle',
       analysisError: null,
       isLoaded: true,
+      filters: defaultFilters,
+      drawerOpen: false,
+      drawerQuestionId: null,
+      drawerRatingValue: null,
+      testerPanelOpen: false,
+      activeTesterId: null,
     });
   },
 
@@ -165,7 +193,15 @@ export const useDashboardStore = create<DashboardState>()(
     set((s) => {
       const questions = s.questions.map((q) => q.id === questionId ? { ...q, categoryId } : q);
       // Category drives the benchmark set, so re-derive tester quality.
-      return { questions, testers: applyQuality(s.testers, questions, s.responses) };
+       return {
+         questions,
+         testers: applyQuality(
+           s.testers,
+           questions,
+           s.responses,
+           getGameConfigByName(s.project?.gameName),
+         ),
+       };
     }),
 
   updateQuestion: (questionId, patch) =>
@@ -189,7 +225,16 @@ export const useDashboardStore = create<DashboardState>()(
           ? { ...r, normalizedScore: computeNormalizedScore(changed, r.numericValue) }
           : r,
       );
-      return { questions, responses, testers: applyQuality(s.testers, questions, responses) };
+      return {
+        questions,
+        responses,
+        testers: applyQuality(
+          s.testers,
+          questions,
+          responses,
+          getGameConfigByName(s.project?.gameName),
+        ),
+      };
     }),
 
   addCategory: (name) => {
@@ -205,11 +250,15 @@ export const useDashboardStore = create<DashboardState>()(
     set((s) => ({ categories: [...s.categories, newCat] }));
   },
 
-  clearThemes: () => set({ themes: [], analysisStatus: 'idle', analysisError: null }),
+  clearThemes: () => {
+    analysisGeneration += 1;
+    set({ themes: [], analysisStatus: 'idle', analysisError: null });
+  },
 
   runThemeAnalysis: async () => {
     const { questions, responses, categories, analysisStatus } = get();
     if (analysisStatus === 'running') return;
+    const generation = ++analysisGeneration;
     set({ analysisStatus: 'running', analysisError: null, themes: [] });
 
     try {
@@ -231,6 +280,10 @@ export const useDashboardStore = create<DashboardState>()(
 
       while (true) {
         const { done, value } = await reader.read();
+        if (generation !== analysisGeneration) {
+          await reader.cancel();
+          return;
+        }
         if (done) break;
 
         buffer += decoder.decode(value, { stream: true });
@@ -262,14 +315,16 @@ export const useDashboardStore = create<DashboardState>()(
                 linkedResponseIds: (event.data.linkedResponseIds as string[]) ?? [],
                 priority: (event.data.priority as Theme['priority']) ?? 'Medium',
               };
-              set((s) => ({ themes: [...s.themes, theme] }));
+              if (generation === analysisGeneration) {
+                set((s) => ({ themes: [...s.themes, theme] }));
+              }
             }
 
-            if (event.type === 'done') {
+            if (event.type === 'done' && generation === analysisGeneration) {
               set({ analysisStatus: 'done' });
             }
 
-            if (event.type === 'error') {
+            if (event.type === 'error' && generation === analysisGeneration) {
               set({ analysisStatus: 'error', analysisError: event.message ?? 'Analysis failed' });
             }
           } catch {
@@ -279,8 +334,11 @@ export const useDashboardStore = create<DashboardState>()(
       }
 
       // Guard: if stream ended without an explicit 'done' event
-      set((s) => (s.analysisStatus === 'running' ? { analysisStatus: 'done' } : {}));
+      if (generation === analysisGeneration) {
+        set((s) => (s.analysisStatus === 'running' ? { analysisStatus: 'done' } : {}));
+      }
     } catch (err) {
+      if (generation !== analysisGeneration) return;
       set({
         analysisStatus: 'error',
         analysisError: err instanceof Error ? err.message : 'Analysis failed',
@@ -360,7 +418,13 @@ export const selectFilteredTesterIds = (state: DashboardState): Set<string> | nu
     return filteredTesterIdsCache.value;
   }
 
-  const value = computeFilteredTesterIds({ testers, responses, questions, filters });
+  const value = computeFilteredTesterIds({
+    testers,
+    responses,
+    questions,
+    filters,
+    config: getGameConfigByName(state.project?.gameName),
+  });
   filteredTesterIdsCache = { filters, testers, responses, questions, value };
   return value;
 };

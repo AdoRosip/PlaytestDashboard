@@ -1,7 +1,7 @@
 'use client';
 import { useMemo, useState } from 'react';
 import { Search, Star, AlertTriangle, Globe, Gamepad2, Clock, Monitor, UserX, Target, PenLine } from 'lucide-react';
-import { useDashboardStore, selectFilteredTesters, selectGameConfig } from '@/lib/store';
+import { useDashboardStore, selectFilteredResponses, selectFilteredTesters, selectGameConfig } from '@/lib/store';
 import PageHeader from '@/components/ui/PageHeader';
 import EmptyState from '@/components/ui/EmptyState';
 import { Users } from 'lucide-react';
@@ -57,7 +57,7 @@ function DistributionBars({ rows, maxRows = 6 }: { rows: DistributionRow[]; maxR
 
 export default function TestersPage() {
   const testers = useDashboardStore(selectFilteredTesters);
-  const responses = useDashboardStore((s) => s.responses);
+  const responses = useDashboardStore(selectFilteredResponses);
   const questions = useDashboardStore((s) => s.questions);
   const config = useDashboardStore(selectGameConfig);
   const openTesterPanel = useDashboardStore((s) => s.openTesterPanel);

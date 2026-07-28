@@ -1,5 +1,5 @@
 'use client';
-import { use, useMemo, useState } from 'react';
+import { use, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, MessageSquare, User, Clock, Sparkles, RefreshCw, Lightbulb, X, Brain, Filter, CalendarDays } from 'lucide-react';
 import type { QuestionAnalysisResult } from '@/app/api/question-analysis/route';
@@ -26,9 +26,6 @@ export default function QuestionDetailPage({ params }: { params: Promise<{ id: s
   const router          = useRouter();
 
   const [aiPanelOpen, setAiPanelOpen] = useState(false);
-  const [aiAnalysis,  setAiAnalysis]  = useState<QuestionAnalysisResult | null>(null);
-  const [aiLoading,   setAiLoading]   = useState(false);
-  const [aiError,     setAiError]     = useState<string | null>(null);
   const [ratingFilter, setRatingFilter] = useState<DrillSelection>({});
 
   const question      = questions.find((q) => q.id === id);
@@ -47,6 +44,22 @@ export default function QuestionDetailPage({ params }: { params: Promise<{ id: s
     () => applyDrill(allQuestionResponses, selectedTesterIds),
     [allQuestionResponses, selectedTesterIds],
   );
+  const responseSignature = useMemo(
+    () => JSON.stringify(qResponses.map((r) => [r.id, r.rawAnswer, r.numericValue, r.normalizedScore])),
+    [qResponses],
+  );
+  const aiRequestId = useRef(0);
+  const [storedAiAnalysis, setAiAnalysis] = useState<QuestionAnalysisResult | null>(null);
+  const [aiAnalysisSignature, setAiAnalysisSignature] = useState<string | null>(null);
+  const [aiLoadingSignature, setAiLoadingSignature] = useState<string | null>(null);
+  const [storedAiError, setStoredAiError] = useState<{ signature: string; message: string } | null>(null);
+  const aiAnalysis = aiAnalysisSignature === responseSignature ? storedAiAnalysis : null;
+  const aiLoading = aiLoadingSignature === responseSignature;
+  const aiError = storedAiError?.signature === responseSignature ? storedAiError.message : null;
+  const analysisTesters = useMemo(() => {
+    const testerIds = new Set(qResponses.flatMap((r) => r.testerId ? [r.testerId] : []));
+    return testers.filter((tester) => testerIds.has(tester.id));
+  }, [qResponses, testers]);
   const ratingResponses   = qResponses.filter((r) => r.normalizedScore !== null);
   const freeTextResponses = qResponses.filter((r) => r.numericValue === null && r.rawAnswer);
 
@@ -61,13 +74,13 @@ export default function QuestionDetailPage({ params }: { params: Promise<{ id: s
     setRatingFilter((current) => toggleDrill(current, id, value));
     // An existing analysis describes a different response set after the filter changes.
     setAiAnalysis(null);
-    setAiError(null);
+    setStoredAiError(null);
   };
 
   const clearRatingFilter = () => {
     setRatingFilter({});
     setAiAnalysis(null);
-    setAiError(null);
+    setStoredAiError(null);
   };
 
   const playtimeMap = useMemo(() => {
@@ -88,21 +101,29 @@ export default function QuestionDetailPage({ params }: { params: Promise<{ id: s
 
   const runAiAnalysis = async () => {
     if (!question) return;
-    setAiLoading(true);
-    setAiError(null);
+    const requestId = ++aiRequestId.current;
+    const requestedSignature = responseSignature;
+    setAiLoadingSignature(requestedSignature);
+    setStoredAiError(null);
     try {
       const res = await fetch('/api/question-analysis', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question, responses: qResponses, testers }),
+        body: JSON.stringify({ question, responses: qResponses, testers: analysisTesters }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error((data as { error?: string }).error ?? `HTTP ${res.status}`);
+      if (requestId !== aiRequestId.current) return;
       setAiAnalysis(data as QuestionAnalysisResult);
+      setAiAnalysisSignature(requestedSignature);
     } catch (err) {
-      setAiError(err instanceof Error ? err.message : 'Analysis failed');
+      if (requestId !== aiRequestId.current) return;
+      setStoredAiError({
+        signature: requestedSignature,
+        message: err instanceof Error ? err.message : 'Analysis failed',
+      });
     } finally {
-      setAiLoading(false);
+      if (requestId === aiRequestId.current) setAiLoadingSignature(null);
     }
   };
 
@@ -526,6 +547,9 @@ export default function QuestionDetailPage({ params }: { params: Promise<{ id: s
                   <p className="text-sm font-medium text-slate-300 mb-1">Analyse with AI</p>
                   <p className="text-xs text-slate-500 leading-relaxed">
                     Summary, themes, notable quotes, and demographic patterns from {qResponses.length} responses.
+                  </p>
+                  <p className="text-[10px] text-slate-600 leading-relaxed mt-2">
+                    Running analysis sends these visible responses and matching tester profiles to the configured AI provider.
                   </p>
                 </div>
                 <button

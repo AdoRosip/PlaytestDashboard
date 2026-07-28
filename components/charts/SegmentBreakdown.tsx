@@ -37,8 +37,6 @@ export default function SegmentBreakdown({ responses, testers, scale }: Props) {
     }))
     .sort((a, b) => b.avg - a.avg);
 
-  if (rows.length < 2) return null;
-
   return (
     <CollapsibleSection
       title="Score by Segment"
@@ -62,6 +60,11 @@ export default function SegmentBreakdown({ responses, testers, scale }: Props) {
       </div>
 
       <div className="space-y-2.5">
+        {rows.length < 2 && (
+          <p className="text-xs text-slate-500 py-3 text-center">
+            Not enough populated groups for {SEGMENT_LABELS[activeKey]}. Try another segment.
+          </p>
+        )}
         {rows.map(({ label, avg, count }) => {
           const pct = (avg / scale) * 100;
           const barColor = pct >= 65 ? '#00FFFF' : pct >= 40 ? '#0066FF' : '#0000EE';

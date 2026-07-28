@@ -1,12 +1,12 @@
 'use client';
 import { useMemo } from 'react';
 import { X, SlidersHorizontal, Info } from 'lucide-react';
-import { useDashboardStore, selectActiveFilterCount } from '@/lib/store';
+import { useDashboardStore, selectActiveFilterCount, selectGameConfig } from '@/lib/store';
 import { sentimentBand, SENTIMENT_BAND_LABELS, buildEnjoyRatingMap } from '@/lib/filtering';
 import { continentFor, CONTINENTS } from '@/lib/geo';
 import type { FilterState, SentimentBand } from '@/lib/types';
 
-const SENTIMENT_BANDS: SentimentBand[] = ['almost_believers'];
+const SENTIMENT_BANDS: SentimentBand[] = ['detractors', 'almost_believers', 'believers'];
 const SENTIMENT_RANGE: Record<SentimentBand, string> = {
   detractors: '< 3',
   almost_believers: '3–4',
@@ -74,6 +74,7 @@ export default function FilterPanel() {
   const setFilter      = useDashboardStore((s) => s.setFilter);
   const clearFilters   = useDashboardStore((s) => s.clearFilters);
   const activeCount    = useDashboardStore(selectActiveFilterCount);
+  const config         = useDashboardStore(selectGameConfig);
 
   // Derive available options from registered tester data.
   // Countries are grouped into continents (see lib/geo); only continents that
@@ -102,11 +103,18 @@ export default function FilterPanel() {
   }, [testers]);
 
   // Only show background game filters if those questions exist in the form
-  const hasFactorioQ = questions.some((q) => /factorio/i.test(q.text) && q.categoryId === 'cat_01');
-  const hasSatQ      = questions.some((q) => /satisfactory/i.test(q.text) && q.categoryId === 'cat_01');
-  const hasSessionQ  = questions.some((q) =>
-    /how many hours.*(?:play|game|session)|hours.*played.*(?:exo|game|session)/i.test(q.text)
-  );
+  const backgroundCategoryId = config.filters.backgroundCategoryId;
+  const factorioDetector = config.filters.priorGames?.find((g) => g.key === 'factorio');
+  const satisfactoryDetector = config.filters.priorGames?.find((g) => g.key === 'satisfactory');
+  const hasFactorioQ = Boolean(factorioDetector && questions.some(
+    (q) => factorioDetector.pattern.test(q.text) && q.categoryId === backgroundCategoryId,
+  ));
+  const hasSatQ = Boolean(satisfactoryDetector && questions.some(
+    (q) => satisfactoryDetector.pattern.test(q.text) && q.categoryId === backgroundCategoryId,
+  ));
+  const hasSessionQ = Boolean(config.filters.sessionPlaytime && questions.some(
+    (q) => config.filters.sessionPlaytime!.test(q.text),
+  ));
 
   // Player-sentiment band counts (drive the sentiment segment).
   // Bands come from the single "overall enjoyment" question — only testers who
@@ -115,14 +123,18 @@ export default function FilterPanel() {
     const counts: Record<SentimentBand, number> = {
       detractors: 0, almost_believers: 0, believers: 0,
     };
-    const enjoyMap = buildEnjoyRatingMap(responses, questions);
+    const enjoyMap = buildEnjoyRatingMap(
+      responses,
+      questions,
+      config.filters.enjoyOverall,
+    );
     let classified = 0;
     for (const t of testers) {
       const band = sentimentBand(enjoyMap.get(t.id));
       if (band) { counts[band]++; classified++; }
     }
     return { counts, classified };
-  }, [testers, responses, questions]);
+  }, [testers, responses, questions, config]);
 
   // Data-quality flag counts (drive the exclusion controls)
   const straightLinerCount = testers.filter((t) => t.quality?.straightLining).length;

@@ -1,6 +1,7 @@
 import type { FilterState, Question, Response, SentimentBand, Tester } from './types';
 import { isSentimentOutlier } from './outliers';
 import { continentFor } from './geo';
+import type { GameConfig } from './games';
 
 // ─── Player-sentiment bands ──────────────────────────────────────────────────
 // Classify a tester by their answer to the single "overall enjoyment" question
@@ -35,13 +36,18 @@ export const ENJOY_OVERALL_RE = /enjoy.*overall|overall.*enjoy/i;
 export function buildEnjoyRatingMap(
   responses: Response[],
   questions: Question[],
+  pattern: RegExp = ENJOY_OVERALL_RE,
 ): Map<string, number> {
   const map = new Map<string, number>();
-  const q = questions.find((q) => ENJOY_OVERALL_RE.test(q.text));
+  const q = questions.find((q) => pattern.test(q.text));
   if (!q) return map;
   for (const r of responses) {
     if (r.questionId === q.id && r.testerId && r.normalizedScore !== null) {
-      map.set(r.testerId, r.normalizedScore / 20);
+      // `normalizedScore` maps a rating scale's minimum to 0 and maximum to
+      // 100. Convert that back to a 1-5 display scale before applying the UI's
+      // raw-rating bands (<3, 3-4, >4). Dividing by 20 would incorrectly map a
+      // real 3/5 answer to 2.5 and classify it as a detractor.
+      map.set(r.testerId, 1 + r.normalizedScore / 25);
     }
   }
   return map;
@@ -62,6 +68,7 @@ export interface FilterInput {
   responses: Response[];
   questions: Question[];
   filters: FilterState;
+  config?: GameConfig;
 }
 
 /** Regex that identifies the "how long did you play this session" question. */
@@ -85,9 +92,13 @@ export function hasActiveFilters(f: FilterState): boolean {
 }
 
 /** Map of testerId → reported session playtime (numeric answers only). */
-function buildPlaytimeMap(responses: Response[], questions: Question[]): Map<string, number> {
+function buildPlaytimeMap(
+  responses: Response[],
+  questions: Question[],
+  pattern: RegExp,
+): Map<string, number> {
   const map = new Map<string, number>();
-  const q = questions.find((q) => SESSION_PLAYTIME_RE.test(q.text));
+  const q = questions.find((q) => pattern.test(q.text));
   if (!q) return map;
   for (const r of responses) {
     if (r.questionId === q.id && r.testerId && r.numericValue !== null) {
@@ -106,9 +117,10 @@ function buildPlayedGameSet(
   pattern: RegExp,
   responses: Response[],
   questions: Question[],
+  backgroundCategoryId: string,
 ): Set<string> {
   const set = new Set<string>();
-  const q = questions.find((q) => pattern.test(q.text) && q.categoryId === 'cat_01');
+  const q = questions.find((q) => pattern.test(q.text) && q.categoryId === backgroundCategoryId);
   if (!q) return set;
   for (const r of responses) {
     if (r.questionId !== q.id || !r.testerId) continue;
@@ -139,19 +151,26 @@ function matchesPlaytimeBucket(bucket: FilterState['sessionPlaytime'], pt: numbe
  * it is AND (must satisfy all dimensions).
  */
 export function computeFilteredTesterIds(input: FilterInput): Set<string> | null {
-  const { testers, responses, questions, filters } = input;
+  const { testers, responses, questions, filters, config } = input;
 
   if (!hasActiveFilters(filters)) return null;
 
-  const playtimeMap =
-    filters.sessionPlaytime !== null ? buildPlaytimeMap(responses, questions) : null;
+  const sessionPattern = config?.filters.sessionPlaytime ?? SESSION_PLAYTIME_RE;
+  const enjoyPattern = config?.filters.enjoyOverall ?? ENJOY_OVERALL_RE;
+  const backgroundCategoryId = config?.filters.backgroundCategoryId ?? 'cat_01';
+  const factorioPattern = config?.filters.priorGames?.find((g) => g.key === 'factorio')?.pattern ?? /factorio/i;
+  const satisfactoryPattern = config?.filters.priorGames?.find((g) => g.key === 'satisfactory')?.pattern ?? /satisfactory/i;
+
+  const playtimeMap = filters.sessionPlaytime !== null
+    ? buildPlaytimeMap(responses, questions, sessionPattern)
+    : null;
   const enjoyMap =
-    filters.playerSentiment !== null ? buildEnjoyRatingMap(responses, questions) : null;
+    filters.playerSentiment !== null ? buildEnjoyRatingMap(responses, questions, enjoyPattern) : null;
   const factorioTesters = filters.playedFactorio
-    ? buildPlayedGameSet(/factorio/i, responses, questions)
+    ? buildPlayedGameSet(factorioPattern, responses, questions, backgroundCategoryId)
     : null;
   const satTesters = filters.playedSatisfactory
-    ? buildPlayedGameSet(/satisfactory/i, responses, questions)
+    ? buildPlayedGameSet(satisfactoryPattern, responses, questions, backgroundCategoryId)
     : null;
 
   const result = new Set<string>();
@@ -195,7 +214,7 @@ export function filterResponsesByTesterIds(
   ids: Set<string> | null,
 ): Response[] {
   if (ids === null) return responses;
-  return responses.filter((r) => r.testerId === null || ids.has(r.testerId));
+  return responses.filter((r) => r.testerId !== null && ids.has(r.testerId));
 }
 
 /** Narrow testers to the given id set (`null` = no filter → all). */

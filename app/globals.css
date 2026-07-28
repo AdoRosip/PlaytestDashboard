@@ -184,3 +184,28 @@ body {
 .placeholder-slate-500::placeholder {
   color: rgba(255, 255, 255, 0.34) !important;
 }
+
+/* Overview sections preserve their normal layout in the enlarged dialog, but
+   small dashboard typography is promoted for comfortable reading. */
+.overview-expanded-content .text-xs,
+.overview-expanded-content [class~="text-[11px]"],
+.overview-expanded-content [class~="text-[10px]"],
+.overview-expanded-content [class~="text-[9px]"] {
+  font-size: 0.925rem !important;
+  line-height: 1.45rem !important;
+}
+
+.overview-expanded-content .text-sm {
+  font-size: 1.05rem !important;
+  line-height: 1.6rem !important;
+}
+
+.overview-expanded-content .truncate {
+  overflow: visible !important;
+  text-overflow: clip !important;
+  white-space: normal !important;
+}
+
+.overview-expanded-content [class~="max-h-[320px]"] {
+  max-height: none !important;
+}

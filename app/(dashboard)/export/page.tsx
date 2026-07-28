@@ -1,8 +1,10 @@
 'use client';
+import { useMemo } from 'react';
 import { Download, FileText, Table2 } from 'lucide-react';
-import { useDashboardStore } from '@/lib/store';
+import { useDashboardStore, selectActiveFilterCount, selectFilteredResponses, selectFilteredTesters } from '@/lib/store';
 import PageHeader from '@/components/ui/PageHeader';
 import { formatTesterLabel } from '@/lib/utils';
+import { filterThemesForResponses } from '@/lib/themeFiltering';
 
 function exportToCSV(data: object[], filename: string) {
   if (!data.length) return;
@@ -22,10 +24,15 @@ function exportToCSV(data: object[], filename: string) {
 
 export default function ExportPage() {
   const project   = useDashboardStore((s) => s.project);
-  const responses = useDashboardStore((s) => s.responses);
+  const responses = useDashboardStore(selectFilteredResponses);
   const questions = useDashboardStore((s) => s.questions);
-  const testers   = useDashboardStore((s) => s.testers);
-  const themes    = useDashboardStore((s) => s.themes);
+  const testers   = useDashboardStore(selectFilteredTesters);
+  const storedThemes = useDashboardStore((s) => s.themes);
+  const filtersActive = useDashboardStore(selectActiveFilterCount) > 0;
+  const themes = useMemo(
+    () => filterThemesForResponses(storedThemes, responses, filtersActive),
+    [storedThemes, responses, filtersActive],
+  );
 
   const handleExportResponses = () => {
     const data = responses.map((r) => {

@@ -1,4 +1,5 @@
 import OpenAI from 'openai';
+import { requireDashboardAuth } from '@/lib/server/requestAuth';
 
 // Input the overview page sends: the worst-scoring areas plus the evidence
 // (themes + representative negative quotes) behind each one.
@@ -22,6 +23,8 @@ export interface FlawRecommendationsResult {
 }
 
 export async function POST(req: Request) {
+  const authError = requireDashboardAuth(req);
+  if (authError) return authError;
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     return Response.json({ error: 'OPENAI_API_KEY not set in .env.local' }, { status: 500 });

@@ -64,7 +64,7 @@ export interface TesterFlag {
 export interface TesterQuality {
   benchmarkN: number;            // number of benchmark rating responses
   avgNorm?: number;              // mean normalized (0–100) benchmark score
-  avgRating?: number;            // avgNorm on a 0–5 display scale
+  avgRating?: number;            // avgNorm on a 1–5 display scale
   severity?: number;            // shrunk per-question deviation (rater leniency/severity)
   robustZ?: number;             // severity standardized via median + MAD
   sentiment: 'harsh' | 'generous' | 'typical';

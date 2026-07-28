@@ -1,6 +1,6 @@
 import * as XLSX from 'xlsx';
 import type { QuestionType, SegmentKey, TesterSegments, Tester, Question, Response, Category, Project } from './types';
-import { computeTesterQuality, isConcerning } from './outliers';
+import { computeTesterQuality, isConcerning, qualityExcludedCategoryIds } from './outliers';
 import { computeNormalizedScore, isRatingType } from './scoring';
 import { categoryForQuestion, type GameConfig } from './games';
 import { isEmailLike } from './testerIdentity';
@@ -9,12 +9,14 @@ const IGNORED_SHEETS = ['sheet2'];
 const RESPONSES_KEYWORDS = ['response', 'answer', 'form'];
 const REGISTRATION_KEYWORDS = ['registration', 'synced', 'profile', 'tester'];
 
-function detectSheetRole(name: string): 'responses' | 'registration' | 'ignore' {
+function detectSheetRole(name: string): 'responses' | 'registration' | 'ignore' | 'unknown' {
   const lower = name.toLowerCase();
   if (IGNORED_SHEETS.includes(lower)) return 'ignore';
-  if (REGISTRATION_KEYWORDS.some((k) => lower.includes(k))) return 'registration';
+  // Prefer an explicit response marker when a name contains both concepts
+  // (for example "Tester Responses").
   if (RESPONSES_KEYWORDS.some((k) => lower.includes(k))) return 'responses';
-  return 'responses'; // default first sheet to responses
+  if (REGISTRATION_KEYWORDS.some((k) => lower.includes(k))) return 'registration';
+  return 'unknown';
 }
 
 // Strict, anchored pattern for meta-column detection — only short, standalone
@@ -46,6 +48,21 @@ function makeIsInverseScored(config: GameConfig) {
 const UPLOAD_PATTERNS = /upload|attachment|file|link|evidence/i;
 const YES_NO_VALUES = new Set(['yes', 'no', 'true', 'false', '1', '0']);
 
+function explicitRatingScale(header: string): 5 | 10 | null {
+  const compact = header.replace(/[–—]/g, '-');
+  if (
+    /\b1\s*(?:-|to|through)\s*10\b/i.test(compact) ||
+    /\b(?:out of|scale(?:\s+of)?|\/)\s*10\b/i.test(compact) ||
+    /\b10\s*=\s*(?:best|highest|excellent)/i.test(compact)
+  ) return 10;
+  if (
+    /\b1\s*(?:-|to|through)\s*5\b/i.test(compact) ||
+    /\b(?:out of|scale(?:\s+of)?|\/)\s*5\b/i.test(compact) ||
+    /\b5\s*=\s*(?:best|highest|excellent)/i.test(compact)
+  ) return 5;
+  return null;
+}
+
 function detectQuestionType(header: string, values: string[]): QuestionType {
   // Meta columns (timestamp / admin) are short field names, never long question
   // prose. Guard on word count so a real question that contains "time"
@@ -68,6 +85,9 @@ function detectQuestionType(header: string, values: string[]): QuestionType {
   const numeric = nonEmpty.map(Number).filter((n) => !isNaN(n));
   const numericFrac = numeric.length / nonEmpty.length;
   if (numericFrac === 1 || (numeric.length >= 5 && numericFrac >= 0.85)) {
+    const declaredScale = explicitRatingScale(header);
+    if (declaredScale === 5) return 'rating_1_5';
+    if (declaredScale === 10) return 'rating_1_10';
     const max = Math.max(...numeric);
     const min = Math.min(...numeric);
     if (min >= 1 && max <= 5) return 'rating_1_5';
@@ -225,22 +245,48 @@ export function parseExcelFile(buffer: ArrayBuffer, fileName: string, config: Ga
   let responsesSheet: XLSX.WorkSheet | null = null;
   let registrationSheet: XLSX.WorkSheet | null = null;
 
+  const fallbackResponseSheets: XLSX.WorkSheet[] = [];
   for (const name of workbook.SheetNames) {
     const role = detectSheetRole(name);
     if (role === 'responses' && !responsesSheet) {
       responsesSheet = workbook.Sheets[name];
     } else if (role === 'registration' && !registrationSheet) {
       registrationSheet = workbook.Sheets[name];
+    } else if (role === 'unknown') {
+      fallbackResponseSheets.push(workbook.Sheets[name]);
     }
   }
 
   if (!responsesSheet) {
-    warnings.push('Could not find a Responses sheet. Using first sheet.');
-    responsesSheet = workbook.Sheets[workbook.SheetNames[0]];
+    warnings.push('Could not find an explicitly named Responses sheet. Using the first unclassified sheet.');
+    responsesSheet = fallbackResponseSheets[0] ?? workbook.Sheets[workbook.SheetNames[0]];
   }
 
   // Parse registration data
-  const testerMap: Map<string, Tester> = new Map();
+  const idMap = new Map<string, Tester>();
+  const emailMap = new Map<string, Tester>();
+  const discordMap = new Map<string, Tester>();
+  const ambiguousIds = new Set<string>();
+  const ambiguousEmails = new Set<string>();
+  const ambiguousDiscords = new Set<string>();
+  const addUniqueKey = (
+    map: Map<string, Tester>,
+    ambiguous: Set<string>,
+    key: string,
+    tester: Tester,
+  ) => {
+    if (!key || ambiguous.has(key)) return;
+    if (map.has(key)) {
+      map.delete(key);
+      ambiguous.add(key);
+      return;
+    }
+    map.set(key, tester);
+  };
+  const isUsableContactKey = (value: string) => {
+    const normalized = value.trim().toLowerCase();
+    return Boolean(normalized) && !new Set(['no', 'n/a', 'na', 'none', 'unknown', '-', '0']).has(normalized);
+  };
   if (registrationSheet) {
     const rows = XLSX.utils.sheet_to_json<Record<string, string>>(registrationSheet, { defval: '' });
     if (rows.length > 0) {
@@ -283,10 +329,17 @@ export function parseExcelFile(buffer: ArrayBuffer, fileName: string, config: Ga
           rawProfileJson: row as Record<string, unknown>,
         };
 
-        if (id) testerMap.set(id, tester);
-        if (email) testerMap.set(email.toLowerCase(), tester);
-        if (discord) testerMap.set(discord.toLowerCase(), tester);
+        if (id) addUniqueKey(idMap, ambiguousIds, id, tester);
+        if (isUsableContactKey(email)) {
+          addUniqueKey(emailMap, ambiguousEmails, email.toLowerCase(), tester);
+        }
+        if (isUsableContactKey(discord)) {
+          addUniqueKey(discordMap, ambiguousDiscords, discord.toLowerCase(), tester);
+        }
       });
+      if (ambiguousIds.size + ambiguousEmails.size + ambiguousDiscords.size > 0) {
+        warnings.push('Duplicate registration identifiers were ignored instead of being matched ambiguously.');
+      }
     }
   }
 
@@ -310,14 +363,18 @@ export function parseExcelFile(buffer: ArrayBuffer, fileName: string, config: Ga
   const questionCols = headers.filter((h) => !metaCols.has(h));
   const questions: Question[] = questionCols.map((col, i) => {
     const values = responseRows.map((r) => String(r[col] ?? ''));
-    const type = detectQuestionType(col, values);
     const text = col.replace(/\r\n/g, ' ').trim(); // flatten multi-line Google Form headers
+    const categoryId = suggestCategory(col);
+    const category = config.categories.find((c) => c.id === categoryId);
+    const type = category && /admin|internal/i.test(category.name)
+      ? 'internal_admin'
+      : detectQuestionType(col, values);
     return {
       id: `q_${String(i).padStart(3, '0')}`,
       projectId: 'proj_import',
       text,
       type,
-      categoryId: suggestCategory(col),
+      categoryId,
       sourceColumn: col,
       scaleMin: type === 'rating_1_5' ? 1 : type === 'rating_1_10' ? 1 : undefined,
       scaleMax: type === 'rating_1_5' ? 5 : type === 'rating_1_10' ? 10 : undefined,
@@ -342,7 +399,10 @@ export function parseExcelFile(buffer: ArrayBuffer, fileName: string, config: Ga
     const rawDiscord = discordCol ? String(row[discordCol] ?? '').trim().toLowerCase() : '';
     const submittedAt = safeIso(timestampCol ? row[timestampCol] : null);
 
-    const matchedProfile = testerMap.get(rawId) ?? testerMap.get(rawEmail) ?? testerMap.get(rawDiscord);
+    const matchedProfile =
+      (rawId ? idMap.get(rawId) : undefined) ??
+      (isUsableContactKey(rawEmail) ? emailMap.get(rawEmail) : undefined) ??
+      (isUsableContactKey(rawDiscord) ? discordMap.get(rawDiscord) : undefined);
     let matchStatus: 'matched' | 'unmatched' | 'needs_check' = 'matched';
     let tester: Tester;
 
@@ -398,7 +458,12 @@ export function parseExcelFile(buffer: ArrayBuffer, fileName: string, config: Ga
 
   // ── Tester avg rating + outlier / quality detection ───────────────────────
   // Robust per-question-deviation method, implemented in lib/outliers.ts.
-  const quality = computeTesterQuality({ testers: participantTesters, questions, responses });
+  const quality = computeTesterQuality({
+    testers: participantTesters,
+    questions,
+    responses,
+    excludedCategoryIds: qualityExcludedCategoryIds(defaultCategories),
+  });
   for (const tester of participantTesters) {
     const q = quality.get(tester.id);
     if (!q) continue;

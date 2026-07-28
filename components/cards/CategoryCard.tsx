@@ -8,11 +8,11 @@ import { scoreColor } from '@/lib/utils';
 
 interface CategoryCardProps {
   category: Category;
-  avgScore: number;
+  avgScore: number | null;
   questionCount: number;
   respondentCount: number;
-  negativePct: number;
-  severity: 'Low' | 'Medium' | 'High' | 'Critical';
+  negativePct: number | null;
+  severity: 'Low' | 'Medium' | 'High' | 'Critical' | null;
   topThemes: string[];
 }
 
@@ -30,18 +30,22 @@ export default function CategoryCard({
           />
           <h3 className="text-sm font-semibold text-white">{category.name}</h3>
         </div>
-        <Badge label={severity} severity={severity} variant="severity" />
+        {severity ? (
+          <Badge label={severity} severity={severity} variant="severity" />
+        ) : (
+          <span className="text-[10px] text-slate-500">Not scored</span>
+        )}
       </div>
 
       {/* Score */}
       <div>
         <div className="flex items-center justify-between mb-2">
           <span className="text-xs text-slate-400">Avg score</span>
-          <span className={`text-lg font-bold ${scoreColor(avgScore)}`}>
-            {avgScore}
+          <span className={`text-lg font-bold ${avgScore === null ? 'text-slate-500' : scoreColor(avgScore)}`}>
+            {avgScore ?? 'N/A'}
           </span>
         </div>
-        <ScoreBar score={avgScore} showLabel={false} height="h-2" />
+        {avgScore !== null && <ScoreBar score={avgScore} showLabel={false} height="h-2" />}
       </div>
 
       {/* Stats row */}
@@ -49,7 +53,7 @@ export default function CategoryCard({
         {[
           { label: 'Questions', value: questionCount },
           { label: 'Respondents', value: respondentCount },
-          { label: '% Negative', value: `${negativePct}%` },
+          { label: '% Negative', value: negativePct === null ? 'N/A' : `${negativePct}%` },
         ].map(({ label, value }) => (
           <div key={label} className="rounded-lg bg-slate-900/50 py-2">
             <div className="text-sm font-semibold text-white">{value}</div>

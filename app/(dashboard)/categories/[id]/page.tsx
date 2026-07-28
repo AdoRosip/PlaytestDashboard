@@ -2,7 +2,7 @@
 import { use, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, HelpCircle, MessageSquare, X, Filter, Sparkles } from 'lucide-react';
-import { useDashboardStore, selectFilteredResponses } from '@/lib/store';
+import { useDashboardStore, selectActiveFilterCount, selectFilteredResponses } from '@/lib/store';
 import PageHeader from '@/components/ui/PageHeader';
 import Badge from '@/components/ui/Badge';
 import ScoreBar from '@/components/ui/ScoreBar';
@@ -20,6 +20,7 @@ import {
   type DrillSelection,
 } from '@/lib/crossFilter';
 import type { Question, Response } from '@/lib/types';
+import { filterThemesForResponses } from '@/lib/themeFiltering';
 
 function shortenQuestion(text: string): string {
   return text.length > 42 ? `${text.slice(0, 42).trimEnd()}…` : text;
@@ -31,7 +32,12 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ id: s
   const questions   = useDashboardStore((s) => s.questions);
   const responses   = useDashboardStore(selectFilteredResponses);
   const testers     = useDashboardStore((s) => s.testers);
-  const themes      = useDashboardStore((s) => s.themes);
+  const storedThemes = useDashboardStore((s) => s.themes);
+  const filtersActive = useDashboardStore(selectActiveFilterCount) > 0;
+  const themes = useMemo(
+    () => filterThemesForResponses(storedThemes, responses, filtersActive),
+    [storedThemes, responses, filtersActive],
+  );
   // const openDrawer = useDashboardStore((s) => s.openDrawer); // side panel disabled
   //   on the category page — bar clicks now drive the in-category drill-down below.
 
