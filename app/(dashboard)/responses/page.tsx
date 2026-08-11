@@ -21,7 +21,7 @@ export default function ResponsesPage() {
   }).slice(0, 100);
 
   return (
-    <div className="mx-auto w-full max-w-[1680px] px-6 lg:px-8 py-8">
+    <div className="mx-auto w-full max-w-[1680px] px-4 md:px-6 lg:px-8 py-8">
       <PageHeader title="Raw Responses" sub={`${responses.length} total responses`} />
 
       <div className="relative mb-4">
@@ -36,7 +36,8 @@ export default function ResponsesPage() {
       </div>
 
       <div className="rounded-xl border border-slate-700/60 overflow-hidden">
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto">
+        <table className="w-full min-w-[760px] text-sm">
           <thead>
             <tr className="border-b border-slate-700/60 bg-slate-800/40">
               {['Tester', 'Question', 'Answer', 'Status', 'Date', ''].map((h) => (
@@ -86,6 +87,7 @@ export default function ResponsesPage() {
             })}
           </tbody>
         </table>
+        </div>
         {visible.length === 0 && (
           <div className="text-center py-10 text-slate-500 text-sm">No responses found</div>
         )}

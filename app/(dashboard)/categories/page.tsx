@@ -29,7 +29,7 @@ export default function CategoriesPage() {
 
   if (!categories.length) {
     return (
-      <div className="px-8 py-8">
+      <div className="px-4 md:px-6 lg:px-8 py-8">
         <PageHeader title="Categories" sub="Group questions into meaningful analysis areas" />
         <EmptyState icon={Layers} title="No categories yet" description="Upload an Excel file or load demo data to get started." />
       </div>
@@ -72,7 +72,7 @@ export default function CategoriesPage() {
   });
 
   return (
-    <div className="mx-auto w-full max-w-[1680px] px-6 lg:px-8 py-8">
+    <div className="mx-auto w-full max-w-[1680px] px-4 md:px-6 lg:px-8 py-8">
       <PageHeader
         title="Categories"
         sub={`${categories.length} categories · ${questions.length} questions`}

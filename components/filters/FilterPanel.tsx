@@ -1,6 +1,6 @@
 'use client';
 import { useMemo } from 'react';
-import { X, SlidersHorizontal, Info } from 'lucide-react';
+import { X, SlidersHorizontal, Info, ChevronLeft } from 'lucide-react';
 import { useDashboardStore, selectActiveFilterCount, selectGameConfig } from '@/lib/store';
 import { sentimentBand, SENTIMENT_BAND_LABELS, buildEnjoyRatingMap } from '@/lib/filtering';
 import { continentFor, CONTINENTS } from '@/lib/geo';
@@ -75,6 +75,8 @@ export default function FilterPanel() {
   const clearFilters   = useDashboardStore((s) => s.clearFilters);
   const activeCount    = useDashboardStore(selectActiveFilterCount);
   const config         = useDashboardStore(selectGameConfig);
+  const toggleFilterPanel = useDashboardStore((s) => s.toggleFilterPanel);
+  const closeMobileDrawer = useDashboardStore((s) => s.closeMobileDrawer);
 
   // Derive available options from registered tester data.
   // Countries are grouped into continents (see lib/geo); only continents that
@@ -150,7 +152,9 @@ export default function FilterPanel() {
   };
 
   return (
-    <div className="fixed left-[220px] top-0 h-full w-[260px] bg-[#0d1220] border-r border-slate-800 flex flex-col z-30 overflow-hidden">
+    // Positioning is owned by DashboardShell: docked beside the nav at `lg`+,
+    // slid in as an overlay below it. This component is just the panel content.
+    <div className="h-full w-full bg-[#0d1220] flex flex-col overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800 flex-shrink-0">
         <div className="flex items-center gap-2">
@@ -162,14 +166,31 @@ export default function FilterPanel() {
             </span>
           )}
         </div>
-        {activeCount > 0 && (
+        <div className="flex items-center gap-2.5">
+          {activeCount > 0 && (
+            <button
+              onClick={clearFilters}
+              className="flex items-center gap-1 text-xs text-slate-500 hover:text-white transition-colors"
+            >
+              <X className="w-3 h-3" /> Clear
+            </button>
+          )}
+          {/* Collapse (docked panel only — the overlay closes via its backdrop). */}
           <button
-            onClick={clearFilters}
-            className="flex items-center gap-1 text-xs text-slate-500 hover:text-white transition-colors"
+            onClick={toggleFilterPanel}
+            aria-label="Collapse filters"
+            className="hidden lg:flex w-6 h-6 rounded-md items-center justify-center text-slate-500 hover:text-white hover:bg-slate-700 transition-colors"
           >
-            <X className="w-3 h-3" /> Clear
+            <ChevronLeft className="w-4 h-4" />
           </button>
-        )}
+          <button
+            onClick={closeMobileDrawer}
+            aria-label="Close filters"
+            className="lg:hidden w-7 h-7 rounded-md flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
       {/* Scrollable body */}

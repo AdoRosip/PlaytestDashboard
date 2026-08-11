@@ -155,7 +155,7 @@ export default function QualitativeOverview() {
   const dateStr = new Date(project.createdAt).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
 
   return (
-    <div className="min-h-screen mx-auto w-full max-w-[1680px] px-6 lg:px-8 py-10">
+    <div className="min-h-screen mx-auto w-full max-w-[1680px] px-4 md:px-6 lg:px-8 py-10">
       {/* Header */}
       <div className="flex items-start justify-between mb-8">
         <div>

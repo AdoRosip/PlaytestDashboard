@@ -1,9 +1,10 @@
 'use client';
+import { useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard, Layers, HelpCircle, Sparkles,
-  Users, Table2, Download, Settings, SlidersHorizontal, FolderTree, Database,
+  Users, Table2, Download, Settings, SlidersHorizontal, FolderTree, Database, X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useDashboardStore, selectActiveFilterCount } from '@/lib/store';
@@ -42,11 +43,26 @@ export default function Sidebar() {
   const filterPanelOpen  = useDashboardStore((s) => s.filterPanelOpen);
   const toggleFilterPanel = useDashboardStore((s) => s.toggleFilterPanel);
   const activeFilterCount = useDashboardStore(selectActiveFilterCount);
+  const mobileDrawer     = useDashboardStore((s) => s.mobileDrawer);
+  const openMobileDrawer = useDashboardStore((s) => s.openMobileDrawer);
+  const closeMobileDrawer = useDashboardStore((s) => s.closeMobileDrawer);
+
+  const navOpen = mobileDrawer === 'nav';
+
+  // Navigating on a phone/tablet should dismiss the overlay it was tapped in.
+  useEffect(() => { closeMobileDrawer(); }, [pathname, closeMobileDrawer]);
 
   return (
-    <aside className="fixed top-0 left-0 h-full w-[220px] bg-[#0d1220] border-r border-slate-800 flex flex-col z-40">
+    <aside
+      className={cn(
+        'fixed top-0 left-0 h-full w-[220px] bg-[#0d1220] border-r border-slate-800 flex flex-col',
+        // Off-canvas below `lg`, permanently docked from `lg` up.
+        'z-50 transition-transform duration-200 lg:z-40 lg:translate-x-0',
+        navOpen ? 'translate-x-0 shadow-2xl shadow-black/50' : '-translate-x-full',
+      )}
+    >
       {/* Logo */}
-      <div className="px-5 py-5 border-b border-slate-800">
+      <div className="px-5 py-5 border-b border-slate-800 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2.5">
           <div className="w-9 h-9 rounded-lg bg-slate-800/40 border border-slate-700/60 flex items-center justify-center overflow-hidden">
             <CompanyLogo className="w-8" priority />
@@ -56,6 +72,13 @@ export default function Sidebar() {
             <div className="text-xs text-slate-500 leading-tight">Insights</div>
           </div>
         </div>
+        <button
+          onClick={closeMobileDrawer}
+          aria-label="Close navigation"
+          className="lg:hidden w-8 h-8 -mr-1 rounded-md flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"
+        >
+          <X className="w-4 h-4" />
+        </button>
       </div>
 
       {/* Nav */}
@@ -89,12 +112,29 @@ export default function Sidebar() {
         ))}
       </nav>
 
-      {/* Filters toggle */}
+      {/* Filters toggle — docks the panel at `lg`+, opens the overlay below it. */}
       <div className="px-3 pb-3">
+        <button
+          onClick={() => openMobileDrawer('filters')}
+          className={cn(
+            'lg:hidden flex items-center justify-between w-full px-3 py-2 rounded-md text-sm transition-colors border',
+            'border-slate-700/60 text-slate-400 hover:text-slate-200 hover:border-slate-600',
+          )}
+        >
+          <div className="flex items-center gap-2">
+            <SlidersHorizontal className="w-4 h-4 flex-shrink-0" />
+            <span>Filters</span>
+          </div>
+          {activeFilterCount > 0 && (
+            <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-600/30 text-indigo-300 border border-indigo-500/30">
+              {activeFilterCount}
+            </span>
+          )}
+        </button>
         <button
           onClick={toggleFilterPanel}
           className={cn(
-            'flex items-center justify-between w-full px-3 py-2 rounded-md text-sm transition-colors border',
+            'hidden lg:flex items-center justify-between w-full px-3 py-2 rounded-md text-sm transition-colors border',
             filterPanelOpen
               ? 'bg-indigo-600/20 border-indigo-500/40 text-indigo-300'
               : 'border-slate-700/60 text-slate-400 hover:text-slate-200 hover:border-slate-600',

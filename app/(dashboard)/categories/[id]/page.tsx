@@ -80,7 +80,7 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ id: s
 
   if (!category) {
     return (
-      <div className="px-8 py-8">
+      <div className="px-4 md:px-6 lg:px-8 py-8">
         <div className="text-slate-400 text-sm">Category not found.</div>
       </div>
     );
@@ -90,7 +90,7 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ id: s
   const otherQuestions = catQuestions.filter((q) => !isRatingType(q.type));
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-6 lg:px-8 py-8">
+    <div className="mx-auto w-full max-w-6xl px-4 md:px-6 lg:px-8 py-8">
       <div className="mb-6">
         <Link href="/categories" className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-white transition-colors mb-4">
           <ArrowLeft className="w-3.5 h-3.5" /> Back to categories

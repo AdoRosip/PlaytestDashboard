@@ -58,7 +58,7 @@ export default function CategoryBuilderPage() {
   const assigned   = questions.filter((q) => q.categoryId);
 
   return (
-    <div className="mx-auto w-full max-w-5xl px-6 lg:px-8 py-8">
+    <div className="mx-auto w-full max-w-5xl px-4 md:px-6 lg:px-8 py-8">
       <PageHeader
         title="Category Builder"
         sub="Assign questions to categories for structured analysis"

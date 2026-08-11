@@ -177,7 +177,7 @@ export default function TestersPage() {
 
   if (!testers.length) {
     return (
-      <div className="px-8 py-8">
+      <div className="px-4 md:px-6 lg:px-8 py-8">
         <PageHeader title="Testers" sub="Participating playtesters from submitted response rows" />
         <EmptyState icon={Users} title="No testers yet" />
       </div>
@@ -185,7 +185,7 @@ export default function TestersPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-[1680px] px-6 lg:px-8 py-8">
+    <div className="mx-auto w-full max-w-[1680px] px-4 md:px-6 lg:px-8 py-8">
       <PageHeader
         title="Testers"
         sub={(() => {
@@ -402,8 +402,8 @@ export default function TestersPage() {
 
       {/* Table */}
       <div className="rounded-xl border border-slate-700/60 overflow-hidden">
-        <div className="max-h-[70vh] overflow-y-auto scrollbar-thin scrollbar-track-transparent scrollbar-thumb-slate-700">
-        <table className="w-full text-sm">
+        <div className="max-h-[70vh] overflow-auto scrollbar-thin scrollbar-track-transparent scrollbar-thumb-slate-700">
+        <table className="w-full min-w-[820px] text-sm">
           <thead className="sticky top-0 z-10">
             <tr className="border-b border-slate-700/60">
               {['Tester', 'Location', 'Gamer Type', 'Hours/wk', 'Avg Rating', ''].map((h) => (

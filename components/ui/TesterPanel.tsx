@@ -49,7 +49,8 @@ export default function TesterPanel() {
       )}
 
       <div className={`
-        fixed right-0 top-0 h-full w-[420px] bg-[#0d1220] border-l border-slate-800
+        fixed right-0 top-0 h-full w-full sm:w-[420px] sm:max-w-[90vw]
+        bg-[#0d1220] border-l border-slate-800
         z-[70] flex flex-col transition-transform duration-300
         ${testerPanelOpen ? 'translate-x-0' : 'translate-x-full'}
       `}>

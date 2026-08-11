@@ -65,9 +65,15 @@ interface DashboardState {
   testerPanelOpen: boolean;
   activeTesterId: string | null;
 
-  // Filter panel
+  // Filter panel (docked — desktop only, `lg` and up)
   filterPanelOpen: boolean;
   toggleFilterPanel: () => void;
+
+  // Off-canvas overlays below `lg`. Nav and filters share one slot because on a
+  // phone only one may usefully cover the content at a time.
+  mobileDrawer: 'nav' | 'filters' | null;
+  openMobileDrawer: (which: 'nav' | 'filters') => void;
+  closeMobileDrawer: () => void;
 
   // Actions
   loadMockData: () => void;
@@ -120,6 +126,7 @@ export const useDashboardStore = create<DashboardState>()(
   isLoaded: false,
   filters: defaultFilters,
   filterPanelOpen: true,
+  mobileDrawer: null,
   analysisStatus: 'idle',
   analysisError: null,
   drawerOpen: false,
@@ -171,6 +178,8 @@ export const useDashboardStore = create<DashboardState>()(
   },
 
   toggleFilterPanel: () => set((s) => ({ filterPanelOpen: !s.filterPanelOpen })),
+  openMobileDrawer: (which) => set({ mobileDrawer: which }),
+  closeMobileDrawer: () => set({ mobileDrawer: null }),
   setFilter: (patch) => set((s) => ({ filters: { ...s.filters, ...patch } })),
   clearFilters: () => set({ filters: defaultFilters }),
 
