@@ -12,7 +12,7 @@ describe('tester identity privacy', () => {
   });
 
   it('prefers the stable Playlytix registry id', () => {
-    expect(formatTesterLabel({ id: 'row', testerId: 'person@example.com', playlytixId: 42 })).toBe('P-42');
+    expect(formatTesterLabel({ id: 'row', testerId: 'person@example.com', playlytixId: 42 })).toBe('Tester-42');
   });
 
   it('preserves safe questionnaire ids', () => {

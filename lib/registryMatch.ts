@@ -15,7 +15,7 @@ function applyRegistry(tester: Tester, rec: RegistryRecord): Tester {
     ...tester,
     playlytixId: rec.playlytixId ?? undefined,
     inRegistry: true,
-    testerId: rec.playlytixId != null ? `P-${rec.playlytixId}` : tester.testerId,
+    testerId: rec.playlytixId != null ? `Tester-${rec.playlytixId}` : tester.testerId,
     discord: tester.discord || rec.discord,
     segments: { ...rec.segments, ...tester.segments },
     ageGroup: rec.segments.age_group ?? tester.ageGroup,

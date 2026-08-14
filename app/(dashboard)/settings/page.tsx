@@ -9,7 +9,7 @@ export default function SettingsPage() {
   const router = useRouter();
 
   return (
-    <div className="mx-auto w-full max-w-2xl px-6 lg:px-8 py-8">
+    <div className="mx-auto w-full max-w-2xl px-4 md:px-6 lg:px-8 py-8">
       <PageHeader title="Settings" sub="Project configuration" />
 
       <div className="space-y-4">

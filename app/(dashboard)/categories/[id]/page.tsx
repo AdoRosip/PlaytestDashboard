@@ -80,7 +80,7 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ id: s
 
   if (!category) {
     return (
-      <div className="px-8 py-8">
+      <div className="px-4 md:px-6 lg:px-8 py-8">
         <div className="text-slate-400 text-sm">Category not found.</div>
       </div>
     );
@@ -90,7 +90,7 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ id: s
   const otherQuestions = catQuestions.filter((q) => !isRatingType(q.type));
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-6 lg:px-8 py-8">
+    <div className="mx-auto w-full max-w-[1680px] px-4 md:px-6 lg:px-8 py-8">
       <div className="mb-6">
         <Link href="/categories" className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-white transition-colors mb-4">
           <ArrowLeft className="w-3.5 h-3.5" /> Back to categories
@@ -263,6 +263,10 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ id: s
               // from the drill-filtered responses so it tracks the cross-filter.
               const isCategorical = q.type === 'yes_no' || q.type === 'multiple_choice';
               const answered = visible.filter((r) => r.rawAnswer.trim());
+              // Verbatim answers are what people came to read, so they take the
+              // full grid width. Choice breakdowns are compact bars and stay
+              // paired up two to a row.
+              const isProse = !isCategorical;
               const mcDist = isCategorical
                 ? (() => {
                     const counts: Record<string, number> = {};
@@ -281,7 +285,10 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ id: s
                 : [];
 
               return (
-                <div key={q.id} className="rounded-xl border border-slate-700/60 bg-slate-800/20 p-5">
+                <div
+                  key={q.id}
+                  className={`rounded-xl border border-slate-700/60 bg-slate-800/20 p-5 ${isProse ? 'xl:col-span-2' : ''}`}
+                >
                   <div className="flex items-start justify-between gap-4 mb-4">
                     <div className="flex items-start gap-2 flex-1">
                       <HelpCircle className="w-4 h-4 text-slate-500 flex-shrink-0 mt-0.5" />
@@ -316,9 +323,11 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ id: s
                           <MessageSquare className="w-3 h-3" />
                           {drillActive ? 'Responses from matching testers' : 'Responses'} · {freeTextResponses.length}
                         </div>
-                        <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                        {/* Capped at a readable measure: the card is full width,
+                            but ~110 characters is the most a line should carry. */}
+                        <div className="space-y-2 max-h-[30rem] overflow-y-auto pr-1">
                           {freeTextResponses.map((r) => (
-                            <div key={r.id} className="text-xs text-slate-300 bg-slate-900/50 border border-slate-700/40 rounded p-3 leading-relaxed italic">
+                            <div key={r.id} className="text-sm text-slate-300 bg-slate-900/50 border border-slate-700/40 rounded p-3 leading-relaxed">
                               &ldquo;{r.rawAnswer}&rdquo;
                             </div>
                           ))}
@@ -342,9 +351,9 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ id: s
                           <MessageSquare className="w-3 h-3" />
                           {drillActive ? 'Responses from matching testers' : 'Responses'} · {answered.length}
                         </div>
-                        <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                        <div className="space-y-2 max-h-[30rem] overflow-y-auto pr-1">
                           {answered.map((r) => (
-                            <div key={r.id} className="text-xs text-slate-300 bg-slate-900/50 border border-slate-700/40 rounded p-3 leading-relaxed italic">
+                            <div key={r.id} className="text-sm text-slate-300 bg-slate-900/50 border border-slate-700/40 rounded p-3 leading-relaxed">
                               &ldquo;{r.rawAnswer}&rdquo;
                             </div>
                           ))}

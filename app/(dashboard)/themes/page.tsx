@@ -50,7 +50,7 @@ export default function ThemesPage() {
   // No data loaded yet
   if (!isLoaded) {
     return (
-      <div className="px-8 py-8">
+      <div className="px-4 md:px-6 lg:px-8 py-8">
         <PageHeader title="Themes" sub="AI-detected patterns in open-text responses" />
         <EmptyState
           icon={Sparkles}
@@ -66,7 +66,7 @@ export default function ThemesPage() {
   const hasStoredThemes = storedThemes.length > 0;
 
   return (
-    <div className="mx-auto w-full max-w-4xl px-6 lg:px-8 py-8">
+    <div className="mx-auto w-full max-w-4xl px-4 md:px-6 lg:px-8 py-8">
       <PageHeader
         title="Themes"
         sub={
@@ -225,7 +225,7 @@ export default function ThemesPage() {
                           AI Summary
                         </div>
                         <p className="text-sm text-slate-300 leading-relaxed">{theme.summary}</p>
-                        <p className="text-[11px] text-slate-600 mt-1 italic">
+                        <p className="text-xs text-slate-400 mt-1.5">
                           Generated from {theme.linkedResponseIds.length} linked responses. Verify by reviewing source responses.
                         </p>
                       </div>

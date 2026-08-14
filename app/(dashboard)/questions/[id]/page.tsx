@@ -159,7 +159,7 @@ export default function QuestionDetailPage({ params }: { params: Promise<{ id: s
     : [];
 
   return (
-    <div className="mx-auto w-full max-w-[1680px] flex items-start gap-6 py-8 px-6 lg:px-8">
+    <div className="mx-auto w-full max-w-[1680px] flex flex-col xl:flex-row items-stretch xl:items-start gap-6 py-8 px-4 md:px-6 lg:px-8">
 
       {/* ── Main content ─────────────────────────────────────────────── */}
       <div className="flex-1 min-w-0">
@@ -505,7 +505,7 @@ export default function QuestionDetailPage({ params }: { params: Promise<{ id: s
 
       {/* ── AI Insights panel (side-by-side) ─────────────────────────── */}
       {aiPanelOpen && (
-        <div className="w-[400px] flex-shrink-0 sticky top-8 max-h-[calc(100vh-5rem)] flex flex-col rounded-xl border border-slate-700/60 bg-[#0d1220] overflow-hidden">
+        <div className="w-full xl:w-[400px] xl:flex-shrink-0 xl:sticky xl:top-8 max-h-[80vh] xl:max-h-[calc(100vh-5rem)] flex flex-col rounded-xl border border-slate-700/60 bg-[#0d1220] overflow-hidden">
           {/* Panel header */}
           <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800 flex-shrink-0">
             <div className="flex items-center gap-2">

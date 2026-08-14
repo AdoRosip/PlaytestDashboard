@@ -36,7 +36,8 @@ export default function EvidenceDrawer() {
 
       {/* Drawer */}
       <div className={`
-        fixed right-0 top-0 h-full w-[480px] bg-[#0d1220] border-l border-slate-800
+        fixed right-0 top-0 h-full w-full sm:w-[480px] sm:max-w-[90vw]
+        bg-[#0d1220] border-l border-slate-800
         z-50 flex flex-col transition-transform duration-300
         ${drawerOpen ? 'translate-x-0' : 'translate-x-full'}
       `}>
