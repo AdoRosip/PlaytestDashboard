@@ -16,7 +16,7 @@ export default function QuestionsPage() {
   if (!questions.length) {
     return (
       <div className="px-4 md:px-6 lg:px-8 py-8">
-        <PageHeader title="Questions" sub="All detected survey questions" />
+        <PageHeader title="All Questions" sub="All detected survey questions" />
         <EmptyState icon={HelpCircle} title="No questions yet" description="Upload playtest data to see questions." />
       </div>
     );
@@ -24,7 +24,7 @@ export default function QuestionsPage() {
 
   return (
     <div className="mx-auto w-full max-w-[1680px] px-4 md:px-6 lg:px-8 py-8">
-      <PageHeader title="Questions" sub={`${questions.length} questions detected`} />
+      <PageHeader title="All Questions" sub={`${questions.length} questions detected`} />
 
       <div className="grid grid-cols-1 2xl:grid-cols-2 gap-2">
         {questions.map((q) => {

@@ -12,12 +12,14 @@ Full difficulty reasoning and code evidence for each item lives in the
 
 | | Status | Count |
 |---|---|---|
-| ✅ | Done | 1 |
+| ✅ | Done | 7 |
 | 🔄 | In progress | 1 |
-| ⬜ | To do | 26 |
+| ⬜ | To do | 20 |
 | ⛔ | Blocked — needs a decision outside this repo | 2 |
 | ❓ | Needs acceptance criteria before it can be estimated | 1 |
 | | **Total** | **31** |
+
+Done so far: **2, 7, 8, 10, 20, 21, 22** — all on branch `responsive-layout`.
 
 Difficulty is 1/5 (under a day) to 5/5 (new infrastructure). It is the cost of
 shipping the request *reliably*, not of demoing it.
@@ -126,16 +128,16 @@ analyses that cannot explain themselves.
 
 | | # | Request | Diff. | Notes |
 |---|---|---|---|---|
-| ⬜ | 2 | Responses use only ~⅓ of screen width | `1/5` | Raise `max-w-6xl` cap; let free-text cards span full width. Pairs with #8 |
+| ✅ | 2 | Responses use only ~⅓ of screen width | `1/5` | Container `max-w-6xl` → `max-w-[1680px]`; prose cards take `xl:col-span-2`; answers stay stacked one per row, capped at `max-w-[110ch]` for line length; list height `max-h-72` → `30rem`; answer text 12→14px. ~472px → ~1000px of text. **First attempt reverted** — a multi-column answer grid left ragged holes |
 | ⬜ | 5 | Quantified Qualitative: unlabelled segments, missing legend entry | `1/5` | "Other" segment is drawn but absent from the legend; values hidden below 12%. **Don't** relabel Other as "no opinion" — unclassified prose ≠ missing response |
-| ⬜ | 7 | Core Loop Fun / Wishlist need a progress indicator | `1/5` | ~10 lines in the KPI card. Decide first whether 1-of-5 is 0% or 20% |
-| ✅ | 8 | Collapse arrow at the top of the filter panel | `1/5` | Done on `responsive-layout` — fell out of moving positioning out of `FilterPanel` |
-| ⬜ | 10 | Rename "Questions" → "All Questions" | `1/5` | Nav label, page header, empty-state copy |
-| ⬜ | 12 | Colour category score by value | `1/5` | Helpers already centralised. **Ship with #4** so the palette lands once |
-| ⬜ | 20 | AI response-count footer far too small | `1/5` | 10px in the summary dialog, 11px on theme detail |
-| ⬜ | 21 | Map needs a legend or scale | `1/5` | Max count + ramp already computed. Label it "per continent" |
-| ⬜ | 22 | Show "Tester-1234" not "P-1234" | `1/5` | One return statement + one test assertion; 12 call sites inherit it |
-| ⬜ | 23 | Tester's answer → all answers to that question | `1/5` | Wiring exists both sides. Resolve drawer `z-50` vs. panel `z-[70]` first |
+| ✅ | 7 | Core Loop Fun / Wishlist need a progress indicator | `1/5` | New `components/ui/ScaleTrack.tsx` on the qualitative KPI cards. Fill is min–max (matching `computeNormalizedScore`, so it can't contradict the 0–100 category scores); ends labelled `1` and `5` with interior ticks, so no percentage is claimed either way. Visually verified |
+| ✅ | 8 | Collapse arrow at the top of the filter panel | `1/5` | Fell out of moving positioning out of `FilterPanel` |
+| ✅ | 10 | Rename "Questions" → "All Questions" | `1/5` | `Sidebar.tsx:19` + both `questions/page.tsx` headers. `CategoryCard` stat label left alone — that's a count, not the destination |
+| ⬜ | 12 | Colour category score by value | `1/5` | Helpers already centralised. **Held for the client's palette** — ship with #4 and #6 so it lands once |
+| ✅ | 20 | AI response-count footer far too small | `1/5` | 10→12px in the summary dialog, 11→12px on theme detail, and both `slate-600` → `slate-400`. Size was only half of it; near-invisible grey on the evidence count was the rest |
+| ✅ | 21 | Map needs a legend or scale | `1/5` | Gradient strip built from the map's own `fillForCount` so it can't drift from the shading, plus a "No testers" swatch. Labelled "Testers per continent". Visually verified |
+| ✅ | 22 | Show "Tester-1234" not "P-1234" | `1/5` | Proven by `lib/testerIdentity.test.ts`. Two extras found: `registryMatch.ts:18` was writing `P-{id}` into stored `testerId`, and `responses/page.tsx:55` rendered `testerId` raw — bypassing the helper's email guard, so an email-shaped id would have been printed on screen |
+| ⬜ | 23 | Tester's answer → all answers to that question | `1/5` | Wiring exists both sides. Resolve drawer `z-50` vs. panel `z-[70]` first — the drawer would open *behind* the panel |
 
 ### Contained — one to three days each
 
@@ -190,7 +192,7 @@ analyses that cannot explain themselves.
 
 | Phase | Items | Why here |
 |---|---|---|
-| 1 · Now | 2, 5, 7, ~~8~~, 10, 12, 20, 21, 22, 23 | No backend, no dependencies. ~1 week, clears a third of the list |
+| 1 · Now | ~~2~~, 5, ~~7~~, ~~8~~, ~~10~~, 12, ~~20~~, ~~21~~, ~~22~~, 23 | No backend, no dependencies. **7 of 10 done.** Remaining: 5 and 23 (both carry a decision — see their notes), and 12 is held for the palette |
 | 2 · Gamescom | A1 (tablet-landscape) | Hard-dated and hard-scoped |
 | 3 · Foundations | 4, 6, 9, 3 (tokens) · 1, 18, 19 (filter state) | Two token layers. Everything later gets cheaper |
 | 4 · AI provenance | B2, B3 → B1, 13, 16, 14, 15 | Citations first |

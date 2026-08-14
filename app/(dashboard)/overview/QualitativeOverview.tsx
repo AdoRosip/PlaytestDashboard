@@ -1,8 +1,8 @@
 'use client';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import {
-  Users, Star, Download, Sparkles, ThumbsUp, ThumbsDown, Lightbulb,
+  Users, Star, Sparkles, ThumbsUp, ThumbsDown, Lightbulb,
   MessageSquareText, ListChecks, TrendingDown, PenLine, Loader2, RefreshCw,
 } from 'lucide-react';
 import { useDashboardStore, selectActiveFilterCount, selectFilteredResponses, selectFilteredTesters, selectGameConfig } from '@/lib/store';
@@ -16,6 +16,8 @@ import type { OverviewInsightsResult } from '@/app/api/overview-insights/route';
 import CompanyLogo from '@/components/brand/CompanyLogo';
 import InfoTooltip from '@/components/ui/InfoTooltip';
 import ExpandableOverviewSection from '@/components/ui/ExpandableOverviewSection';
+import ScaleTrack from '@/components/ui/ScaleTrack';
+import { useCachedAnalysis } from '@/lib/useCachedAnalysis';
 import { filterThemesForResponses } from '@/lib/themeFiltering';
 
 const COMMERCIAL_KEY = /wishlist|recommend|nps|continue|retention/i;
@@ -105,11 +107,7 @@ export default function QualitativeOverview() {
     return { kpis, commercial, choiceQuestions, semi, freeText, detailedResponders };
   }, [config, questions, responses, testers]);
 
-  // ── AI Key Takeaways (runs automatically) ────────────────────────────────
-  const [insights, setInsights] = useState<OverviewInsightsResult | null>(null);
-  const [insightsLoading, setInsightsLoading] = useState(false);
-  const [insightsError, setInsightsError] = useState('');
-
+  // ── AI Key Takeaways ──────────────────────────────────────────────────────
   const insightsPayload = useMemo(() => ({
     gameName: project?.gameName ?? '',
     kpis: d.kpis.map((k) => ({
@@ -126,29 +124,46 @@ export default function QualitativeOverview() {
     freeText: d.freeText,
   }), [project?.gameName, d.kpis, d.choiceQuestions, d.freeText]);
 
-  const requestIdRef = useRef(0);
-  const generateInsights = useCallback(async () => {
-    const requestId = ++requestIdRef.current;
-    setInsights(null);
-    setInsightsLoading(true);
-    setInsightsError('');
-    try {
-      const res = await fetch('/api/overview-insights', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(insightsPayload),
-      });
-      const body = await res.json();
-      if (!res.ok) throw new Error(body.error ?? `HTTP ${res.status}`);
-      if (requestId !== requestIdRef.current) return;
-      setInsights(body as OverviewInsightsResult);
-    } catch (e) {
-      if (requestId !== requestIdRef.current) return;
-      setInsightsError(e instanceof Error ? e.message : 'Failed to generate insights');
-    } finally {
-      if (requestId === requestIdRef.current) setInsightsLoading(false);
-    }
+  const fetchInsights = useCallback(async (): Promise<OverviewInsightsResult> => {
+    const res = await fetch('/api/overview-insights', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(insightsPayload),
+    });
+    const body = await res.json();
+    if (!res.ok) throw new Error(body.error ?? `HTTP ${res.status}`);
+    return body as OverviewInsightsResult;
   }, [insightsPayload]);
+
+  // Only auto-run once there is something to analyse. Filtering does NOT
+  // auto-run: a filtered cohort is a different (paid) question, so the user asks
+  // for it explicitly via Re-run.
+  const insightsSignature = useMemo(
+    () => (d.freeText.length > 0 ? JSON.stringify(insightsPayload) : ''),
+    [d.freeText.length, insightsPayload],
+  );
+
+  const {
+    data: insights,
+    loading: insightsLoading,
+    error: insightsError,
+    run: generateInsights,
+  } = useCachedAnalysis<OverviewInsightsResult>({
+    key: 'overviewInsights',
+    signature: insightsSignature,
+    auto: !filtersActive,
+    fetcher: fetchInsights,
+  });
+
+  // Recurring themes: auto-run once per dataset. Cheap to guard because themes
+  // already persist in the store and the endpoint always analyses the full
+  // imported set, so filters never invalidate it.
+  useEffect(() => {
+    if (d.freeText.length === 0) return;
+    if (themes.length > 0) return;
+    if (themeAnalysisStatus !== 'idle') return;
+    void runThemeAnalysis();
+  }, [d.freeText.length, themes.length, themeAnalysisStatus, runThemeAnalysis]);
 
   if (!project) return null;
   const participants = countRespondents(responses);
@@ -176,9 +191,9 @@ export default function QualitativeOverview() {
             <span>{dateStr}</span>
           </div>
         </div>
-        <Link href="/export" className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-medium bg-slate-800/60 border border-slate-700 text-slate-300 hover:border-indigo-500/60 hover:text-indigo-300 transition-colors">
-          <Download className="w-3.5 h-3.5" /> Download Full Report
-        </Link>
+        {/* "Download Full Report" removed — it promised a curated report but
+            only linked to the CSV export page. Reinstate once there is a
+            decision on what the report should actually contain. */}
       </div>
 
       {/* Commercial signal + KPI distributions */}
@@ -197,6 +212,10 @@ export default function QualitativeOverview() {
                   <div className="text-3xl font-bold text-white">{kpi.sentiment.avg.toFixed(1)}</div>
                   <div className="text-sm text-slate-500 mb-1">/ {kpi.max}</div>
                   {kpi.isCommercial && (() => { const r = readiness(kpi.sentiment.avg / kpi.max); return <div className={`text-xs font-semibold mb-1 ml-auto ${r.tone}`}>{r.label}</div>; })()}
+                </div>
+                {/* Where that average sits on the question's own scale. */}
+                <div className="mb-4">
+                  <ScaleTrack value={kpi.sentiment.avg} max={kpi.max} />
                 </div>
                 {/* distribution */}
                 <div className="flex items-end gap-1 h-16 mb-2">
@@ -238,6 +257,14 @@ export default function QualitativeOverview() {
             <h2 className="text-sm font-semibold text-white">Key Takeaways</h2>
             <span className="text-[10px] uppercase tracking-wide text-indigo-300/70">AI</span>
           </div>
+          {insights && !insightsLoading && (
+            <button
+              onClick={generateInsights}
+              className="ml-auto flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium bg-indigo-600/20 border border-indigo-500/40 text-indigo-300 hover:bg-indigo-600/30 transition-colors"
+            >
+              <RefreshCw className="w-3 h-3" /> Re-run
+            </button>
+          )}
         </div>
 
         {!insights && d.freeText.length === 0 && (
@@ -250,15 +277,21 @@ export default function QualitativeOverview() {
           </div>
         )}
 
-        {!insights && d.freeText.length > 0 && !insightsLoading && !insightsError && (
+        {/* Only reachable with filters active: the unfiltered view analyses itself
+            on load, but a filtered cohort is a separate paid request the user asks
+            for deliberately. */}
+        {!insights && d.freeText.length > 0 && !insightsLoading && !insightsError && filtersActive && (
           <div className="rounded-xl border border-dashed border-slate-700 bg-slate-900/30 p-6 text-center">
-            <p className="text-sm text-slate-300 mb-1">Generate AI takeaways from the visible cohort?</p>
-            <p className="text-xs text-slate-500 mb-4">This sends the sampled responses shown in this report to OpenAI.</p>
+            <p className="text-sm text-slate-300 mb-1">Analyse this filtered cohort?</p>
+            <p className="text-xs text-slate-500 mb-4">
+              Takeaways are generated automatically for the full set. This sends the {' '}
+              {d.freeText.reduce((n, f) => n + f.answers.length, 0)} answers from the current filter to OpenAI.
+            </p>
             <button
               onClick={generateInsights}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-indigo-600 hover:bg-indigo-500 text-white transition-colors"
             >
-              <Sparkles className="w-3.5 h-3.5" /> Generate takeaways
+              <Sparkles className="w-3.5 h-3.5" /> Analyse cohort
             </button>
           </div>
         )}
@@ -379,18 +412,8 @@ export default function QualitativeOverview() {
               </div>
           )}
 
-          {d.freeText.length > 0 && themes.length === 0 && themeAnalysisStatus === 'idle' && (
-            <div className="rounded-xl border border-dashed border-slate-700 bg-slate-900/30 p-5 text-center">
-              <p className="text-sm text-slate-300 mb-1">Find recurring themes with AI?</p>
-              <p className="text-xs text-slate-500 mb-4">This sends open-ended responses to OpenAI.</p>
-              <button
-                onClick={() => void runThemeAnalysis()}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-indigo-600 hover:bg-indigo-500 text-white transition-colors"
-              >
-                <Sparkles className="w-3.5 h-3.5" /> Analyse themes
-              </button>
-            </div>
-          )}
+          {/* No manual CTA here — theme analysis starts on load and its result is
+              persisted, so the idle state is momentary. */}
 
           {d.freeText.length > 0 && themes.length === 0 && themeAnalysisStatus === 'done' && (
             <p className="text-xs text-slate-600 py-6 text-center">

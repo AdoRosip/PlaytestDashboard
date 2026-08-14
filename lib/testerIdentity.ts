@@ -31,6 +31,6 @@ export function formatTesterId(testerId: string, fallbackId?: string): string {
 export function formatTesterLabel(
   tester: Pick<Tester, 'id' | 'testerId' | 'playlytixId'>,
 ): string {
-  if (tester.playlytixId != null) return `P-${tester.playlytixId}`;
+  if (tester.playlytixId != null) return `Tester-${tester.playlytixId}`;
   return formatTesterId(tester.testerId, tester.id);
 }

@@ -1,10 +1,10 @@
 'use client';
-import { useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import {
   Users, Star,
   ArrowRight, ChevronRight, Brain,
-  AlertTriangle, Clock, Download, Flag,
+  AlertTriangle, Clock, Flag,
   BookOpen, Trophy, Split,
   Sparkles, Lightbulb, RefreshCw,
 } from 'lucide-react';
@@ -20,6 +20,7 @@ import CategoryGaugeRow from '@/components/charts/CategoryGaugeRow';
 import QuestionHighlights from '@/components/charts/QuestionHighlights';
 import PlayerDemoWidget from '@/components/ui/PlayerDemoWidget';
 import ExpandableOverviewSection from '@/components/ui/ExpandableOverviewSection';
+import { useCachedAnalysis } from '@/lib/useCachedAnalysis';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared micro-components
@@ -407,64 +408,47 @@ function ScoringOverview() {
     };
   }, [questions, responses, categories, testers, visibleThemes, config]);
 
-  // ── AI recommendations for the biggest flaws (button-triggered) ───────────
-  const [storedAiRecs, setStoredAiRecs] = useState<{
-    signature: string;
-    result: FlawRecommendationsResult;
-  } | null>(null);
-  const [aiLoadingSignature, setAiLoadingSignature] = useState<string | null>(null);
-  const [storedAiError, setStoredAiError] = useState<{ signature: string; message: string } | null>(null);
-  const aiRequestId = useRef(0);
+  // ── AI recommendations for the biggest flaws (auto-run, cached) ───────────
+  const flawPayload = useMemo(() => ({
+    gameName: project?.gameName || project?.name || '',
+    flaws: d.flaws.map((f) => ({
+      area: f.title,
+      score: f.score,
+      negativePct: f.negativePct,
+      themes: f.themes,
+      quotes: f.quotes,
+    })),
+  }), [project?.gameName, project?.name, d.flaws]);
 
-  const flawSignature = JSON.stringify(d.flaws.map((f) => ({
-    id: f.id,
-    score: f.score,
-    negativePct: f.negativePct,
-    themes: f.themes,
-    quotes: f.quotes,
-  })));
+  const fetchFlawRecs = useCallback(async (): Promise<FlawRecommendationsResult> => {
+    const res = await fetch('/api/flaw-recommendations', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(flawPayload),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error((data as { error?: string }).error ?? `HTTP ${res.status}`);
+    return data as FlawRecommendationsResult;
+  }, [flawPayload]);
 
-  const aiRecs = storedAiRecs?.signature === flawSignature ? storedAiRecs.result : null;
-  const aiLoading = aiLoadingSignature === flawSignature;
-  const aiError = storedAiError?.signature === flawSignature ? storedAiError.message : null;
+  const flawSignature = useMemo(
+    () => (d.flaws.length > 0 ? JSON.stringify(flawPayload) : ''),
+    [d.flaws.length, flawPayload],
+  );
 
-  const runFlawRecs = async () => {
-    if (d.flaws.length === 0) return;
-    const requestId = ++aiRequestId.current;
-    const requestedSignature = flawSignature;
-    setAiLoadingSignature(requestedSignature);
-    setStoredAiError(null);
-    try {
-      const res = await fetch('/api/flaw-recommendations', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          gameName: project?.gameName || project?.name || '',
-          flaws: d.flaws.map(f => ({
-            area: f.title,
-            score: f.score,
-            negativePct: f.negativePct,
-            themes: f.themes,
-            quotes: f.quotes,
-          })),
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error((data as { error?: string }).error ?? `HTTP ${res.status}`);
-      if (requestId === aiRequestId.current) {
-        setStoredAiRecs({ signature: requestedSignature, result: data as FlawRecommendationsResult });
-      }
-    } catch (err) {
-      if (requestId === aiRequestId.current) {
-        setStoredAiError({
-          signature: requestedSignature,
-          message: err instanceof Error ? err.message : 'Failed to generate recommendations',
-        });
-      }
-    } finally {
-      if (requestId === aiRequestId.current) setAiLoadingSignature(null);
-    }
-  };
+  const {
+    data: aiRecs,
+    loading: aiLoading,
+    error: aiError,
+    run: runFlawRecs,
+  } = useCachedAnalysis<FlawRecommendationsResult>({
+    key: 'flawRecs',
+    signature: flawSignature,
+    // As with takeaways: the unfiltered view analyses itself; a filtered cohort
+    // is asked for explicitly.
+    auto: !filtersActive,
+    fetcher: fetchFlawRecs,
+  });
 
   if (!project) return null;
 
@@ -528,13 +512,9 @@ function ScoringOverview() {
           </div>
         </div>
         <div className="flex flex-col items-end gap-2 flex-shrink-0">
-          <Link
-            href="/export"
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-medium bg-slate-800/60 border border-slate-700 text-slate-300 hover:border-indigo-500/60 hover:text-indigo-300 transition-colors"
-          >
-            <Download className="w-3.5 h-3.5" />
-            Download Full Report
-          </Link>
+          {/* "Download Full Report" removed — it promised a curated report but
+              only linked to the CSV export page. Reinstate once there is a
+              decision on what the report should actually contain. */}
           {d.overallScore !== null && (
             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-900/20 border border-emerald-700/30 text-[10px] font-semibold text-emerald-400">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
@@ -900,7 +880,7 @@ function ScoringOverview() {
           <Link href="/categories" className="text-xs text-slate-500 hover:text-slate-300 transition-colors">Category Scores</Link>
           <Link href="/testers" className="text-xs text-slate-500 hover:text-slate-300 transition-colors">Testers</Link>
           <Link href="/export" className="flex items-center gap-1 text-xs font-medium text-indigo-400 hover:text-indigo-300 transition-colors">
-            Export Report <ArrowRight className="w-3 h-3" />
+            Export data <ArrowRight className="w-3 h-3" />
           </Link>
         </div>
       </div>

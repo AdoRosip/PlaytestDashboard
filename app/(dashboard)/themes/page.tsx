@@ -225,7 +225,7 @@ export default function ThemesPage() {
                           AI Summary
                         </div>
                         <p className="text-sm text-slate-300 leading-relaxed">{theme.summary}</p>
-                        <p className="text-[11px] text-slate-600 mt-1 italic">
+                        <p className="text-xs text-slate-400 mt-1.5">
                           Generated from {theme.linkedResponseIds.length} linked responses. Verify by reviewing source responses.
                         </p>
                       </div>

@@ -87,6 +87,7 @@ export default function GeoDistributionMap({ data }: Props) {
   }
 
   return (
+    <div className="w-full">
     <div
       ref={containerRef}
       className="relative w-full aspect-[2/1] min-h-[300px] rounded-xl border border-indigo-500/30 bg-[#0B1021] overflow-hidden"
@@ -147,6 +148,34 @@ export default function GeoDistributionMap({ data }: Props) {
           </div>
         </div>
       )}
+    </div>
+
+    {/* Scale legend. The map shades whole continents from a single figure, so the
+        label says "per continent" — a country-level reading would be wrong. */}
+    {hasAny && (
+      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] text-slate-400">Testers per continent</span>
+          <span className="text-[11px] text-slate-500 tabular-nums">0</span>
+          <div
+            className="h-2.5 w-28 rounded-full border border-slate-700/60"
+            style={{
+              background: `linear-gradient(to right, ${fillForCount(1, maxCount)}, ${fillForCount(maxCount, maxCount)})`,
+            }}
+            role="img"
+            aria-label={`Colour scale from 0 to ${maxCount} testers per continent`}
+          />
+          <span className="text-[11px] text-slate-300 font-semibold tabular-nums">{maxCount}</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span
+            className="h-2.5 w-2.5 rounded-sm border border-slate-700/60"
+            style={{ background: fillForCount(0, maxCount) }}
+          />
+          <span className="text-[11px] text-slate-500">No testers</span>
+        </div>
+      </div>
+    )}
     </div>
   );
 }

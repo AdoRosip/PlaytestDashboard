@@ -42,6 +42,19 @@ function applyQuality(
 
 export type AnalysisStatus = 'idle' | 'running' | 'done' | 'error';
 
+/**
+ * One cached AI result, keyed by a signature derived from the exact inputs sent
+ * to the model. Auto-running an analysis is only safe with this: without it,
+ * every mount, filter toggle and duplicate tab would buy a fresh paid request.
+ */
+export interface AiCacheEntry {
+  signature: string;
+  status: 'running' | 'done' | 'error';
+  data?: unknown;
+  error?: string;
+  at?: string;
+}
+
 interface DashboardState {
   project: Project | null;
   testers: Tester[];
@@ -55,6 +68,14 @@ interface DashboardState {
   // AI theme analysis
   analysisStatus: AnalysisStatus;
   analysisError: string | null;
+
+  // Signature-keyed cache for the other AI passes (overview takeaways, flaw
+  // recommendations). Persisted, so a reload reuses the result instead of
+  // re-buying it.
+  aiCache: Record<string, AiCacheEntry>;
+  beginAiRun: (key: string, signature: string) => void;
+  completeAiRun: (key: string, signature: string, data: unknown) => void;
+  failAiRun: (key: string, signature: string, message: string) => void;
 
   // Evidence drawer
   drawerOpen: boolean;
@@ -129,6 +150,7 @@ export const useDashboardStore = create<DashboardState>()(
   mobileDrawer: null,
   analysisStatus: 'idle',
   analysisError: null,
+  aiCache: {},
   drawerOpen: false,
   drawerQuestionId: null,
   drawerRatingValue: null,
@@ -148,6 +170,7 @@ export const useDashboardStore = create<DashboardState>()(
       filters: defaultFilters,
       analysisStatus: 'idle',
       analysisError: null,
+      aiCache: {},
       drawerOpen: false,
       drawerQuestionId: null,
       drawerRatingValue: null,
@@ -167,6 +190,7 @@ export const useDashboardStore = create<DashboardState>()(
       themes: [],
       analysisStatus: 'idle',
       analysisError: null,
+      aiCache: {},
       isLoaded: true,
       filters: defaultFilters,
       drawerOpen: false,
@@ -180,6 +204,34 @@ export const useDashboardStore = create<DashboardState>()(
   toggleFilterPanel: () => set((s) => ({ filterPanelOpen: !s.filterPanelOpen })),
   openMobileDrawer: (which) => set({ mobileDrawer: which }),
   closeMobileDrawer: () => set({ mobileDrawer: null }),
+
+  beginAiRun: (key, signature) =>
+    set((s) => ({ aiCache: { ...s.aiCache, [key]: { signature, status: 'running' } } })),
+
+  // Both finishers no-op unless the entry still belongs to the run that started
+  // it — a superseded request (filters changed mid-flight) must not overwrite a
+  // newer one.
+  completeAiRun: (key, signature, data) =>
+    set((s) => {
+      if (s.aiCache[key]?.signature !== signature) return {};
+      return {
+        aiCache: {
+          ...s.aiCache,
+          [key]: { signature, status: 'done', data, at: new Date().toISOString() },
+        },
+      };
+    }),
+
+  failAiRun: (key, signature, message) =>
+    set((s) => {
+      if (s.aiCache[key]?.signature !== signature) return {};
+      return {
+        aiCache: {
+          ...s.aiCache,
+          [key]: { signature, status: 'error', error: message, at: new Date().toISOString() },
+        },
+      };
+    }),
   setFilter: (patch) => set((s) => ({ filters: { ...s.filters, ...patch } })),
   clearFilters: () => set({ filters: defaultFilters }),
 
@@ -381,8 +433,18 @@ export const useDashboardStore = create<DashboardState>()(
         questions: state.questions,
         responses: state.responses,
         themes: state.themes,
+        aiCache: state.aiCache,
         isLoaded: state.isLoaded,
       }),
+      // A run interrupted by a reload persists as `running`, which would
+      // rehydrate into a spinner that never resolves. Drop those so the analysis
+      // is simply eligible to run again.
+      onRehydrateStorage: () => (state) => {
+        if (!state?.aiCache) return;
+        state.aiCache = Object.fromEntries(
+          Object.entries(state.aiCache).filter(([, entry]) => entry.status !== 'running'),
+        );
+      },
     }
   )
 );

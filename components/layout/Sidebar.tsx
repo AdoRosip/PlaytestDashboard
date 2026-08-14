@@ -16,7 +16,7 @@ const NAV_SECTIONS = [
     items: [
       { href: '/overview',   label: 'Overview',   icon: LayoutDashboard },
       { href: '/categories', label: 'Categories', icon: Layers },
-      { href: '/questions',  label: 'Questions',  icon: HelpCircle },
+      { href: '/questions',  label: 'All Questions',  icon: HelpCircle },
       { href: '/testers',    label: 'Testers',    icon: Users },
       { href: '/builder',    label: 'Category Builder (Beta)', icon: FolderTree },
     ],

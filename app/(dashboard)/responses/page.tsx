@@ -4,7 +4,7 @@ import { Search } from 'lucide-react';
 import { useDashboardStore, selectFilteredResponses } from '@/lib/store';
 import PageHeader from '@/components/ui/PageHeader';
 import Badge from '@/components/ui/Badge';
-import { formatDate } from '@/lib/utils';
+import { formatDate, formatTesterLabel } from '@/lib/utils';
 
 export default function ResponsesPage() {
   const responses  = useDashboardStore(selectFilteredResponses);
@@ -52,7 +52,7 @@ export default function ResponsesPage() {
               return (
                 <tr key={r.id} className={`border-b border-slate-700/30 ${i % 2 === 0 ? '' : 'bg-slate-800/10'}`}>
                   <td className="px-4 py-3">
-                    <div className="text-slate-300 text-xs font-medium">{t?.testerId ?? 'Unknown'}</div>
+                    <div className="text-slate-300 text-xs font-medium">{t ? formatTesterLabel(t) : 'Unknown'}</div>
                     <div className="text-[10px] text-slate-600">{t?.ageGroup}</div>
                   </td>
                   <td className="px-4 py-3 max-w-[200px]">

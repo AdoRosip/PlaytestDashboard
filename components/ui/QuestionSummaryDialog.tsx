@@ -190,7 +190,7 @@ export default function QuestionSummaryDialog({ question, responses, testers, on
 
         {/* Footer */}
         <div className="px-6 py-2.5 border-t border-slate-800 flex-shrink-0">
-          <p className="text-[10px] text-slate-600">Based on {answered} responses · analysis is not saved</p>
+          <p className="text-xs text-slate-400">Based on {answered} responses · analysis is not saved</p>
         </div>
       </div>
     </div>
