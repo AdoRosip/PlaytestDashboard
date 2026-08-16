@@ -5,8 +5,9 @@ import {
   Users, Star, Sparkles, ThumbsUp, ThumbsDown, Lightbulb,
   MessageSquareText, ListChecks, TrendingDown, PenLine, Loader2, RefreshCw,
 } from 'lucide-react';
-import { useDashboardStore, selectActiveFilterCount, selectFilteredResponses, selectFilteredTesters, selectGameConfig } from '@/lib/store';
+import { useDashboardStore, selectAnyFilterActive, selectFilteredResponses, selectFilteredTesters, selectGameConfig } from '@/lib/store';
 import { countRespondents } from '@/lib/responseStats';
+import { POLARITY, rampColor } from '@/lib/chartColors';
 import { engagement } from '@/lib/testerProfile';
 import {
   distributionOf, semiStructured, ratingDistribution, ratingSentiment,
@@ -16,7 +17,6 @@ import type { OverviewInsightsResult } from '@/app/api/overview-insights/route';
 import CompanyLogo from '@/components/brand/CompanyLogo';
 import InfoTooltip from '@/components/ui/InfoTooltip';
 import ExpandableOverviewSection from '@/components/ui/ExpandableOverviewSection';
-import ScaleTrack from '@/components/ui/ScaleTrack';
 import { useCachedAnalysis } from '@/lib/useCachedAnalysis';
 import { filterThemesForResponses } from '@/lib/themeFiltering';
 
@@ -46,7 +46,7 @@ export default function QualitativeOverview() {
   const runThemeAnalysis = useDashboardStore((s) => s.runThemeAnalysis);
   const config     = useDashboardStore(selectGameConfig);
   const openDrawer = useDashboardStore((s) => s.openDrawer);
-  const filtersActive = useDashboardStore(selectActiveFilterCount) > 0;
+  const filtersActive = useDashboardStore(selectAnyFilterActive);
   const visibleThemes = useMemo(
     () => filterThemesForResponses(themes, responses, filtersActive),
     [themes, responses, filtersActive],
@@ -68,6 +68,9 @@ export default function QualitativeOverview() {
         label: kpi.label,
         max,
         questionId: q?.id ?? null,
+        // The distribution bars carry the red→green polarity ramp, so a
+        // negative-valence KPI has to flip it or the good answers come out red.
+        isInverseScored: q?.isInverseScored ?? false,
         sentiment: ratingSentiment(nums, max),
         dist: ratingDistribution(nums, max),
         isCommercial: COMMERCIAL_KEY.test(kpi.key) || COMMERCIAL_KEY.test(kpi.label),
@@ -213,31 +216,56 @@ export default function QualitativeOverview() {
                   <div className="text-sm text-slate-500 mb-1">/ {kpi.max}</div>
                   {kpi.isCommercial && (() => { const r = readiness(kpi.sentiment.avg / kpi.max); return <div className={`text-xs font-semibold mb-1 ml-auto ${r.tone}`}>{r.label}</div>; })()}
                 </div>
-                {/* Where that average sits on the question's own scale. */}
-                <div className="mb-4">
-                  <ScaleTrack value={kpi.sentiment.avg} max={kpi.max} />
-                </div>
-                {/* distribution */}
-                <div className="flex items-end gap-1 h-16 mb-2">
-                  {kpi.dist.map((b) => {
-                    const maxCount = Math.max(...kpi.dist.map((x) => x.count), 1);
-                    return (
-                      <button
-                        key={b.value}
-                        onClick={() => kpi.questionId && openDrawer(kpi.questionId, b.value)}
-                        className="flex-1 flex flex-col items-center justify-end group"
-                        title={`${b.count} rated ${b.value}`}
-                      >
-                        <div className="w-full rounded-t bg-gradient-to-t from-indigo-600/70 to-cyan-500/70 group-hover:from-indigo-500 group-hover:to-cyan-400 transition-colors" style={{ height: `${(b.count / maxCount) * 100}%` }} />
-                        <div className="text-[10px] text-slate-500 mt-1">{b.value}</div>
-                      </button>
-                    );
-                  })}
-                </div>
-                <div className="flex justify-between text-[11px]">
-                  <span className="text-emerald-400">{kpi.sentiment.positive}% positive</span>
-                  <span className="text-slate-500">{kpi.sentiment.neutral}% neutral</span>
-                  <span className="text-amber-400">{kpi.sentiment.negative}% negative</span>
+                {/* Distribution — the only place this card draws its 1–max axis.
+                    A ScaleTrack used to sit directly above plotting the same axis
+                    again, so the scale was stated three times over ("/ 5", the
+                    track's end labels, and these ticks). The average is deliberately
+                    not re-marked here either: it is already the headline figure a
+                    few lines up, and a line through the bars read as a threshold
+                    rather than a mean. Bars stay clickable to drill into a rating. */}
+                {(() => {
+                  const maxCount = Math.max(...kpi.dist.map((x) => x.count), 1);
+                  return (
+                    // `items-stretch` (not `items-end`) is load-bearing: it gives
+                    // each column a definite height, which is what the bar's
+                    // percentage height resolves against. Under `items-end` the
+                    // buttons sized to their label and every bar computed to 0px —
+                    // the axis rendered alone, looking like a broken chart.
+                    <div className="flex items-stretch gap-1 h-20 mb-2">
+                      {kpi.dist.map((b) => {
+                        const position = kpi.max > 1 ? (b.value - 1) / (kpi.max - 1) : 0.5;
+                        // Any non-zero count keeps a visible sliver, so "one tester
+                        // said 1" never looks identical to "nobody said 1".
+                        const pct = b.count > 0
+                          ? Math.max((b.count / maxCount) * 100, 3)
+                          : 0;
+                        return (
+                          <button
+                            key={b.value}
+                            onClick={() => kpi.questionId && openDrawer(kpi.questionId, b.value)}
+                            className="flex-1 flex flex-col group"
+                            title={`${b.count} rated ${b.value}`}
+                          >
+                            <div className="relative flex-1 w-full">
+                              <div
+                                className="absolute bottom-0 inset-x-0 rounded-t transition-opacity opacity-80 group-hover:opacity-100"
+                                style={{
+                                  height: `${pct}%`,
+                                  backgroundColor: rampColor(kpi.isInverseScored ? 1 - position : position),
+                                }}
+                              />
+                            </div>
+                            <div className="font-mono text-[10px] text-slate-500 mt-1">{b.value}</div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
+                <div className="flex justify-between font-mono text-[11px]">
+                  <span style={{ color: POLARITY.good }}>{kpi.sentiment.positive}% positive</span>
+                  <span style={{ color: POLARITY.neutral }}>{kpi.sentiment.neutral}% neutral</span>
+                  <span style={{ color: POLARITY.bad }}>{kpi.sentiment.negative}% negative</span>
                 </div>
               </>
             ) : (
@@ -478,26 +506,36 @@ export default function QualitativeOverview() {
           <p className="text-xs text-slate-400 mb-4">Prose questions that are secretly yes/no/maybe — click a bar for the raw answers</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
             {d.semi.map(({ q, s }) => {
+              // Yes reads good, No reads bad, Maybe takes the ramp's neutral
+              // midpoint. "Other" is unclassified prose — not a "no opinion"
+              // answer — so it stays a plain slate and sits outside the polarity
+              // scale entirely.
               const seg = [
-                { key: 'yes', pct: Math.round((s.yes / s.total) * 100), color: 'bg-emerald-500/70', label: 'Yes' },
-                { key: 'maybe', pct: Math.round((s.maybe / s.total) * 100), color: 'bg-sky-500/70', label: 'Maybe' },
-                { key: 'no', pct: Math.round((s.no / s.total) * 100), color: 'bg-amber-500/70', label: 'No' },
-                { key: 'other', pct: Math.round((s.other / s.total) * 100), color: 'bg-slate-600/60', label: 'Other' },
+                { key: 'yes', pct: Math.round((s.yes / s.total) * 100), color: POLARITY.good, count: s.yes, label: 'Yes' },
+                { key: 'maybe', pct: Math.round((s.maybe / s.total) * 100), color: POLARITY.neutral, count: s.maybe, label: 'Maybe' },
+                { key: 'no', pct: Math.round((s.no / s.total) * 100), color: POLARITY.bad, count: s.no, label: 'No' },
+                { key: 'other', pct: Math.round((s.other / s.total) * 100), color: '#475569', count: s.other, label: 'Other' },
               ];
               return (
                 <button key={q.id} onClick={() => openDrawer(q.id)} className="text-left group">
                   <div className="text-xs text-slate-300 mb-1.5 leading-snug group-hover:text-white truncate" title={q.text}>{q.text}</div>
-                  <div className="flex h-5 rounded overflow-hidden">
+                  <div className="flex h-5 rounded overflow-hidden gap-px">
                     {seg.filter((x) => x.pct > 0).map((x) => (
-                      <div key={x.key} className={`${x.color} flex items-center justify-center`} style={{ width: `${x.pct}%` }} title={`${x.label}: ${x.pct}%`}>
-                        {x.pct >= 12 && <span className="text-[10px] text-white/90">{x.pct}%</span>}
+                      <div key={x.key} className="flex items-center justify-center" style={{ width: `${x.pct}%`, backgroundColor: x.color }} title={`${x.label}: ${x.pct}%`}>
+                        {x.pct >= 12 && <span className="font-mono text-[10px] text-white/90">{x.pct}%</span>}
                       </div>
                     ))}
                   </div>
-                  <div className="flex gap-3 mt-1 text-[10px] text-slate-500">
-                    <span className="text-emerald-400">Yes {s.yes}</span>
-                    <span className="text-sky-400">Maybe {s.maybe}</span>
-                    <span className="text-amber-400">No {s.no}</span>
+                  {/* Every drawn segment gets a legend entry — "Other" was
+                      previously rendered in the bar but missing here, leaving an
+                      unexplained block of colour. */}
+                  <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1 font-mono text-[10px] text-slate-500">
+                    {seg.map((x) => (
+                      <span key={x.key} className="inline-flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: x.color }} />
+                        {x.label} {x.count}
+                      </span>
+                    ))}
                   </div>
                 </button>
               );

@@ -3,10 +3,11 @@ import type { Response } from './types';
 // ─────────────────────────────────────────────────────────────────────────────
 // In-category cross-question drill-down ("local filter").
 //
-// On a category page the user can click a rating bar (e.g. "5") on one question
-// to filter every *other* question down to the testers who gave that rating.
-// Selecting several bars on one question ORs those values together. Selecting
-// bars on several questions ANDs the per-question constraints together.
+// On a category page the user can click any answer bar — a rating bucket ("5")
+// or a verbatim choice ("Yes") — to filter every *other* question down to the
+// testers who gave that answer. Selecting several bars on one question ORs those
+// values together. Selecting bars on several questions ANDs the per-question
+// constraints together.
 //
 // This is a *tester* filter, exactly like the global one in `filtering.ts`:
 // each `{ questionId → ratings[] }` entry resolves to the union of testers who
@@ -17,8 +18,37 @@ import type { Response } from './types';
 // component only owns the `DrillSelection` state and renders the result.
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Map of questionId → selected rating values. Values OR; questions AND. */
-export type DrillSelection = Record<string, number[]>;
+/**
+ * A single clicked answer. Numbers are rating buckets and match `numericValue`;
+ * strings are verbatim answers (yes/no, multiple choice) and match `rawAnswer`.
+ */
+export type DrillValue = number | string;
+
+/** Map of questionId → selected answers. Values OR; questions AND. */
+export type DrillSelection = Record<string, DrillValue[]>;
+
+/**
+ * Normalize a verbatim answer for matching.
+ *
+ * The choice breakdown buckets by `rawAnswer.trim()`, so trimming here — and
+ * nothing more — keeps a drill set identical to the bar the user clicked. Case
+ * is deliberately significant: "Yes" and "yes" are drawn as two separate bars,
+ * so folding them here would select more testers than the clicked bar counts.
+ */
+export const answerKey = (rawAnswer: string): string => rawAnswer.trim();
+
+/** The numeric members of a selection — rating bar charts only understand numbers. */
+export function numericDrillValues(values: DrillValue[] | undefined): number[] {
+  return (values ?? []).filter((v): v is number => typeof v === 'number');
+}
+
+/** Numbers first (ascending), then verbatim answers (alphabetical). */
+function compareDrillValues(a: DrillValue, b: DrillValue): number {
+  if (typeof a === 'number' && typeof b === 'number') return a - b;
+  if (typeof a === 'number') return -1;
+  if (typeof b === 'number') return 1;
+  return a.localeCompare(b);
+}
 
 /**
  * Build, for each drilled question, the set of tester ids who answered the
@@ -36,17 +66,14 @@ export function buildPerQuestionSets(
   const sets = new Map<string, Set<string>>();
   for (const [qid, values] of Object.entries(drill)) {
     if (values.length === 0) continue;
-    const selectedValues = new Set(values);
+    const ratings = new Set(numericDrillValues(values));
+    const answers = new Set(values.filter((v): v is string => typeof v === 'string'));
     const s = new Set<string>();
     for (const r of responses) {
-      if (
-        r.questionId === qid &&
-        r.testerId !== null &&
-        r.numericValue !== null &&
-        selectedValues.has(Math.round(r.numericValue))
-      ) {
-        s.add(r.testerId);
-      }
+      if (r.questionId !== qid || r.testerId === null) continue;
+      const ratingHit = r.numericValue !== null && ratings.has(Math.round(r.numericValue));
+      const answerHit = answers.size > 0 && answers.has(answerKey(r.rawAnswer ?? ''));
+      if (ratingHit || answerHit) s.add(r.testerId);
     }
     sets.set(qid, s);
   }
@@ -95,7 +122,7 @@ export function applyDrill(
 export function toggleDrill(
   drill: DrillSelection,
   questionId: string,
-  value: number,
+  value: DrillValue,
 ): DrillSelection {
   const current = drill[questionId] ?? [];
   if (current.includes(value)) {
@@ -105,7 +132,7 @@ export function toggleDrill(
     delete next[questionId];
     return next;
   }
-  return { ...drill, [questionId]: [...current, value].sort((a, b) => a - b) };
+  return { ...drill, [questionId]: [...current, value].sort(compareDrillValues) };
 }
 
 /** Remove a single question's selection. */

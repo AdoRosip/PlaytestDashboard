@@ -15,6 +15,11 @@ import {
 import { computeTesterQuality, isConcerning, qualityExcludedCategoryIds } from './outliers';
 import { computeNormalizedScore, scaleForType } from './scoring';
 import { getGameConfigByName, type GameConfig } from './games';
+import {
+  buildPerQuestionSets, matchingTesterIds,
+  toggleDrill as toggleDrillSelection, removeDrill as removeDrillSelection,
+  type DrillSelection, type DrillValue,
+} from './crossFilter';
 
 /**
  * Recompute tester quality (avgRating / flags / outlier) over the current
@@ -65,6 +70,19 @@ interface DashboardState {
   isLoaded: boolean;
   filters: FilterState;
 
+  // Cross-filter: answers clicked on a chart ("scored 1 or 2 on Q1"). Lives in
+  // the store rather than in a page so it survives navigation — a selection made
+  // on one category stays active on the next one and on question detail pages,
+  // which is the whole point of the feature: "these testers rated the core loop
+  // low — what did they say everywhere else?".
+  //
+  // Stored as the *selection*, not as the tester ids it resolves to. The ids are
+  // derived (see `selectDrillTesterIds`); keeping the intent is what lets the
+  // chips name their question, lets one constraint be removed without losing the
+  // rest, lets the clicked bar light up again on return, and keeps the set from
+  // going stale when the underlying data is re-imported.
+  drill: DrillSelection;
+
   // AI theme analysis
   analysisStatus: AnalysisStatus;
   analysisError: string | null;
@@ -107,6 +125,14 @@ interface DashboardState {
   }) => void;
   setFilter: (patch: Partial<FilterState>) => void;
   clearFilters: () => void;
+  /** Add/remove one clicked answer on one question. */
+  toggleDrillValue: (questionId: string, value: DrillValue) => void;
+  /** Drop one question's whole constraint. */
+  clearDrillQuestion: (questionId: string) => void;
+  /** Drop every cross-filter constraint (panel filters untouched). */
+  clearDrill: () => void;
+  /** Drop both the panel filters and the cross-filter — the banner's "Clear all". */
+  clearAllFilters: () => void;
   openDrawer: (questionId: string, ratingValue?: number) => void;
   closeDrawer: () => void;
   openTesterPanel: (testerId: string) => void;
@@ -146,6 +172,7 @@ export const useDashboardStore = create<DashboardState>()(
   themes: [],
   isLoaded: false,
   filters: defaultFilters,
+  drill: {},
   filterPanelOpen: true,
   mobileDrawer: null,
   analysisStatus: 'idle',
@@ -167,7 +194,11 @@ export const useDashboardStore = create<DashboardState>()(
       responses: mockResponses,
       themes: mockThemes,
       isLoaded: true,
+      // A new dataset resets both filters. Item 19 asks for no automatic resets,
+      // but a cohort selected against the *previous* import would silently
+      // misreport the new one — the ids and question ids simply don't carry over.
       filters: defaultFilters,
+      drill: {},
       analysisStatus: 'idle',
       analysisError: null,
       aiCache: {},
@@ -192,7 +223,11 @@ export const useDashboardStore = create<DashboardState>()(
       analysisError: null,
       aiCache: {},
       isLoaded: true,
+      // A new dataset resets both filters. Item 19 asks for no automatic resets,
+      // but a cohort selected against the *previous* import would silently
+      // misreport the new one — the ids and question ids simply don't carry over.
       filters: defaultFilters,
+      drill: {},
       drawerOpen: false,
       drawerQuestionId: null,
       drawerRatingValue: null,
@@ -234,6 +269,13 @@ export const useDashboardStore = create<DashboardState>()(
     }),
   setFilter: (patch) => set((s) => ({ filters: { ...s.filters, ...patch } })),
   clearFilters: () => set({ filters: defaultFilters }),
+
+  toggleDrillValue: (questionId, value) =>
+    set((s) => ({ drill: toggleDrillSelection(s.drill, questionId, value) })),
+  clearDrillQuestion: (questionId) =>
+    set((s) => ({ drill: removeDrillSelection(s.drill, questionId) })),
+  clearDrill: () => set({ drill: {} }),
+  clearAllFilters: () => set({ filters: defaultFilters, drill: {} }),
 
   openDrawer: (questionId, ratingValue) =>
     set({ drawerOpen: true, drawerQuestionId: questionId, drawerRatingValue: ratingValue ?? null }),
@@ -289,6 +331,11 @@ export const useDashboardStore = create<DashboardState>()(
       return {
         questions,
         responses,
+        // A type change swaps the scale, so a bucket already selected on this
+        // question now means something else ("5" on a 1-5 scale is the top; on a
+        // 1-10 scale it is the middle). Drop just that constraint rather than
+        // leave a chip that silently re-points at a different cohort.
+        drill: patch.type !== undefined ? removeDrillSelection(s.drill, questionId) : s.drill,
         testers: applyQuality(
           s.testers,
           questions,
@@ -425,7 +472,11 @@ export const useDashboardStore = create<DashboardState>()(
           },
         };
       }),
-      // Only persist data — not UI state (filters, open panels, drawers)
+      // Only persist data — not UI state (filters, cross-filter, panels, drawers).
+      // The cross-filter deliberately follows `filters` here: both survive
+      // navigation (they live in the store) but not a reload. Persisting a
+      // cohort would mean reopening the dashboard to numbers that silently
+      // exclude most testers, with the reason scrolled off the last session.
       partialize: (state) => ({
         project: state.project,
         testers: state.testers,
@@ -450,14 +501,54 @@ export const useDashboardStore = create<DashboardState>()(
 );
 
 // ─── Filter selectors ────────────────────────────────────────────────────────
+//
+// Two independent constraints narrow the same thing — the set of testers — and
+// the visible cohort is their intersection:
+//
+//   segment  (filter panel: age, region, hardware, sentiment, quality)
+//   ∩ drill  (cross-filter: answers clicked on charts)
+//   = cohort (what every page renders)
+//
+// Composing them here rather than in the pages is what makes a cross-filter
+// behave like a real filter: every view that already reads
+// `selectFilteredResponses` / `selectFilteredTesters` honours it automatically,
+// so a selection cannot silently stop applying when you navigate.
+//
+// Each selector memoises on input identity. That is not just for speed — these
+// are called through `useDashboardStore`, which compares by reference, so
+// returning a fresh Set/array each render would loop forever.
 
-let filteredTesterIdsCache:
+let segmentTesterIdsCache:
   | {
       filters: FilterState;
       testers: Tester[];
       responses: Response[];
       questions: Question[];
       value: Set<string> | null;
+    }
+  | null = null;
+
+let drillTesterIdsCache:
+  | {
+      drill: DrillSelection;
+      responses: Response[];
+      value: Set<string> | null;
+    }
+  | null = null;
+
+let cohortTesterIdsCache:
+  | {
+      segmentIds: Set<string>;
+      drillIds: Set<string>;
+      value: Set<string>;
+    }
+  | null = null;
+
+let segmentResponsesCache:
+  | {
+      responses: Response[];
+      testerIds: Set<string>;
+      value: Response[];
     }
   | null = null;
 
@@ -477,16 +568,22 @@ let filteredTestersCache:
     }
   | null = null;
 
-export const selectFilteredTesterIds = (state: DashboardState): Set<string> | null => {
+/**
+ * Testers matching the filter panel only — the cross-filter is deliberately not
+ * applied. This is the base the drill-driving charts build on, so a chart can
+ * keep showing its full distribution while the selection made *on that same
+ * chart* stays visible, instead of collapsing to 100% of the clicked bar.
+ */
+export const selectSegmentTesterIds = (state: DashboardState): Set<string> | null => {
   const { filters, testers, responses, questions } = state;
 
   if (
-    filteredTesterIdsCache?.filters === filters &&
-    filteredTesterIdsCache.testers === testers &&
-    filteredTesterIdsCache.responses === responses &&
-    filteredTesterIdsCache.questions === questions
+    segmentTesterIdsCache?.filters === filters &&
+    segmentTesterIdsCache.testers === testers &&
+    segmentTesterIdsCache.responses === responses &&
+    segmentTesterIdsCache.questions === questions
   ) {
-    return filteredTesterIdsCache.value;
+    return segmentTesterIdsCache.value;
   }
 
   const value = computeFilteredTesterIds({
@@ -496,7 +593,59 @@ export const selectFilteredTesterIds = (state: DashboardState): Set<string> | nu
     filters,
     config: getGameConfigByName(state.project?.gameName),
   });
-  filteredTesterIdsCache = { filters, testers, responses, questions, value };
+  segmentTesterIdsCache = { filters, testers, responses, questions, value };
+  return value;
+};
+
+/**
+ * Testers satisfying every cross-filter constraint (`null` = nothing selected).
+ *
+ * Resolved against the *unfiltered* responses: the drill is a statement about
+ * who answered what, independent of the panel filters, and the intersection in
+ * `selectFilteredTesterIds` applies the panel afterwards. Same result, but the
+ * set survives panel changes instead of being rebuilt on every chip toggle.
+ */
+export const selectDrillTesterIds = (state: DashboardState): Set<string> | null => {
+  const { drill, responses } = state;
+  if (drillTesterIdsCache?.drill === drill && drillTesterIdsCache.responses === responses) {
+    return drillTesterIdsCache.value;
+  }
+  const value = matchingTesterIds(buildPerQuestionSets(responses, drill));
+  drillTesterIdsCache = { drill, responses, value };
+  return value;
+};
+
+/** The visible cohort: segment ∩ drill. `null` = no constraint at all. */
+export const selectFilteredTesterIds = (state: DashboardState): Set<string> | null => {
+  const segmentIds = selectSegmentTesterIds(state);
+  const drillIds = selectDrillTesterIds(state);
+  if (segmentIds === null) return drillIds;
+  if (drillIds === null) return segmentIds;
+
+  if (
+    cohortTesterIdsCache?.segmentIds === segmentIds &&
+    cohortTesterIdsCache.drillIds === drillIds
+  ) {
+    return cohortTesterIdsCache.value;
+  }
+  const value = new Set([...segmentIds].filter((id) => drillIds.has(id)));
+  cohortTesterIdsCache = { segmentIds, drillIds, value };
+  return value;
+};
+
+/**
+ * Responses narrowed by the filter panel but *not* by the cross-filter — the
+ * base a page uses to draw a chart that is itself a cross-filter control.
+ */
+export const selectSegmentFilteredResponses = (state: DashboardState) => {
+  const ids = selectSegmentTesterIds(state);
+  if (ids === null) return state.responses;
+  if (segmentResponsesCache?.responses === state.responses && segmentResponsesCache.testerIds === ids) {
+    return segmentResponsesCache.value;
+  }
+
+  const value = filterResponsesByTesterIds(state.responses, ids);
+  segmentResponsesCache = { responses: state.responses, testerIds: ids, value };
   return value;
 };
 
@@ -524,8 +673,20 @@ export const selectFilteredTesters = (state: DashboardState) => {
   return value;
 };
 
+/**
+ * Filter-panel count only. Drives the badges attached to the panel itself, so it
+ * must not count constraints the panel doesn't contain and can't clear.
+ */
 export const selectActiveFilterCount = (state: DashboardState): number =>
   countActiveFilters(state.filters);
+
+/** Number of questions carrying a cross-filter constraint. */
+export const selectCrossFilterCount = (state: DashboardState): number =>
+  Object.keys(state.drill).length;
+
+/** True when anything at all is narrowing the cohort. */
+export const selectAnyFilterActive = (state: DashboardState): boolean =>
+  countActiveFilters(state.filters) > 0 || Object.keys(state.drill).length > 0;
 
 /** The active game config, resolved from the loaded project's gameName. */
 export const selectGameConfig = (state: DashboardState): GameConfig =>

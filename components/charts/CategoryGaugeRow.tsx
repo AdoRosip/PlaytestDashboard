@@ -1,5 +1,6 @@
 'use client';
 import Link from 'next/link';
+import { scoreHex } from '@/lib/chartColors';
 
 interface GaugeCat {
   id: string;
@@ -17,10 +18,9 @@ function Gauge({ id, name, avg }: GaugeCat) {
   const circumference = 2 * Math.PI * r;
   const filled = (score / 100) * circumference;
 
-  const color =
-    score >= 70 ? '#00FFFF' :
-    score >= 45 ? '#0066FF' :
-    '#6366f1';
+  // `avg` is a normalizedScore-derived 0–100, so it is already higher-is-better
+  // for inverse-scored questions too — no flip needed here.
+  const color = scoreHex(score);
 
   return (
     <Link
@@ -49,12 +49,12 @@ function Gauge({ id, name, avg }: GaugeCat) {
             strokeWidth="7"
             strokeDasharray={`${filled} ${circumference}`}
             strokeLinecap="round"
-            style={{ filter: score >= 70 ? 'drop-shadow(0 0 6px rgba(0,255,255,0.5))' : 'none' }}
+            style={{ filter: score >= 70 ? `drop-shadow(0 0 6px ${color}80)` : 'none' }}
           />
         </svg>
         <div className="absolute inset-0 flex items-center justify-center">
           <span
-            className="text-xl font-bold leading-none"
+            className="font-mono text-xl font-bold leading-none"
             style={{ color }}
           >
             {score}

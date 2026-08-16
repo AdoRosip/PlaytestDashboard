@@ -1,9 +1,10 @@
 'use client';
 import { useEffect } from 'react';
-import { SlidersHorizontal, X } from 'lucide-react';
+import { ChevronRight, SlidersHorizontal, X } from 'lucide-react';
 import Sidebar from './Sidebar';
 import MobileTopBar from './MobileTopBar';
 import FilterPanel from '@/components/filters/FilterPanel';
+import CrossFilterBar from '@/components/filters/CrossFilterBar';
 import { useDashboardStore, selectFilteredResponses, selectActiveFilterCount } from '@/lib/store';
 import EvidenceDrawer from '@/components/ui/EvidenceDrawer';
 import TesterPanel from '@/components/ui/TesterPanel';
@@ -13,6 +14,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
   const loadMockData      = useDashboardStore((s) => s.loadMockData);
   const isLoaded          = useDashboardStore((s) => s.isLoaded);
   const filterPanelOpen   = useDashboardStore((s) => s.filterPanelOpen);
+  const toggleFilterPanel = useDashboardStore((s) => s.toggleFilterPanel);
   const clearFilters      = useDashboardStore((s) => s.clearFilters);
   const activeFilterCount = useDashboardStore(selectActiveFilterCount);
   const mobileDrawer      = useDashboardStore((s) => s.mobileDrawer);
@@ -41,11 +43,42 @@ export default function DashboardShell({ children }: { children: React.ReactNode
       <MobileTopBar />
       <Sidebar />
 
-      {/* Docked filter rail — `lg` and up only. */}
-      {filterPanelOpen && (
-        <div className="hidden lg:flex fixed left-[220px] top-0 h-full w-[260px] border-r border-slate-800 z-30">
-          <FilterPanel />
-        </div>
+      {/* Docked filter rail — `lg` and up only.
+          Always mounted and slid out of view rather than unmounted, so it can
+          animate. Collapsing translates it a full width left, which tucks it
+          behind the nav (rail z-30, nav z-40) — it literally slides into the nav
+          instead of blinking out. `inert` keeps its controls out of the tab order
+          and off screen readers while hidden. */}
+      <div
+        className={`hidden lg:flex fixed left-[220px] top-0 h-full w-[260px] border-r border-slate-800 z-30 transition-transform duration-200 ${
+          filterPanelOpen ? 'translate-x-0' : '-translate-x-[260px]'
+        }`}
+        inert={!filterPanelOpen}
+      >
+        <FilterPanel />
+      </div>
+
+      {/* Expand handle — a tab on the nav's edge, shown only while collapsed.
+          `top-3` lines its centre up with the collapse chevron inside the panel
+          header (which sits in a `py-4` row), so the control does not appear to
+          jump vertically as the rail opens and closes. */}
+      {!filterPanelOpen && (
+        <button
+          onClick={toggleFilterPanel}
+          aria-label="Expand filters"
+          aria-expanded={false}
+          title="Expand filters"
+          className="hidden lg:flex fixed left-[220px] top-3 z-40 items-center gap-1.5 py-1.5 pl-1.5 pr-2.5 rounded-r-lg border border-l-0 border-slate-700/60 bg-[#0d1220] text-slate-400 hover:text-white hover:border-slate-500 transition-colors"
+        >
+          <ChevronRight className="w-4 h-4 flex-shrink-0" />
+          <SlidersHorizontal className="w-3.5 h-3.5 flex-shrink-0" />
+          <span className="text-xs font-medium">Filters</span>
+          {activeFilterCount > 0 && (
+            <span className="px-1.5 py-0.5 rounded-full font-mono text-[10px] font-bold bg-indigo-600/30 text-indigo-300 border border-indigo-500/30">
+              {activeFilterCount}
+            </span>
+          )}
+        </button>
       )}
 
       {/* Off-canvas filter rail — below `lg`. Mounted always so it can animate. */}
@@ -54,6 +87,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
           mobileDrawer === 'filters' ? 'translate-x-0 shadow-2xl shadow-black/50' : '-translate-x-full'
         }`}
       >
+        <span className=''>Filters</span>
         <FilterPanel />
       </div>
 
@@ -67,22 +101,31 @@ export default function DashboardShell({ children }: { children: React.ReactNode
       )}
 
       <main className={`flex-1 ${mainOffset} min-w-0 min-h-screen pt-14 lg:pt-0 transition-all duration-200`}>
-        {/* Active filter banner */}
-        {activeFilterCount > 0 && (
-          <div className="flex items-center gap-2 px-4 md:px-6 py-2 bg-indigo-900/20 border-b border-indigo-700/30">
-            <SlidersHorizontal className="w-3.5 h-3.5 text-indigo-400 flex-shrink-0" />
-            <span className="text-xs text-indigo-300 min-w-0">
-              Showing <span className="font-semibold">{filteredParticipants}</span> of {totalParticipants} participants
-              {' '}· {activeFilterCount} filter{activeFilterCount !== 1 ? 's' : ''} active
-            </span>
-            <button
-              onClick={clearFilters}
-              className="ml-auto flex items-center gap-1 text-xs text-indigo-400 hover:text-white transition-colors flex-shrink-0"
-            >
-              <X className="w-3 h-3" /> Clear
-            </button>
-          </div>
-        )}
+        {/* Active-cohort banners. Pinned while scrolling so the reason the
+            numbers below are small never scrolls out of sight — item 19 asks for
+            the active filter to stay visibly highlighted. `top-14` clears the
+            fixed MobileTopBar; from `lg` that bar is gone and the rails are
+            docked, so it sits at the very top. */}
+        <div className="sticky top-14 lg:top-0 z-20 bg-[#0B1021]">
+          {/* Filter panel — demographics, sentiment, data quality */}
+          {activeFilterCount > 0 && (
+            <div className="flex items-center gap-2 px-4 md:px-6 py-2 bg-indigo-900/20 border-b border-indigo-700/30">
+              <SlidersHorizontal className="w-3.5 h-3.5 text-indigo-400 flex-shrink-0" />
+              <span className="text-xs text-indigo-300 min-w-0">
+                Showing <span className="font-semibold">{filteredParticipants}</span> of {totalParticipants} participants
+                {' '}· {activeFilterCount} filter{activeFilterCount !== 1 ? 's' : ''} active
+              </span>
+              <button
+                onClick={clearFilters}
+                className="ml-auto flex items-center gap-1 text-xs text-indigo-400 hover:text-white transition-colors flex-shrink-0"
+              >
+                <X className="w-3 h-3" /> Clear
+              </button>
+            </div>
+          )}
+          {/* Cross-filter — answers clicked on charts, carried across pages */}
+          <CrossFilterBar />
+        </div>
         {children}
       </main>
 

@@ -41,7 +41,7 @@ export default function CategoryCard({
       <div>
         <div className="flex items-center justify-between mb-2">
           <span className="text-xs text-slate-400">Avg score</span>
-          <span className={`text-lg font-bold ${avgScore === null ? 'text-slate-500' : scoreColor(avgScore)}`}>
+          <span className={`font-mono text-lg font-bold ${avgScore === null ? 'text-slate-500' : scoreColor(avgScore)}`}>
             {avgScore ?? 'N/A'}
           </span>
         </div>
@@ -56,7 +56,7 @@ export default function CategoryCard({
           { label: '% Negative', value: negativePct === null ? 'N/A' : `${negativePct}%` },
         ].map(({ label, value }) => (
           <div key={label} className="rounded-lg bg-slate-900/50 py-2">
-            <div className="text-sm font-semibold text-white">{value}</div>
+            <div className="font-mono text-sm font-semibold text-white">{value}</div>
             <div className="text-[10px] text-slate-500">{label}</div>
           </div>
         ))}

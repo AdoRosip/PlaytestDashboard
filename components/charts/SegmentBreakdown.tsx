@@ -2,19 +2,25 @@
 import { useState } from 'react';
 import type { Response, Tester, SegmentKey } from '@/lib/types';
 import { SEGMENT_LABELS } from '@/lib/types';
+import { scoreHex } from '@/lib/chartColors';
 import CollapsibleSection from '@/components/ui/CollapsibleSection';
 
 interface Props {
   responses: Response[];
   testers: Tester[];
   scale: 5 | 10;
+  // `avg` below is built from raw `numericValue`, which is NOT polarity-corrected
+  // (unlike `normalizedScore`). The bars are coloured good-green/bad-red, so an
+  // inverse-scored question needs the polarity flipped before a colour is picked
+  // — otherwise the worst-performing segment is painted green.
+  isInverseScored?: boolean;
 }
 
 const BREAKDOWN_SEGMENTS: SegmentKey[] = [
   'age_group', 'gaming_hours', 'hardware_tier', 'country', 'gender',
 ];
 
-export default function SegmentBreakdown({ responses, testers, scale }: Props) {
+export default function SegmentBreakdown({ responses, testers, scale, isInverseScored = false }: Props) {
   const [activeKey, setActiveKey] = useState<SegmentKey>('age_group');
 
   const testerMap = new Map(testers.map((t) => [t.id, t]));
@@ -67,7 +73,9 @@ export default function SegmentBreakdown({ responses, testers, scale }: Props) {
         )}
         {rows.map(({ label, avg, count }) => {
           const pct = (avg / scale) * 100;
-          const barColor = pct >= 65 ? '#00FFFF' : pct >= 40 ? '#0066FF' : '#0000EE';
+          // Bar *width* stays on the raw percentage — it shows the score itself.
+          // Only the colour reads polarity, so only the colour is flipped.
+          const barColor = scoreHex(isInverseScored ? 100 - pct : pct);
           return (
             <div key={label} className="flex items-center gap-3">
               <div
@@ -82,10 +90,10 @@ export default function SegmentBreakdown({ responses, testers, scale }: Props) {
                   style={{ width: `${pct}%`, backgroundColor: barColor + 'bb' }}
                 />
               </div>
-              <div className="w-8 text-xs font-semibold text-white text-right flex-shrink-0">
+              <div className="w-8 font-mono text-xs font-semibold text-white text-right flex-shrink-0">
                 {avg.toFixed(1)}
               </div>
-              <div className="w-10 text-[10px] text-slate-500 text-right flex-shrink-0">
+              <div className="w-10 font-mono text-[10px] text-slate-500 text-right flex-shrink-0">
                 n={count}
               </div>
             </div>

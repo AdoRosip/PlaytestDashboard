@@ -40,7 +40,7 @@ export default function KpiCard({ label, value, sub, icon: Icon, accent = 'slate
           </div>
         )}
       </div>
-      <div className="text-2xl font-bold text-white leading-none">{value}</div>
+      <div className="font-mono text-2xl font-bold text-white leading-none">{value}</div>
       {sub && <div className="text-xs text-slate-500">{sub}</div>}
     </div>
   );

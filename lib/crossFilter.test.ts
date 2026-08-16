@@ -200,3 +200,77 @@ describe('removeDrill', () => {
     expect(removeDrill({ Q1: [5] }, 'Q9')).toEqual({ Q1: [5] });
   });
 });
+
+// ─── Verbatim answers (yes/no & multiple choice) ─────────────────────────────
+
+/** One categorical response: tester `t` answered the text `answer` on `q`. */
+function textResp(t: string | null, q: string, answer: string): Response {
+  return {
+    id: `${t}_${q}_${answer}`,
+    projectId: 'p',
+    testerId: t,
+    questionId: q,
+    rawAnswer: answer,
+    numericValue: null,
+    normalizedScore: null,
+    submittedAt: '',
+    matchStatus: 'matched',
+  };
+}
+
+// Q3 is a yes/no question: t1→Yes, t2→No, t3→Yes
+const choices: Response[] = [
+  textResp('t1', 'Q3', 'Yes'),
+  textResp('t2', 'Q3', 'No'),
+  textResp('t3', 'Q3', 'Yes'),
+];
+
+describe('buildPerQuestionSets with verbatim answers', () => {
+  it('matches testers on rawAnswer, not numericValue', () => {
+    const sets = buildPerQuestionSets(choices, { Q3: ['Yes'] });
+    expect(sets.get('Q3')).toEqual(new Set(['t1', 't3']));
+  });
+
+  it('ORs several selected answers on one question', () => {
+    const sets = buildPerQuestionSets(choices, { Q3: ['Yes', 'No'] });
+    expect(sets.get('Q3')).toEqual(new Set(['t1', 't2', 't3']));
+  });
+
+  it('ignores surrounding whitespace, matching how the bars are bucketed', () => {
+    const padded = [textResp('t4', 'Q3', '  Yes  ')];
+    const sets = buildPerQuestionSets(padded, { Q3: ['Yes'] });
+    expect(sets.get('Q3')).toEqual(new Set(['t4']));
+  });
+
+  it('does not fold case — separate bars must stay separately selectable', () => {
+    const mixed = [textResp('t5', 'Q3', 'yes')];
+    const sets = buildPerQuestionSets(mixed, { Q3: ['Yes'] });
+    expect(sets.get('Q3')).toEqual(new Set());
+  });
+
+  it('ANDs a verbatim answer against a rating on another question', () => {
+    // Q1: t1→5, t2→5, t3→3 ; Q3: t1→Yes, t2→No, t3→Yes
+    // "rated 5 AND said Yes" is t1 alone.
+    const sets = buildPerQuestionSets([...world, ...choices], { Q1: [5], Q3: ['Yes'] });
+    expect(matchingTesterIds(sets)).toEqual(new Set(['t1']));
+  });
+
+  it('keeps numeric and verbatim values on the same question independent', () => {
+    const mixedQ = [...world, textResp('t3', 'Q1', 'N/A')];
+    const sets = buildPerQuestionSets(mixedQ, { Q1: [5, 'N/A'] });
+    expect(sets.get('Q1')).toEqual(new Set(['t1', 't2', 't3']));
+  });
+});
+
+describe('toggleDrill with verbatim answers', () => {
+  it('adds and removes a string answer', () => {
+    const added = toggleDrill({}, 'Q3', 'Yes');
+    expect(added).toEqual({ Q3: ['Yes'] });
+    expect(toggleDrill(added, 'Q3', 'Yes')).toEqual({});
+  });
+
+  it('sorts numbers ahead of verbatim answers', () => {
+    const d: DrillSelection = toggleDrill(toggleDrill({}, 'Q1', 'N/A'), 'Q1', 5);
+    expect(d.Q1).toEqual([5, 'N/A']);
+  });
+});

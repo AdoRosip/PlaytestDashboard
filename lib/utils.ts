@@ -24,16 +24,23 @@ export function severityDot(severity: Severity | Priority): string {
   }
 }
 
+// Both take an already-normalized 0–100 score (higher = better; inverse-scored
+// questions are flipped in lib/scoring.ts), so they can read polarity directly.
+//
+// These stay as three hardcoded buckets rather than calling the ramp in
+// lib/chartColors.ts because Tailwind only emits arbitrary-value classes it can
+// see as literal strings in the source — a computed `text-[${hex}]` would
+// silently produce no CSS at all. The hexes are the ramp's own green/yellow/red.
 export function scoreColor(score: number): string {
-  if (score >= 70) return 'text-[#00FFFF]';
-  if (score >= 45) return 'text-[#0066FF]';
-  return 'text-[#0000EE]';
+  if (score >= 70) return 'text-[#3adf3a]';
+  if (score >= 45) return 'text-[#dfdf3a]';
+  return 'text-[#df3a3a]';
 }
 
 export function scoreBgColor(score: number): string {
-  if (score >= 70) return 'bg-[#00FFFF]';
-  if (score >= 45) return 'bg-[#0066FF]';
-  return 'bg-[#0000EE]';
+  if (score >= 70) return 'bg-[#3adf3a]';
+  if (score >= 45) return 'bg-[#dfdf3a]';
+  return 'bg-[#df3a3a]';
 }
 
 export function normalizeScore(value: number, min: number, max: number): number {
