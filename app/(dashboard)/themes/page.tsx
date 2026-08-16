@@ -4,7 +4,7 @@ import {
   Sparkles, ChevronDown, ChevronUp, ExternalLink, Info,
   AlertCircle, RefreshCw, Loader2,
 } from 'lucide-react';
-import { useDashboardStore, selectActiveFilterCount, selectFilteredResponses } from '@/lib/store';
+import { useDashboardStore, selectAnyFilterActive, selectFilteredResponses } from '@/lib/store';
 import PageHeader from '@/components/ui/PageHeader';
 import Badge from '@/components/ui/Badge';
 import EmptyState from '@/components/ui/EmptyState';
@@ -19,7 +19,7 @@ export default function ThemesPage() {
   const questions       = useDashboardStore((s) => s.questions);
   const allResponses    = useDashboardStore((s) => s.responses);
   const responses       = useDashboardStore(selectFilteredResponses);
-  const filtersActive   = useDashboardStore(selectActiveFilterCount) > 0;
+  const filtersActive   = useDashboardStore(selectAnyFilterActive);
   const isLoaded        = useDashboardStore((s) => s.isLoaded);
   const analysisStatus  = useDashboardStore((s) => s.analysisStatus);
   const analysisError   = useDashboardStore((s) => s.analysisError);

@@ -3,19 +3,7 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
 } from 'recharts';
 
-const COLORS: Record<number, string> = {
-  1: '#0000EE',
-  2: '#003DF5',
-  3: '#0066FF',
-  4: '#00B8FF',
-  5: '#00FFFF',
-};
-
-const COLORS_10: Record<number, string> = {
-  1: '#0000EE', 2: '#001EF1', 3: '#003DF5', 4: '#0054FA',
-  5: '#0066FF', 6: '#0084FF', 7: '#00A2FF',
-  8: '#00C0FF', 9: '#00E0FF', 10: '#00FFFF',
-};
+import { ratingColors } from '@/lib/chartColors';
 
 interface RatingBarChartProps {
   data: { value: number; count: number; pct: number }[];
@@ -23,10 +11,18 @@ interface RatingBarChartProps {
   onBarClick?: (value: number) => void;
   // Selected bars stay emphasized while unselected bars are dimmed.
   selectedValues?: number[];
+  // Negative-valence questions ("how frustrated were you?") invert what a high
+  // rating means. The bars carry a red→green polarity ramp, so without this the
+  // chart would paint the good answers red. Raw values arrive un-flipped —
+  // `normalizedScore` is corrected in lib/scoring.ts, but this data is not.
+  isInverseScored?: boolean;
 }
 
-export default function RatingBarChart({ data, scale = 5, onBarClick, selectedValues }: RatingBarChartProps) {
-  const colorMap = scale === 10 ? COLORS_10 : COLORS;
+export default function RatingBarChart({
+  data, scale = 5, onBarClick, selectedValues, isInverseScored = false,
+}: RatingBarChartProps) {
+  const colors = ratingColors(scale, isInverseScored);
+  const colorFor = (value: number) => colors[value - 1] ?? colors[0];
   const selectionActive = Boolean(selectedValues?.length);
 
   return (
@@ -76,7 +72,7 @@ export default function RatingBarChart({ data, scale = 5, onBarClick, selectedVa
           {data.map((entry) => (
             <Cell
               key={entry.value}
-              fill={colorMap[entry.value] ?? '#0066FF'}
+              fill={colorFor(entry.value)}
               fillOpacity={!selectionActive || selectedValues?.includes(entry.value) ? 1 : 0.25}
               stroke="none"
             />
@@ -84,10 +80,13 @@ export default function RatingBarChart({ data, scale = 5, onBarClick, selectedVa
         </Bar>
       </BarChart>
     </ResponsiveContainer>
-    {/* Scale legend — clarifies the axis direction (1 = worst, max = best). */}
+    {/* Scale legend. It names which end is *good* as well as which is numerically
+        high, so the red→green fill is never the only thing carrying that — which
+        matters both for colour-vision deficiency and for inverse-scored questions,
+        where the green end is the low one. */}
     <div className="flex items-center justify-between px-1 mt-1 text-[11px] text-white/45">
-      <span>1 = Lowest</span>
-      <span>{scale} = Highest</span>
+      <span>1 = Lowest · {isInverseScored ? 'best' : 'worst'}</span>
+      <span>{scale} = Highest · {isInverseScored ? 'worst' : 'best'}</span>
     </div>
     </>
   );

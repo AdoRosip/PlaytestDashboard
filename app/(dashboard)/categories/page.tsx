@@ -1,6 +1,6 @@
 'use client';
 import { useMemo } from 'react';
-import { useDashboardStore, selectActiveFilterCount, selectFilteredResponses } from '@/lib/store';
+import { useDashboardStore, selectAnyFilterActive, selectFilteredResponses } from '@/lib/store';
 import PageHeader from '@/components/ui/PageHeader';
 import CategoryCard from '@/components/cards/CategoryCard';
 import EmptyState from '@/components/ui/EmptyState';
@@ -21,7 +21,7 @@ export default function CategoriesPage() {
   const questions   = useDashboardStore((s) => s.questions);
   const responses   = useDashboardStore(selectFilteredResponses);
   const storedThemes = useDashboardStore((s) => s.themes);
-  const filtersActive = useDashboardStore(selectActiveFilterCount) > 0;
+  const filtersActive = useDashboardStore(selectAnyFilterActive);
   const themes = useMemo(
     () => filterThemesForResponses(storedThemes, responses, filtersActive),
     [storedThemes, responses, filtersActive],

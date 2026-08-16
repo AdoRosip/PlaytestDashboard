@@ -1,8 +1,8 @@
 'use client';
 import { use, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, HelpCircle, MessageSquare, X, Filter, Sparkles } from 'lucide-react';
-import { useDashboardStore, selectActiveFilterCount, selectFilteredResponses } from '@/lib/store';
+import { ArrowLeft, HelpCircle, MessageSquare, Sparkles } from 'lucide-react';
+import { useDashboardStore, selectAnyFilterActive, selectSegmentFilteredResponses } from '@/lib/store';
 import PageHeader from '@/components/ui/PageHeader';
 import Badge from '@/components/ui/Badge';
 import ScoreBar from '@/components/ui/ScoreBar';
@@ -15,54 +15,44 @@ import {
   buildPerQuestionSets,
   matchingTesterIds,
   applyDrill as applyDrillIds,
-  toggleDrill as toggleDrillSelection,
-  removeDrill as removeDrillSelection,
-  type DrillSelection,
+  numericDrillValues,
+  answerKey,
 } from '@/lib/crossFilter';
 import type { Question, Response } from '@/lib/types';
 import { filterThemesForResponses } from '@/lib/themeFiltering';
-
-function shortenQuestion(text: string): string {
-  return text.length > 42 ? `${text.slice(0, 42).trimEnd()}…` : text;
-}
 
 export default function CategoryDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const categories = useDashboardStore((s) => s.categories);
   const questions   = useDashboardStore((s) => s.questions);
-  const responses   = useDashboardStore(selectFilteredResponses);
+  // Filter-panel-filtered but *not* cross-filtered: every chart on this page is
+  // itself a cross-filter control, so each one applies the drill for itself with
+  // its own question excluded (see `applyDrill` below). Taking the fully
+  // filtered set here would collapse each chart to the bar that was clicked on
+  // it, leaving nothing to click next.
+  const responses   = useDashboardStore(selectSegmentFilteredResponses);
   const testers     = useDashboardStore((s) => s.testers);
   const storedThemes = useDashboardStore((s) => s.themes);
-  const filtersActive = useDashboardStore(selectActiveFilterCount) > 0;
-  const themes = useMemo(
-    () => filterThemesForResponses(storedThemes, responses, filtersActive),
-    [storedThemes, responses, filtersActive],
-  );
+  const filtersActive = useDashboardStore(selectAnyFilterActive);
   // const openDrawer = useDashboardStore((s) => s.openDrawer); // side panel disabled
-  //   on the category page — bar clicks now drive the in-category drill-down below.
+  //   on the category page — bar clicks now drive the cross-filter below.
 
-  // ── In-category cross-question drill-down ──────────────────────────────────
-  // Page-local (resets on navigation), layered on top of the global filters.
-  // Pure logic lives in `lib/crossFilter.ts`; this component only owns state.
-  const [drill, setDrill] = useState<DrillSelection>({});
+  // ── Cross-question drill-down ──────────────────────────────────────────────
+  // Selection lives in the store, so it survives navigation to another category
+  // or to a question detail page (feedback items 18 & 19). Pure logic is in
+  // `lib/crossFilter.ts`; the chips are rendered globally by `CrossFilterBar`.
+  const drill = useDashboardStore((s) => s.drill);
+  const toggleDrill = useDashboardStore((s) => s.toggleDrillValue);
 
   // Question whose AI summary dialog is open (null = closed).
   const [summaryQ, setSummaryQ] = useState<Question | null>(null);
 
-  const toggleDrill = (questionId: string, value: number) =>
-    setDrill((d) => toggleDrillSelection(d, questionId, value));
-  const removeDrill = (questionId: string) =>
-    setDrill((d) => removeDrillSelection(d, questionId));
-  const clearDrill = () => setDrill({});
-
-  const category = categories.find((c) => c.id === id);
-  const catQuestions = questions.filter((q) => q.categoryId === id);
-  const catResponses = responses.filter((r) => catQuestions.some((q) => q.id === r.questionId));
-  const catThemes = themes.filter((t) => t.categoryId === id);
-
-  // Tester-ID set for each drilled question, derived from the (already global-
-  // filtered) responses. matchSet() intersects them, optionally excluding one
-  // question so its own chart keeps showing the full distribution.
+  // Tester-ID set for each drilled question, derived from the segment-filtered
+  // responses. matchSet() intersects them, optionally excluding one question so
+  // its own chart keeps showing the full distribution. The drill may name
+  // questions from other categories — that is the point of item 19 — and those
+  // resolve here just the same, because the response list is not scoped to this
+  // category.
   const perQuestionSets = useMemo(
     () => buildPerQuestionSets(responses, drill),
     [responses, drill],
@@ -74,9 +64,24 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ id: s
   const applyDrill = (list: Response[], excludeQid?: string): Response[] =>
     applyDrillIds(list, matchSet(excludeQid));
 
-  const drillEntries = Object.entries(drill);
-  const drillActive = drillEntries.length > 0;
-  const matchedCount = matchSet()?.size ?? null;
+  const drillActive = Object.keys(drill).length > 0;
+
+  // Themes are evidence-linked, so they must be narrowed by the cohort the page
+  // actually shows — cross-filter included, or a theme could cite a tester the
+  // current selection excludes.
+  const cohortResponses = useMemo(
+    () => applyDrillIds(responses, matchingTesterIds(perQuestionSets)),
+    [responses, perQuestionSets],
+  );
+  const themes = useMemo(
+    () => filterThemesForResponses(storedThemes, cohortResponses, filtersActive),
+    [storedThemes, cohortResponses, filtersActive],
+  );
+
+  const category = categories.find((c) => c.id === id);
+  const catQuestions = questions.filter((q) => q.categoryId === id);
+  const catResponses = cohortResponses.filter((r) => catQuestions.some((q) => q.id === r.questionId));
+  const catThemes = themes.filter((t) => t.categoryId === id);
 
   if (!category) {
     return (
@@ -86,8 +91,16 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ id: s
     );
   }
 
+  // Questions that can drive the cross-filter come first: a rating chart or a
+  // choice breakdown is a filter control, and everything below — free text
+  // especially — is meant to be read *through* whatever is selected up here.
+  // Prose can only ever be filtered, never filter, so it always sorts last.
+  const isChoiceType = (t: Question['type']) => t === 'yes_no' || t === 'multiple_choice';
   const ratingQuestions = catQuestions.filter((q) => isRatingType(q.type));
-  const otherQuestions = catQuestions.filter((q) => !isRatingType(q.type));
+  const choiceQuestions = catQuestions.filter((q) => isChoiceType(q.type));
+  const otherQuestions = catQuestions.filter(
+    (q) => !isRatingType(q.type) && !isChoiceType(q.type),
+  );
 
   return (
     <div className="mx-auto w-full max-w-[1680px] px-4 md:px-6 lg:px-8 py-8">
@@ -119,52 +132,17 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ id: s
         </div>
       )}
 
-      {/* Active drill-down filters — pinned to the top while scrolling so the
-          cross-filter context stays visible. Opaque fill + blur keep scrolled
-          content from bleeding through the bar. */}
-      {drillActive && (
-        <div className="sticky top-0 z-20 mb-6 rounded-xl border border-indigo-500/40 bg-indigo-950/85 backdrop-blur-md p-4 shadow-lg shadow-black/30">
-          <div className="flex items-center justify-between gap-3 mb-3">
-            <div className="flex items-center gap-2 text-xs font-semibold text-indigo-200">
-              <Filter className="w-3.5 h-3.5" />
-              Cross-filtering ·{' '}
-              <span className="text-white">
-                {matchedCount ?? 0} matching {matchedCount === 1 ? 'tester' : 'testers'}
-              </span>
-            </div>
-            <button
-              onClick={clearDrill}
-              className="text-xs text-indigo-300 hover:text-white transition-colors"
-            >
-              Clear all
-            </button>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {drillEntries.map(([qid, values]) => {
-              const q = questions.find((x) => x.id === qid);
-              return (
-                <button
-                  key={qid}
-                  onClick={() => removeDrill(qid)}
-                  title="Remove this filter"
-                  className="group flex items-center gap-2 px-3 py-1.5 rounded-full border border-indigo-400/40 bg-slate-900/60 hover:border-indigo-300 transition-colors"
-                >
-                  <span className="text-xs text-slate-300">
-                    {q ? shortenQuestion(q.text) : qid} ={' '}
-                    <span className="font-semibold text-white">{values.join(' or ')}</span>
-                  </span>
-                  <X className="w-3 h-3 text-slate-500 group-hover:text-white" />
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
+      {/* The active cross-filter chips are rendered once by `DashboardShell`
+          (see `components/filters/CrossFilterBar.tsx`), so they stay on screen
+          across every page rather than only this one. */}
 
       {/* Rating questions */}
       {ratingQuestions.length > 0 && (
         <div className="mb-8">
-          <h2 className="text-sm font-semibold text-white mb-4">Ratings</h2>
+          <h2 className="text-sm font-semibold text-white mb-1">Ratings</h2>
+          <p className="text-xs text-slate-400 mb-4">
+            Click a bar to filter every other question down to those testers.
+          </p>
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
             {ratingQuestions.map((q) => {
               // Own chart shows the full distribution among testers matching the
@@ -234,7 +212,8 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ id: s
                       <RatingBarChart
                         data={dist}
                         scale={q.type === 'rating_1_10' ? 10 : 5}
-                        selectedValues={drill[q.id]}
+                        isInverseScored={q.isInverseScored}
+                        selectedValues={numericDrillValues(drill[q.id])}
                         onBarClick={(val) => toggleDrill(q.id, val)} // was: openDrawer(q.id, val)
                       />
                     </div>
@@ -250,18 +229,43 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ id: s
         </div>
       )}
 
-      {/* Free-text & other question types */}
-      {otherQuestions.length > 0 && (
-        <div>
-          <h2 className="text-sm font-semibold text-white mb-4">Open-ended &amp; other</h2>
+      {/* Choice questions before prose: they can drive the cross-filter, and the
+          free-text answers below are meant to be read through that selection.
+          Both groups render the identical card, so they share one map. */}
+      {[
+        {
+          key: 'choices',
+          title: 'Multiple choice & yes/no',
+          hint: 'Click an answer to filter every other question down to those testers.',
+          list: choiceQuestions,
+        },
+        {
+          key: 'prose',
+          title: 'Open-ended & other',
+          hint: null as string | null,
+          list: otherQuestions,
+        },
+      ].filter((section) => section.list.length > 0).map((section) => (
+        <div key={section.key} className="mb-8">
+          <h2 className={`text-sm font-semibold text-white ${section.hint ? 'mb-1' : 'mb-4'}`}>
+            {section.title}
+          </h2>
+          {section.hint && <p className="text-xs text-slate-400 mb-4">{section.hint}</p>}
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-            {otherQuestions.map((q) => {
-              const visible = applyDrill(responses.filter((r) => r.questionId === q.id));
+            {section.list.map((q) => {
+              const isCategorical = isChoiceType(q.type);
+              // A choice question is itself a filter control, so its own breakdown
+              // excludes its own selection (exactly as the rating charts do) —
+              // otherwise clicking "Yes" would collapse the chart to 100% Yes and
+              // leave no "No" bar to switch to. Prose questions filter fully.
+              const visible = applyDrill(
+                responses.filter((r) => r.questionId === q.id),
+                isCategorical ? q.id : undefined,
+              );
               const freeTextResponses = visible.filter((r) => r.numericValue === null && r.rawAnswer);
 
               // Option frequency for yes/no & multiple-choice questions, derived
               // from the drill-filtered responses so it tracks the cross-filter.
-              const isCategorical = q.type === 'yes_no' || q.type === 'multiple_choice';
               const answered = visible.filter((r) => r.rawAnswer.trim());
               // Verbatim answers are what people came to read, so they take the
               // full grid width. Choice breakdowns are compact bars and stay
@@ -271,7 +275,9 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ id: s
                 ? (() => {
                     const counts: Record<string, number> = {};
                     for (const r of answered) {
-                      const val = r.rawAnswer.trim();
+                      // Same key the cross-filter matches on, so a clicked bar
+                      // always resolves to exactly the testers it counted.
+                      const val = answerKey(r.rawAnswer);
                       counts[val] = (counts[val] ?? 0) + 1;
                     }
                     return Object.entries(counts)
@@ -373,16 +379,39 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ id: s
                           {drillActive ? 'Breakdown · matching testers' : 'Response breakdown'}
                         </div>
                         <div className="space-y-2">
-                          {mcDist.map(({ label, count, pct }) => (
-                            <div key={label} className="flex items-center gap-3">
-                              <div className="w-28 text-xs text-slate-300 truncate flex-shrink-0" title={label}>{label}</div>
-                              <div className="flex-1 h-4 bg-slate-700/40 rounded-full overflow-hidden">
-                                <div className="h-full rounded-full bg-indigo-500/50" style={{ width: `${pct}%` }} />
-                              </div>
-                              <div className="w-6 text-xs font-semibold text-white text-right flex-shrink-0">{count}</div>
-                              <div className="w-9 text-[10px] text-slate-500 text-right flex-shrink-0">{pct}%</div>
-                            </div>
-                          ))}
+                          {mcDist.map(({ label, count, pct }) => {
+                            // Same cross-filter as the rating bars, keyed on the
+                            // verbatim answer instead of a rating bucket.
+                            const selected = (drill[q.id] ?? []).includes(label);
+                            const someSelected = (drill[q.id] ?? []).length > 0;
+                            return (
+                              <button
+                                key={label}
+                                onClick={() => toggleDrill(q.id, label)}
+                                aria-pressed={selected}
+                                title={selected ? `Remove filter: ${label}` : `Filter to testers who answered "${label}"`}
+                                className="flex items-center gap-3 w-full text-left rounded px-1 -mx-1 py-0.5 hover:bg-slate-700/30 transition-colors cursor-pointer"
+                              >
+                                <div className={`w-28 text-xs truncate flex-shrink-0 ${selected ? 'text-white font-semibold' : 'text-slate-300'}`} title={label}>{label}</div>
+                                <div className="flex-1 h-4 bg-slate-700/40 rounded-full overflow-hidden">
+                                  {/* Stays a single neutral hue: these options are
+                                      nominal, so the red→green polarity ramp would
+                                      claim "Yes" is good and "No" is bad. Unselected
+                                      bars dim once a selection exists, matching how
+                                      RatingBarChart marks its choice. */}
+                                  <div
+                                    className="h-full rounded-full bg-indigo-500/50 transition-opacity"
+                                    style={{
+                                      width: `${pct}%`,
+                                      opacity: !someSelected || selected ? 1 : 0.25,
+                                    }}
+                                  />
+                                </div>
+                                <div className="w-6 font-mono text-xs font-semibold text-white text-right flex-shrink-0">{count}</div>
+                                <div className="w-9 font-mono text-[10px] text-slate-500 text-right flex-shrink-0">{pct}%</div>
+                              </button>
+                            );
+                          })}
                         </div>
                       </div>
                     ) : (
@@ -396,7 +425,7 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ id: s
             })}
           </div>
         </div>
-      )}
+      ))}
 
       {catQuestions.length === 0 && (
         <div className="text-slate-500 text-sm text-center py-8">

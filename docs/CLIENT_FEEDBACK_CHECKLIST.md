@@ -146,7 +146,7 @@ analyses that cannot explain themselves.
 | ⬜ | 1 | Yes/No can't be clicked as a filter | `2/5` | Widen `DrillSelection` to accept strings; match on `rawAnswer`; make the bars buttons. One pure tested module |
 | ⬜ | 11 | More player context beside an answer | `2/5` | Data all exists. **Flag:** framing signals as "credibility" is a product decision |
 | ⬜ | 13 | Top Themes missing until AI has run | `2/5` | Cheap because themes already persist and a generation guard exists. Auto-run once per dataset |
-| ⬜ | 18 | Detail view resets the chart filter | `2/5` | Both pages already hold the same selection shape. Encode in URL → also fixes Back, reload, sharing |
+| ✅ | 18 | Detail view resets the chart filter | `2/5` | Fell out of 19 — the two pages held *separate* `useState` copies of the same shape, so "Detail →" mounted a fresh empty one. Both now read `store.drill`. **Not** URL-encoded, so reload and link-sharing still start clean |
 
 ### Moderate — several components or state changes
 
@@ -156,7 +156,7 @@ analyses that cannot explain themselves.
 | ⬜ | 9 | Interface should be larger | `3/5` | Global font bump breaks existing truncation. Needs type-scale + density tokens. Sequence with A1 so layout is re-tested once |
 | ⬜ | 14 · 15 | Theme polarity + show positive findings | `3/5` | Root cause: prompt defines low severity as "minor *or positive*", collapsing two axes. Needs a distinct sentiment field |
 | ⬜ | 16 | Show how many people share each takeaway | `3/5` after B2 | Count in the app, never ask the model. Define the denominator |
-| ⬜ | 19 | Keep filters across categories; no auto-resets | `3/5` | Already partly true. **Push back:** reset-on-new-import should stay, or a previous cohort silently misreports new data |
+| ✅ | 19 | Keep filters across categories; no auto-resets | `3/5` | Cross-filter moved from page `useState` into `store.drill`; cohort is now `segment ∩ drill` in `selectFilteredTesterIds`, so every page that already read `selectFilteredResponses` honours it. Chips render globally in `CrossFilterBar`. **Push-back accepted:** reset-on-new-import stays. Reload still clears (not persisted) — see the localStorage risk below |
 | ⬜ | 3 | Design closer to the platform | `4/5` | Subjective + broad. Items 4, 6, 9, 12 are fragments of this; do the token layer first |
 
 ### Needs input
@@ -194,7 +194,7 @@ analyses that cannot explain themselves.
 |---|---|---|
 | 1 · Now | ~~2~~, 5, ~~7~~, ~~8~~, ~~10~~, 12, ~~20~~, ~~21~~, ~~22~~, 23 | No backend, no dependencies. **7 of 10 done.** Remaining: 5 and 23 (both carry a decision — see their notes), and 12 is held for the palette |
 | 2 · Gamescom | A1 (tablet-landscape) | Hard-dated and hard-scoped |
-| 3 · Foundations | 4, 6, 9, 3 (tokens) · 1, 18, 19 (filter state) | Two token layers. Everything later gets cheaper |
+| 3 · Foundations | 4, 6, 9, 3 (tokens) · 1, ~~18~~, ~~19~~ (filter state) | Two token layers. Everything later gets cheaper. **Filter state done**; item 1 still to verify against the category the client named |
 | 4 · AI provenance | B2, B3 → B1, 13, 16, 14, 15 | Citations first |
 | 5 · Needs Portal | A2, A2a, 25a, 25b | All gated on user identity + server-side storage |
 | 6 · External | 24, 25c | Privacy decision and third-party API contract |

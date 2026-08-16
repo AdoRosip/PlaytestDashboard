@@ -40,8 +40,6 @@ const NAV_SECTIONS = [
 
 export default function Sidebar() {
   const pathname         = usePathname();
-  const filterPanelOpen  = useDashboardStore((s) => s.filterPanelOpen);
-  const toggleFilterPanel = useDashboardStore((s) => s.toggleFilterPanel);
   const activeFilterCount = useDashboardStore(selectActiveFilterCount);
   const mobileDrawer     = useDashboardStore((s) => s.mobileDrawer);
   const openMobileDrawer = useDashboardStore((s) => s.openMobileDrawer);
@@ -68,7 +66,7 @@ export default function Sidebar() {
             <CompanyLogo className="w-8" priority />
           </div>
           <div>
-            <div className="text-sm font-semibold text-white leading-tight">Playlytix</div>
+            <div className="font-display text-sm font-bold text-white leading-tight">Playlytix</div>
             <div className="text-xs text-slate-500 leading-tight">Insights</div>
           </div>
         </div>
@@ -112,7 +110,9 @@ export default function Sidebar() {
         ))}
       </nav>
 
-      {/* Filters toggle — docks the panel at `lg`+, opens the overlay below it. */}
+      {/* Below `lg` the filter rail is an overlay, so it still needs a trigger.
+          From `lg` up there is no button here: the rail collapses into this nav
+          and is reopened by the handle on the nav's edge (see DashboardShell). */}
       <div className="px-3 pb-3">
         <button
           onClick={() => openMobileDrawer('filters')}
@@ -126,26 +126,7 @@ export default function Sidebar() {
             <span>Filters</span>
           </div>
           {activeFilterCount > 0 && (
-            <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-600/30 text-indigo-300 border border-indigo-500/30">
-              {activeFilterCount}
-            </span>
-          )}
-        </button>
-        <button
-          onClick={toggleFilterPanel}
-          className={cn(
-            'hidden lg:flex items-center justify-between w-full px-3 py-2 rounded-md text-sm transition-colors border',
-            filterPanelOpen
-              ? 'bg-indigo-600/20 border-indigo-500/40 text-indigo-300'
-              : 'border-slate-700/60 text-slate-400 hover:text-slate-200 hover:border-slate-600',
-          )}
-        >
-          <div className="flex items-center gap-2">
-            <SlidersHorizontal className="w-4 h-4 flex-shrink-0" />
-            <span>Filters</span>
-          </div>
-          {activeFilterCount > 0 && (
-            <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-600/30 text-indigo-300 border border-indigo-500/30">
+            <span className="px-1.5 py-0.5 rounded-full font-mono text-[10px] font-bold bg-indigo-600/30 text-indigo-300 border border-indigo-500/30">
               {activeFilterCount}
             </span>
           )}

@@ -8,7 +8,7 @@ import {
   BookOpen, Trophy, Split,
   Sparkles, Lightbulb, RefreshCw,
 } from 'lucide-react';
-import { useDashboardStore, selectActiveFilterCount, selectFilteredResponses, selectFilteredTesters, selectGameConfig } from '@/lib/store';
+import { useDashboardStore, selectAnyFilterActive, selectFilteredResponses, selectFilteredTesters, selectGameConfig } from '@/lib/store';
 import type { Severity } from '@/lib/types';
 import { filterThemesForResponses } from '@/lib/themeFiltering';
 import type { FlawRecommendationsResult } from '@/app/api/flaw-recommendations/route';
@@ -136,7 +136,7 @@ function ScoringOverview() {
   const testers    = useDashboardStore(selectFilteredTesters);
   const themes     = useDashboardStore(s => s.themes);
   const config     = useDashboardStore(selectGameConfig);
-  const filtersActive = useDashboardStore(selectActiveFilterCount) > 0;
+  const filtersActive = useDashboardStore(selectAnyFilterActive);
   const visibleThemes = useMemo(
     () => filterThemesForResponses(themes, responses, filtersActive),
     [themes, responses, filtersActive],

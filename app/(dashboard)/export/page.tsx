@@ -1,7 +1,7 @@
 'use client';
 import { useMemo } from 'react';
 import { Download, FileText, Table2 } from 'lucide-react';
-import { useDashboardStore, selectActiveFilterCount, selectFilteredResponses, selectFilteredTesters } from '@/lib/store';
+import { useDashboardStore, selectAnyFilterActive, selectFilteredResponses, selectFilteredTesters } from '@/lib/store';
 import PageHeader from '@/components/ui/PageHeader';
 import { formatTesterLabel } from '@/lib/utils';
 import { filterThemesForResponses } from '@/lib/themeFiltering';
@@ -28,7 +28,7 @@ export default function ExportPage() {
   const questions = useDashboardStore((s) => s.questions);
   const testers   = useDashboardStore(selectFilteredTesters);
   const storedThemes = useDashboardStore((s) => s.themes);
-  const filtersActive = useDashboardStore(selectActiveFilterCount) > 0;
+  const filtersActive = useDashboardStore(selectAnyFilterActive);
   const themes = useMemo(
     () => filterThemesForResponses(storedThemes, responses, filtersActive),
     [storedThemes, responses, filtersActive],

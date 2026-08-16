@@ -19,6 +19,12 @@
 }
 
 @theme inline {
+  /* Font roles — the variables themselves are injected by next/font in app/layout.tsx.
+     These names generate the `font-sans`, `font-display` and `font-mono` utilities. */
+  --font-sans: var(--font-instrument-sans), system-ui, sans-serif;
+  --font-display: var(--font-outfit), system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, monospace;
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-slate-950: #060917;
@@ -41,6 +47,40 @@
   --color-indigo-200: #E5FFFF;
 }
 
+/* ---------------------------------------------------------------------------
+   Type scale — one notch up from the Tailwind defaults.
+
+   The dashboard leans hard on the bottom of the scale (219 × text-xs,
+   103 × text-[10px], 106 × text-sm, 52 × text-[11px]), which read too small.
+   Every step below gains exactly 1px, so the bump is proportionally largest
+   where the text was tightest (+11% at 9px) and tapers to +5% at text-xl.
+
+   `text-2xl`/`text-3xl` are deliberately left at their defaults: those are the
+   big KPI and gauge numbers, already comfortably legible and the most
+   layout-sensitive. Holding them steady also tightens the overall hierarchy,
+   which is what you want when the complaint is "the small text is too small".
+
+   Line heights are unitless ratios in Tailwind v4, so they scale with these
+   values automatically — no separate leading overrides needed.
+
+   To retune the whole app, change these numbers and the three px rules below.
+   --------------------------------------------------------------------------- */
+@theme {
+  --text-xs: 0.8125rem;  /* 12px → 13px */
+  --text-sm: 0.9375rem;  /* 14px → 15px */
+  --text-base: 1.0625rem;/* 16px → 17px */
+  --text-lg: 1.1875rem;  /* 18px → 19px */
+  --text-xl: 1.3125rem;  /* 20px → 21px */
+}
+
+/* The same ramp for the hardcoded sizes. Attribute selectors avoid escaping the
+   brackets, matching the `.overview-expanded-content` rules further down; those
+   carry `!important` and still win inside the expanded dialog. Unlayered so they
+   outrank the `text-[Npx]` utilities they are correcting. */
+[class~="text-[9px]"]  { font-size: 10px; }
+[class~="text-[10px]"] { font-size: 11px; }
+[class~="text-[11px]"] { font-size: 12px; }
+
 * {
   box-sizing: border-box;
 }
@@ -54,8 +94,46 @@ body {
     linear-gradient(180deg, rgba(0, 102, 255, 0.1), transparent 260px),
     #0B1021;
   color: #FFF;
-  font-family: system-ui, sans-serif;
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+}
+
+/* Typography roles live in `base` so per-element Tailwind utilities (`font-bold`,
+   `font-sans`, …) still win over them. */
+@layer base {
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  /* Data, numbers and the small uppercase labels used throughout the dashboard.
+     Tabular figures keep columns of numbers from shifting as values change. */
+  .font-mono,
+  .uppercase {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+
+}
+
+/* JetBrains Mono is already wide; the uppercase labels carry `tracking-wide(r|st)`
+   for the old sans, so pull some of that back to keep them from wrapping. Kept
+   unlayered so it outranks the `tracking-*` utilities it is correcting. */
+.uppercase.tracking-wide   { letter-spacing: 0.01em; }
+.uppercase.tracking-wider  { letter-spacing: 0.03em; }
+.uppercase.tracking-widest { letter-spacing: 0.06em; }
+
+/* Recharts renders SVG <text>, which inherits the body font — axis ticks, labels
+   and tooltips are data, so they follow the mono role. */
+.recharts-cartesian-axis-tick-value,
+.recharts-polar-angle-axis-tick-value,
+.recharts-polar-radius-axis-tick-value,
+.recharts-label,
+.recharts-label-list text,
+.recharts-tooltip-wrapper {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
 }
 
 ::-webkit-scrollbar { width: 4px; height: 4px; }
@@ -191,13 +269,13 @@ body {
 .overview-expanded-content [class~="text-[11px]"],
 .overview-expanded-content [class~="text-[10px]"],
 .overview-expanded-content [class~="text-[9px]"] {
-  font-size: 0.925rem !important;
-  line-height: 1.45rem !important;
+  font-size: 1rem !important;      /* was 0.925rem, tracking the new baseline */
+  line-height: 1.57rem !important;
 }
 
 .overview-expanded-content .text-sm {
-  font-size: 1.05rem !important;
-  line-height: 1.6rem !important;
+  font-size: 1.125rem !important;  /* was 1.05rem, tracking the new baseline */
+  line-height: 1.71rem !important;
 }
 
 .overview-expanded-content .truncate {

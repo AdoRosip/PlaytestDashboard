@@ -16,7 +16,7 @@ export default function ScoreBar({ score, showLabel = true, height = 'h-1.5' }: 
         />
       </div>
       {showLabel && (
-        <span className="text-xs text-slate-400 w-7 text-right">{score}</span>
+        <span className="font-mono text-xs text-slate-400 w-7 text-right">{score}</span>
       )}
     </div>
   );

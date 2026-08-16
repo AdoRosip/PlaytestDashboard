@@ -3,14 +3,14 @@ import { use, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, MessageSquare, User, Clock, Sparkles, RefreshCw, Lightbulb, X, Brain, Filter, CalendarDays } from 'lucide-react';
 import type { QuestionAnalysisResult } from '@/app/api/question-analysis/route';
-import { useDashboardStore, selectFilteredResponses } from '@/lib/store';
+import { useDashboardStore, selectSegmentFilteredResponses } from '@/lib/store';
 import PageHeader from '@/components/ui/PageHeader';
 import Badge from '@/components/ui/Badge';
 import RatingBarChart from '@/components/charts/RatingBarChart';
 import SegmentBreakdown from '@/components/charts/SegmentBreakdown';
 import CollapsibleSection from '@/components/ui/CollapsibleSection';
 import { questionTypeLabel, scoreColor, formatDate, computeRatingDistribution, formatTesterLabel } from '@/lib/utils';
-import { applyDrill, buildPerQuestionSets, matchingTesterIds, toggleDrill, type DrillSelection } from '@/lib/crossFilter';
+import { applyDrill, buildPerQuestionSets, matchingTesterIds, numericDrillValues } from '@/lib/crossFilter';
 
 // TODO: AI analysis results are local state and are cleared on navigation.
 // Future improvement: persist in Zustand store keyed by questionId so results
@@ -20,26 +20,53 @@ export default function QuestionDetailPage({ params }: { params: Promise<{ id: s
   const { id } = use(params);
   const questions       = useDashboardStore((s) => s.questions);
   const categories      = useDashboardStore((s) => s.categories);
-  const responses       = useDashboardStore(selectFilteredResponses);
+  // Filter-panel-filtered only; the cross-filter is applied below so this page
+  // can exclude its own question from it (see `otherTesterIds`).
+  const responses       = useDashboardStore(selectSegmentFilteredResponses);
   const testers         = useDashboardStore((s) => s.testers);
   const openTesterPanel = useDashboardStore((s) => s.openTesterPanel);
   const router          = useRouter();
 
   const [aiPanelOpen, setAiPanelOpen] = useState(false);
-  const [ratingFilter, setRatingFilter] = useState<DrillSelection>({});
+
+  // The cross-filter is shared with the category pages via the store, so
+  // arriving here through "Detail →" keeps whatever was selected there (item
+  // 18), and a selection made here survives navigating away (item 19).
+  const drill           = useDashboardStore((s) => s.drill);
+  const toggleDrill     = useDashboardStore((s) => s.toggleDrillValue);
+  const clearDrillQuestion = useDashboardStore((s) => s.clearDrillQuestion);
 
   const question      = questions.find((q) => q.id === id);
   const scale         = (question?.type === 'rating_1_10' ? 10 : 5) as 5 | 10;
-  const selectedRatings = ratingFilter[id];
+  const selectedRatings = drill[id];
   const ratingFilterActive = Boolean(selectedRatings?.length);
-  const allQuestionResponses = useMemo(
-    () => responses.filter((r) => r.questionId === id),
-    [responses, id],
+
+  const perQuestionSets = useMemo(
+    () => buildPerQuestionSets(responses, drill),
+    [responses, drill],
   );
-  const selectedTesterIds = useMemo(() => {
-    if (!selectedRatings?.length) return null;
-    return matchingTesterIds(buildPerQuestionSets(responses, { [id]: selectedRatings }));
-  }, [responses, id, selectedRatings]);
+
+  // Constraints from *other* questions — including ones in other categories.
+  // These narrow everything on the page, this question's own chart included:
+  // "of the testers who rated the core loop 1-2 over there, how did they answer
+  // this?" is exactly the question item 19 asks the platform to be able to hold.
+  const otherTesterIds = useMemo(
+    () => matchingTesterIds(perQuestionSets, id),
+    [perQuestionSets, id],
+  );
+  // …and the full set, this question's own selection included.
+  const selectedTesterIds = useMemo(
+    () => matchingTesterIds(perQuestionSets),
+    [perQuestionSets],
+  );
+
+  // Base for the distribution chart: narrowed by the other questions, but not by
+  // this one — otherwise clicking "2" would redraw the chart as 100% "2" and
+  // leave no other bar to click.
+  const allQuestionResponses = useMemo(
+    () => applyDrill(responses.filter((r) => r.questionId === id), otherTesterIds),
+    [responses, id, otherTesterIds],
+  );
   const qResponses = useMemo(
     () => applyDrill(allQuestionResponses, selectedTesterIds),
     [allQuestionResponses, selectedTesterIds],
@@ -71,14 +98,16 @@ export default function QuestionDetailPage({ params }: { params: Promise<{ id: s
   }, [allQuestionResponses, scale]);
 
   const toggleRatingFilter = (value: number) => {
-    setRatingFilter((current) => toggleDrill(current, id, value));
+    toggleDrill(id, value);
     // An existing analysis describes a different response set after the filter changes.
     setAiAnalysis(null);
     setStoredAiError(null);
   };
 
+  // Clears only this question's selection. Constraints carried in from another
+  // category stay — they are removed from their own chip in the global bar.
   const clearRatingFilter = () => {
-    setRatingFilter({});
+    clearDrillQuestion(id);
     setAiAnalysis(null);
     setStoredAiError(null);
   };
@@ -258,7 +287,8 @@ export default function QuestionDetailPage({ params }: { params: Promise<{ id: s
             <RatingBarChart
               data={ratingDist}
               scale={scale}
-              selectedValues={selectedRatings}
+              isInverseScored={question.isInverseScored}
+              selectedValues={numericDrillValues(selectedRatings)}
               onBarClick={toggleRatingFilter}
             />
           </CollapsibleSection>
@@ -270,6 +300,7 @@ export default function QuestionDetailPage({ params }: { params: Promise<{ id: s
             responses={ratingResponses}
             testers={testers}
             scale={scale}
+            isInverseScored={question.isInverseScored}
           />
         )}
 
