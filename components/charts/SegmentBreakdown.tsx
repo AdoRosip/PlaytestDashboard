@@ -85,9 +85,13 @@ export default function SegmentBreakdown({ responses, testers, scale, isInverseS
                 {label}
               </div>
               <div className="flex-1 h-4 bg-slate-700/40 rounded-full overflow-hidden">
+                {/* `scoreHex` returns an `hsl()` string despite the name, so the
+                    old `barColor + 'bb'` alpha suffix built `hsl(…)bb` — not a
+                    colour, which browsers drop, leaving every bar invisible.
+                    The same softening now comes from opacity. */}
                 <div
-                  className="h-full rounded-full transition-all duration-300"
-                  style={{ width: `${pct}%`, backgroundColor: barColor + 'bb' }}
+                  className="h-full rounded-full opacity-[0.73] transition-all duration-300"
+                  style={{ width: `${pct}%`, backgroundColor: barColor }}
                 />
               </div>
               <div className="w-8 font-mono text-xs font-semibold text-white text-right flex-shrink-0">

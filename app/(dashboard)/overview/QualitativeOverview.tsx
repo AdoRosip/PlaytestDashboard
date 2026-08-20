@@ -201,7 +201,12 @@ export default function QualitativeOverview() {
 
       {/* Commercial signal + KPI distributions */}
       <ExpandableOverviewSection title="Headline Signals">
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-8">
+      {/* Columns track the number of KPIs the game config actually defines.
+          A fixed 3-up grid left a dead column whenever there were only two,
+          which stranded the section's enlarge button far from the cards. */}
+      <div className={`grid grid-cols-1 gap-4 mb-8 ${
+        d.kpis.length >= 3 ? 'md:grid-cols-2 lg:grid-cols-3' : 'md:grid-cols-2'
+      }`}>
         {d.kpis.map((kpi) => (
           <div key={kpi.key} className={`rounded-2xl border p-5 ${kpi.isCommercial ? 'border-indigo-600/40 bg-indigo-500/5' : 'border-slate-700/60 bg-slate-800/20'}`}>
             <div className="flex items-center gap-2 mb-3">

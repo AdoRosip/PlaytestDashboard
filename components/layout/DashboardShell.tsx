@@ -61,20 +61,34 @@ export default function DashboardShell({ children }: { children: React.ReactNode
       {/* Expand handle — a tab on the nav's edge, shown only while collapsed.
           `top-3` lines its centre up with the collapse chevron inside the panel
           header (which sits in a `py-4` row), so the control does not appear to
-          jump vertically as the rail opens and closes. */}
+          jump vertically as the rail opens and closes.
+
+          At rest it is just the filter icon (plus the active-filter count, which
+          is state rather than chrome); the chevron and label unfurl on hover or
+          keyboard focus. The `grid-cols-[0fr]` → `[1fr]` swap animates to each
+          part's natural width without hard-coding one — `overflow-hidden` on the
+          inner span is what lets the track collapse to zero. */}
       {!filterPanelOpen && (
         <button
           onClick={toggleFilterPanel}
           aria-label="Expand filters"
           aria-expanded={false}
           title="Expand filters"
-          className="hidden lg:flex fixed left-[220px] top-3 z-40 items-center gap-1.5 py-1.5 pl-1.5 pr-2.5 rounded-r-lg border border-l-0 border-slate-700/60 bg-[#0d1220] text-slate-400 hover:text-white hover:border-slate-500 transition-colors"
+          className="group hidden lg:flex fixed left-[220px] top-3 z-40 items-center py-1.5 px-2 rounded-r-lg border border-l-0 border-slate-700/60 bg-[#0d1220] text-slate-400 hover:text-white hover:border-slate-500 transition-colors"
         >
-          <ChevronRight className="w-4 h-4 flex-shrink-0" />
+          <span className="grid grid-cols-[0fr] transition-[grid-template-columns] duration-200 group-hover:grid-cols-[1fr] group-focus-visible:grid-cols-[1fr]">
+            <span className="flex overflow-hidden opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-visible:opacity-100">
+              <ChevronRight className="w-4 h-4 flex-shrink-0 mr-1.5" />
+            </span>
+          </span>
           <SlidersHorizontal className="w-3.5 h-3.5 flex-shrink-0" />
-          <span className="text-xs font-medium">Filters</span>
+          <span className="grid grid-cols-[0fr] transition-[grid-template-columns] duration-200 group-hover:grid-cols-[1fr] group-focus-visible:grid-cols-[1fr]">
+            <span className="overflow-hidden opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-visible:opacity-100">
+              <span className="block pl-1.5 text-xs font-medium whitespace-nowrap">Filters</span>
+            </span>
+          </span>
           {activeFilterCount > 0 && (
-            <span className="px-1.5 py-0.5 rounded-full font-mono text-[10px] font-bold bg-indigo-600/30 text-indigo-300 border border-indigo-500/30">
+            <span className="ml-1.5 px-1.5 py-0.5 rounded-full font-mono text-[10px] font-bold bg-indigo-600/30 text-indigo-300 border border-indigo-500/30">
               {activeFilterCount}
             </span>
           )}

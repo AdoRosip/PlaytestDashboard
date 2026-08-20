@@ -42,7 +42,12 @@ export function ratingColors(scale: 5 | 10, isInverseScored = false): string[] {
   });
 }
 
-/** Colour for an already-normalized 0–100 score (higher = better by definition). */
+/**
+ * Colour for an already-normalized 0–100 score (higher = better by definition).
+ *
+ * Returns an `hsl()` string, not a hex — the name predates the ramp moving to
+ * HSL. Never append a two-digit alpha suffix to it; use opacity instead.
+ */
 export function scoreHex(normalized: number): string {
   return rampColor(normalized / 100);
 }
