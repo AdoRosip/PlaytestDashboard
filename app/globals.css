@@ -136,6 +136,25 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* Clicking a bar to cross-filter drops DOM focus on whatever recharts element
+   was under the pointer, and the browser paints a ring around its bounding box
+   — which reads as a stray border across the whole plot area.
+
+   The <g> wrappers (recharts' z-index layers, which carry our transparent bar
+   backgrounds) are tabindex="-1" and, in recharts' own words, "should not be
+   tabbable" — a ring on one only ever means something was pressed, so it goes
+   unconditionally. The surface itself is tabindex="0" from accessibilityLayer,
+   which is how a keyboard user arrows through the bars, so it keeps its ring
+   for real keyboard focus and loses it only for pointer and touch. */
+.recharts-wrapper g:focus,
+.recharts-wrapper g:focus-visible {
+  outline: none;
+}
+
+.recharts-surface:focus:not(:focus-visible) {
+  outline: none;
+}
+
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: rgba(0, 255, 255, 0.35); border-radius: 2px; }
@@ -261,6 +280,28 @@ body {
 .placeholder-slate-600::placeholder,
 .placeholder-slate-500::placeholder {
   color: rgba(255, 255, 255, 0.34) !important;
+}
+
+/* Entrance for dialogs that mount on open rather than sliding in from an edge
+   (components/ui/TesterPanel.tsx). Animating `transform` is deliberate: Tailwind
+   v4 centres with the separate `translate` property, so the two compose instead
+   of the animation cancelling `-translate-x-1/2`. */
+@keyframes dialog-enter {
+  from { opacity: 0; transform: translateY(0.5rem); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes backdrop-enter {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.dialog-enter   { animation: dialog-enter 200ms ease-out; }
+.backdrop-enter { animation: backdrop-enter 200ms ease-out; }
+
+@media (prefers-reduced-motion: reduce) {
+  .dialog-enter,
+  .backdrop-enter { animation: none; }
 }
 
 /* Overview sections preserve their normal layout in the enlarged dialog, but

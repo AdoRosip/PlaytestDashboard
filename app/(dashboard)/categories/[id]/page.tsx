@@ -162,10 +162,14 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ id: s
 
               return (
                 <div key={q.id} className="rounded-xl border border-slate-700/60 bg-slate-800/20 p-5 flex flex-col">
-                  <div className="flex items-start justify-between gap-4 mb-4">
-                    <div className="flex items-start gap-2 flex-1">
+                  {/* Below `sm` this unstacks into three rows — question, score,
+                        actions — because all of it side by side either overflowed
+                        the card or crowded the score against the buttons. From `sm`
+                        it is the original single row. */}
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4 mb-4">
+                    <div className="flex items-start gap-2 flex-1 min-w-0">
                       <HelpCircle className="w-4 h-4 text-slate-500 flex-shrink-0 mt-0.5" />
-                      <div>
+                      <div className="min-w-0">
                         <p className="text-sm text-white leading-snug">{q.text}</p>
                         <div className="flex items-center gap-2 mt-1.5">
                           <Badge label={questionTypeLabel(q.type)} variant="type" />
@@ -173,25 +177,29 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ id: s
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-3 flex-shrink-0">
+                    <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-3 sm:flex-shrink-0">
                       {avgNorm !== null && (
-                        <div className="text-right">
+                        // One baseline row on a phone, stacked over its label from
+                        // `sm` — a full line for a two-digit score is dead space.
+                        <div className="flex items-baseline gap-1.5 sm:block sm:text-right">
                           <div className={`text-xl font-bold ${scoreColor(avgNorm)}`}>{avgNorm}</div>
                           <div className="text-[10px] text-slate-500">/ 100 avg</div>
                         </div>
                       )}
-                      <button
-                        onClick={() => setSummaryQ(q)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-indigo-500/40 bg-indigo-600/20 text-xs text-indigo-300 hover:bg-indigo-600/30 hover:border-indigo-400/60 transition-colors"
-                      >
-                        <Sparkles className="w-3.5 h-3.5" /> Summarise
-                      </button>
-                      <Link
-                        href={`/questions/${q.id}`}
-                        className="px-3 py-1.5 rounded-lg border border-slate-700 text-xs text-slate-300 hover:text-white hover:border-slate-500 transition-colors"
-                      >
-                        Detail →
-                      </Link>
+                      <div className="flex items-center gap-2 sm:gap-3">
+                        <button
+                          onClick={() => setSummaryQ(q)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-indigo-500/40 bg-indigo-600/20 text-xs text-indigo-300 hover:bg-indigo-600/30 hover:border-indigo-400/60 transition-colors"
+                        >
+                          <Sparkles className="w-3.5 h-3.5" /> Summarise
+                        </button>
+                        <Link
+                          href={`/questions/${q.id}`}
+                          className="px-3 py-1.5 rounded-lg border border-slate-700 text-xs text-slate-300 hover:text-white hover:border-slate-500 transition-colors"
+                        >
+                          Detail →
+                        </Link>
+                      </div>
                     </div>
                   </div>
 
@@ -295,10 +303,11 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ id: s
                   key={q.id}
                   className={`rounded-xl border border-slate-700/60 bg-slate-800/20 p-5 ${isProse ? 'xl:col-span-2' : ''}`}
                 >
-                  <div className="flex items-start justify-between gap-4 mb-4">
-                    <div className="flex items-start gap-2 flex-1">
+                  {/* Same stacking as the rating cards above — see the note there. */}
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4 mb-4">
+                    <div className="flex items-start gap-2 flex-1 min-w-0">
                       <HelpCircle className="w-4 h-4 text-slate-500 flex-shrink-0 mt-0.5" />
-                      <div>
+                      <div className="min-w-0">
                         <p className="text-sm text-white leading-snug">{q.text}</p>
                         <div className="flex items-center gap-2 mt-1.5">
                           <Badge label={questionTypeLabel(q.type)} variant="type" />
@@ -306,7 +315,7 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ id: s
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
+                    <div className="flex flex-wrap items-center gap-2 sm:flex-shrink-0">
                       <button
                         onClick={() => setSummaryQ(q)}
                         className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-indigo-500/40 bg-indigo-600/20 text-xs text-indigo-300 hover:bg-indigo-600/30 hover:border-indigo-400/60 transition-colors"
