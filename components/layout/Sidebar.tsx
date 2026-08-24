@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard, Layers, HelpCircle, Sparkles,
-  Users, Table2, Download, Settings, SlidersHorizontal, FolderTree, Database, X,
+  Users, Table2, Download, SlidersHorizontal, FolderTree, X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useDashboardStore, selectActiveFilterCount } from '@/lib/store';
@@ -32,8 +32,8 @@ const NAV_SECTIONS = [
     label: 'ADMIN',
     items: [
       { href: '/themes',   label: 'AI Analysis', icon: Sparkles },
-      { href: '/registry', label: 'Tester Registry', icon: Database },
-      { href: '/settings', label: 'Settings',    icon: Settings },
+      // { href: '/registry', label: 'Tester Registry', icon: Database },
+      // { href: '/settings', label: 'Settings', icon: Settings },
     ],
   },
 ];
@@ -137,7 +137,7 @@ export default function Sidebar() {
       <div className="px-3 pb-4">
         <Link
           href="/upload"
-          className="flex items-center justify-center gap-2 w-full px-3 py-2 rounded-md text-xs bg-indigo-600 hover:bg-indigo-500 text-white transition-colors font-medium"
+          className="flex items-center justify-center gap-2 w-full px-3 py-2 rounded-md border border-slate-700/60 text-xs text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 hover:border-slate-600 transition-colors"
         >
           Upload Excel
         </Link>
