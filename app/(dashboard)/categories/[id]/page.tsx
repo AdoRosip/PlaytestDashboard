@@ -1,6 +1,6 @@
 'use client';
 import { use, useMemo, useState } from 'react';
-import Link from 'next/link';
+import Link from '@/components/layout/ReportLink';
 import { ArrowLeft, HelpCircle, MessageSquare, Sparkles } from 'lucide-react';
 import { useDashboardStore, selectAnyFilterActive, selectSegmentFilteredResponses } from '@/lib/store';
 import PageHeader from '@/components/ui/PageHeader';

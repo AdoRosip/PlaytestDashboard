@@ -1,5 +1,7 @@
 # Playlytix integration handoff
 
+**September 14 implementation update:** runtime integration is now implemented on this branch. Start with [Portal setup and release checks](portal-setup.md). The text below preserves the original September 11 planning handoff and is historical.
+
 Updated 2026-09-11. Working branch: `planning/playlytix-api-integration`, created from `button-removal` at `82b3ec4`.
 
 ## Where to resume

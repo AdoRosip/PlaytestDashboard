@@ -1,6 +1,6 @@
 'use client';
 import { useCallback, useEffect, useMemo } from 'react';
-import Link from 'next/link';
+import Link from '@/components/layout/ReportLink';
 import {
   Users, Star, Sparkles, ThumbsUp, ThumbsDown, Lightbulb,
   MessageSquareText, ListChecks, TrendingDown, PenLine, Loader2, RefreshCw,

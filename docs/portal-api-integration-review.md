@@ -1,5 +1,7 @@
 # Portal API integration: review and implementation plan
 
+**September 14 update:** the integration is now implemented on this branch. See [setup, verification and remaining release checks](portal-setup.md). This document preserves the original review and its proposed release criteria.
+
 Reviewed 2026-09-10. This is a repository review and proposed implementation plan, not a deployed integration.
 
 Preserved on `planning/playlytix-api-integration` on 2026-09-11. Start with [the handoff checklist](portal-api-integration-handoff.md) when resuming; it includes the local testing strategy and the minimum request to Viktor. The checkout/branch descriptions below describe the original review, before creating this planning branch.

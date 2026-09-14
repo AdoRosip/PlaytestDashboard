@@ -112,6 +112,7 @@ export interface Category {
 }
 
 export interface Question {
+  description?: string;
   id: string;
   projectId: string;
   text: string;

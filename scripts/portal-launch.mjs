@@ -1,0 +1,15 @@
+import { loadEnvConfig } from '@next/env';
+import { createHmac } from 'node:crypto';
+loadEnvConfig(process.cwd());
+if (process.env.NODE_ENV === 'production' || process.env.VERCEL) throw new Error('Local development only');
+const [clientId, testId, origin = 'http://localhost:3000'] = process.argv.slice(2);
+if (!/^[1-9]\d*$/.test(clientId || '') || !/^[1-9]\d*$/.test(testId || '')) throw new Error('Usage: node scripts/portal-launch.mjs CLIENT_ID TEST_ID [LOCAL_ORIGIN]');
+const url = new URL(origin);
+if (!['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)) throw new Error('Only localhost launch targets are permitted');
+const secret = process.env.DASHBOARD_SSO_SECRET;
+if (!secret || secret.length < 32) throw new Error('Configure DASHBOARD_SSO_SECRET in .env.local');
+if (!Object.hasOwn(JSON.parse(process.env.PLAYLYTIX_CLIENT_KEYS || '{}'), clientId)) throw new Error('Client is not configured');
+const payload = Buffer.from(JSON.stringify({ d: Number(clientId), e: Math.floor(Date.now() / 1000) + 300 })).toString('base64url');
+url.pathname = `/tests/${testId}`;
+url.searchParams.set('token', `${payload}.${createHmac('sha256', secret).update(payload).digest('base64url')}`);
+console.log(url.href);

@@ -1,4 +1,5 @@
 import { timingSafeEqual } from 'node:crypto';
+import { portalMode, portalDenied, readSession } from './portalAuth';
 
 function safeEqual(actual: string, expected: string): boolean {
   const a = Buffer.from(actual);
@@ -22,6 +23,12 @@ function challenge(message = 'Authentication required.'): Response {
  * deployment explicitly sets DASHBOARD_AUTH_ENABLED=true.
  */
 export function requireDashboardAuth(request: Request): Response | null {
+  if (portalMode()) {
+    if (!readSession(request)) return portalDenied();
+    const path = new URL(request.url).pathname;
+    if (path.startsWith('/api/') && !path.startsWith('/api/portal/')) return portalDenied(403, 'This feature is unavailable in Portal mode.');
+    return null;
+  }
   if (process.env.DASHBOARD_AUTH_ENABLED !== 'true') return null;
 
   const expectedUser = process.env.DASHBOARD_USERNAME;
