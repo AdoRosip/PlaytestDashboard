@@ -2,7 +2,9 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
-Dashboard authentication is disabled by default. If you want to enable HTTP
+For the client-facing Portal API integration, start with the [setup, flow and troubleshooting guide](docs/portal-setup.md). It documents Portal mode, launch/session secrets, Vercel configuration and operational recovery. Client-facing deployments must set `PORTAL_MODE=true`.
+
+The instructions below apply to the internal Excel/demo workflow when Portal mode is disabled. In that mode, dashboard authentication is disabled by default. If you want to enable HTTP
 Basic authentication later, configure all three variables:
 
 ```bash
@@ -13,7 +15,7 @@ DASHBOARD_PASSWORD=use-a-long-random-password
 
 The browser will request these credentials using HTTP Basic authentication. They
 protect the dashboard itself as well as the tester-registry and OpenAI-backed API
-routes. Without `DASHBOARD_AUTH_ENABLED=true`, no login is required in local or
+routes. When Portal mode is disabled, without `DASHBOARD_AUTH_ENABLED=true`, no login is required in local or
 deployed environments.
 
 First, run the development server:
