@@ -11,6 +11,7 @@ export default defineConfig({
     command: 'npm run dev -- --port 3101', url: 'http://localhost:3101/portal-entry',
     reuseExistingServer: false, timeout: 120000,
     env: {
+      PLAYWRIGHT_TEST_DIST_DIR: '.next-fixture',
       VERCEL_ENV: 'preview', PORTAL_MODE: 'true', PORTAL_DEBUG: 'false',
       PLAYLYTIX_API_BASE_URL: 'https://portal-fixture.invalid/api',
       PLAYLYTIX_CLIENT_KEYS: JSON.stringify({

@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { Instrument_Sans, JetBrains_Mono, Outfit } from 'next/font/google';
+import { Geist, Geist_Mono, Instrument_Sans, JetBrains_Mono, Outfit } from 'next/font/google';
 import './globals.css';
 import PortalBoundary from '@/components/layout/PortalBoundary';
 import { portalMode } from '@/lib/server/portalAuth';
@@ -27,6 +27,9 @@ const jetbrainsMono = JetBrains_Mono({
   variable: '--font-jetbrains-mono',
 });
 
+const geist = Geist({ subsets: ['latin'], display: 'swap', variable: '--font-dossier-ui' });
+const geistMono = Geist_Mono({ subsets: ['latin'], display: 'swap', variable: '--font-dossier-mono' });
+
 export const metadata: Metadata = {
   title: 'Playlytix Dashboard',
   description: 'Interactive playtest feedback analysis for game studios',
@@ -45,7 +48,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html
       lang="en"
       data-portal={portalMode() ? 'true' : 'false'}
-      className={`h-full ${outfit.variable} ${instrumentSans.variable} ${jetbrainsMono.variable}`}
+      className={`h-full ${outfit.variable} ${instrumentSans.variable} ${jetbrainsMono.variable} ${geist.variable} ${geistMono.variable}`}
     >
       <body className="min-h-full"><PortalBoundary enabled={portalMode()}>{children}</PortalBoundary></body>
     </html>

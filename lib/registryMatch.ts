@@ -22,6 +22,7 @@ function applyRegistry(tester: Tester, rec: RegistryRecord): Tester {
     country: rec.segments.country ?? tester.country,
     gamingProfile: rec.segments.gamer_type ?? tester.gamingProfile,
     hardware: hardwareLabel(rec),
+    profile: { ...tester.profile, gpu: rec.gpu || undefined, cpu: rec.cpu || undefined, ram: rec.ram || undefined },
     rawProfileJson: rec.rawJson,
   };
 }

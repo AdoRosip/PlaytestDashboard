@@ -35,7 +35,8 @@ it('fetches and normalizes the production sample using only the configured clien
   }));
   const data = await response.json();
   expect(data.responses[0].normalizedScore).toBe(50);
-  expect(JSON.stringify(data)).not.toContain('hilmersen');
+  expect(data.testers[0].username).toBe('hilmersen'); // explicitly non-anonymous
+  expect(JSON.stringify(data)).not.toMatch(/evaluationScore|payoutStatus|syncedAt/);
   const otherResponse = await portalApi(request('9'), '18');
   expect(otherResponse.status).toBe(200);
   expect((await otherResponse.json()).project.id).toBe('portal_9_18');

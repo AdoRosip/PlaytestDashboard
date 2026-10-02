@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { formatTesterId, formatTesterLabel, isEmailLike } from './testerIdentity';
+import { formatTesterId, formatTesterLabel, getTesterDisplayName, isEmailLike } from './testerIdentity';
 
 describe('tester identity privacy', () => {
+  it('only displays a username with explicit permission and rejects contact identifiers', () => {
+    const tester = { id: 'row', testerId: 'Tester-29', username: 'player' };
+    expect(getTesterDisplayName(tester)).toBe('Tester-29');
+    expect(getTesterDisplayName({ ...tester, anonymous: true })).toBe('Tester-29');
+    expect(getTesterDisplayName({ ...tester, anonymous: false })).toBe('player');
+    expect(getTesterDisplayName({ ...tester, anonymous: false, username: 'player@example.test' })).toBe('Tester-29');
+  });
   it('detects email-shaped identifiers', () => {
     expect(isEmailLike('person@example.com')).toBe(true);
     expect(isEmailLike('P-123')).toBe(false);

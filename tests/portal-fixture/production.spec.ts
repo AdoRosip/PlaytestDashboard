@@ -31,7 +31,7 @@ test('production response renders through the Portal flow, navigates and signs o
   await expect(page.getByText('asfdsgfdfg', { exact: true }).first()).toBeVisible();
   await page.reload();
   await expect(page.getByText('1 submissions received.', { exact: true })).toBeVisible();
-  await expect(page.getByText('hilmersen', { exact: true })).toHaveCount(0);
+  await expect(page.getByText('hilmersen', { exact: true }).first()).toBeVisible();
   expect(errors).toEqual([]);
   await page.getByRole('button', { name: 'Sign out', exact: true }).click();
   await expect(page).toHaveURL(/\/portal-entry$/);

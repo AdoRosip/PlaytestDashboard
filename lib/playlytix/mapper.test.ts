@@ -14,15 +14,17 @@ function fixture() {
   };
 }
 describe('Portal analytics DTO', () => {
-  it('maps the supplied production contract without leaking the richer profile', () => {
+  it('maps the production profile through an explicit client-facing allowlist', () => {
     const data = mapPortalData(productionResponse, '7', '18', portalGenericConfig);
     expect(data.project).toMatchObject({ id: 'portal_7_18', name: 'Maradona', totalResponses: 1 });
     expect(data.questions).toHaveLength(1);
     expect(data.questions[0]).toMatchObject({ type: 'rating_1_5', scaleMin: 1, scaleMax: 5, categoryId: null });
     expect(data.responses[0]).toMatchObject({ rawAnswer: '3', numericValue: 3, normalizedScore: 50 });
-    expect(data.testers[0]).toMatchObject({ testerId: 'Submission #22', country: 'Slovakia', ageGroup: '25–34', rawProfileJson: {} });
+    expect(data.testers[0]).toMatchObject({ testerId: 'Tester-22', username: 'hilmersen', anonymous: false, inRegistry: true, country: 'Slovakia', ageGroup: '25–34', rawProfileJson: {} });
     expect(data.testers[0].segments).toMatchObject({ platform: 'PC / Mac', genres: 'Action, RPG, Simulation / Cozy', gaming_hours: '11–20', has_controller: 'Yes', has_mic: 'Yes' });
-    expect(JSON.stringify(data)).not.toMatch(/hilmersen|payoutStatus|evaluationScore|co si jak|steam|syncedAt|monthlySpend/);
+    expect(data.testers[0].profile?.steam).toEqual({ gameCount: 168, totalHours: 3755 });
+    expect(data.testers[0].comments?.[0].text).toBe('co si jak');
+    expect(JSON.stringify(data)).not.toMatch(/payoutStatus|evaluationScore|syncedAt|subscriptions/);
   });
   it('rejects inconsistent scale metadata and invalid ordering even for a single question', () => {
     const input = structuredClone(productionResponse);
