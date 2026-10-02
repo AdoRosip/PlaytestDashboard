@@ -1,5 +1,5 @@
 'use client';
-import Link from 'next/link';
+import Link from '@/components/layout/ReportLink';
 import { TrendingUp, TrendingDown } from 'lucide-react';
 import { scoreColor } from '@/lib/utils';
 

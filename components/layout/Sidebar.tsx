@@ -1,6 +1,7 @@
 'use client';
 import { useEffect } from 'react';
-import Link from 'next/link';
+import Link from './ReportLink';
+import { isPortalBrowser } from '@/lib/portalBrowser';
 import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard, Layers, HelpCircle, Sparkles,
@@ -39,7 +40,7 @@ const NAV_SECTIONS = [
 ];
 
 export default function Sidebar() {
-  const pathname         = usePathname();
+  const pathname         = usePathname().replace(/^\/tests\/[1-9]\d*/, '');
   const activeFilterCount = useDashboardStore(selectActiveFilterCount);
   const mobileDrawer     = useDashboardStore((s) => s.mobileDrawer);
   const openMobileDrawer = useDashboardStore((s) => s.openMobileDrawer);
@@ -88,6 +89,7 @@ export default function Sidebar() {
             </div>
             <div className="space-y-0.5">
               {items.map(({ href, label: itemLabel, icon: Icon }) => {
+                if (isPortalBrowser() && (href === '/builder' || href === '/themes')) return null;
                 const active = pathname === href || pathname.startsWith(href + '/');
                 return (
                   <Link
@@ -134,7 +136,7 @@ export default function Sidebar() {
       </div>
 
       {/* Upload new */}
-      <div className="px-3 pb-4">
+      <div className="px-3 pb-4" hidden={isPortalBrowser()}>
         <Link
           href="/upload"
           className="flex items-center justify-center gap-2 w-full px-3 py-2 rounded-md border border-slate-700/60 text-xs text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 hover:border-slate-600 transition-colors"

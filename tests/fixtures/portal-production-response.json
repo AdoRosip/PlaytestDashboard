@@ -1,0 +1,86 @@
+{
+  "test": {
+    "TestID": 18,
+    "TestName": "Maradona",
+    "DueDate": "2026-07-06T22:13:00.000Z",
+    "SteamAppID": null,
+    "steamMatchGenres": [],
+    "steamMatchModes": []
+  },
+  "questions": [
+    {
+      "QuestionID": 37,
+      "QuestionText": "asfdsgfdfg",
+      "QuestionDescription": null,
+      "IsRequired": false,
+      "DisplayOrder": 1,
+      "LibraryKey": null,
+      "TypeName": "Rating1_5",
+      "Options": null,
+      "Category": null,
+      "Scale": { "min": 1, "max": 5, "labels": null }
+    }
+  ],
+  "responses": [
+    {
+      "responseId": 22,
+      "submittedAt": "2026-07-06T21:15:03.857Z",
+      "evaluationScore": 10,
+      "payoutStatus": "Pending",
+      "tester": {
+        "anonymous": false,
+        "username": "hilmersen",
+        "country": "Slovakia",
+        "gender": "Male",
+        "ageRange": "25–34",
+        "gpu": "RTX 3070",
+        "cpu": "Ryzen XYZ",
+        "ram": "64 GB+",
+        "platforms": ["PC / Mac"],
+        "gamerType": ["Single-player (Solo)", "Co-op (PvE)", "Competitive Multiplayer (PvP)", "MMO"],
+        "gamingPreferences": ["Action", "RPG", "Simulation / Cozy"],
+        "gamingHoursPerWeek": "11–20",
+        "hasController": "Yes",
+        "hasMicrophone": "Yes",
+        "motivations": ["Story"],
+        "avoidedGenres": ["Survival / Crafting"],
+        "sessionLength": "1–2 hours",
+        "playTimes": ["Evenings", "Late night"],
+        "playsEarlyAccess": "Sometimes",
+        "monthlySpend": "Under $10",
+        "typicalGamePrice": "$10–30",
+        "buyTiming": "When it goes on sale",
+        "mtxSpending": "Occasionally",
+        "subscriptions": ["None"],
+        "gameStores": ["Steam"],
+        "backsCrowdfunding": "No",
+        "discoveryChannels": ["Streamers & YouTube", "Friends", "Social media (TikTok / X / IG)"],
+        "trustedVoices": ["Friends"],
+        "wishlistHabit": "Often",
+        "watchesReviews": "Sometimes",
+        "steamReviews": "Never",
+        "languages": ["English", "Slovak"],
+        "hasScreenRecorder": "Yes",
+        "hasVR": "Yes",
+        "internetQuality": "Fast & stable (fiber / high-speed cable)",
+        "usesVoiceChat": "Sometimes",
+        "testedBefore": "Yes, professionally",
+        "steam": {
+          "connected": true,
+          "visibility": "public",
+          "gameCount": 168,
+          "totalHours": 3755,
+          "syncedAt": "2026-09-23T16:20:39.763Z",
+          "match": null
+        }
+      },
+      "answers": [{ "questionId": 37, "value": "3" }],
+      "files": [],
+      "comments": [
+        { "text": "co si jak", "createdAt": "2026-07-06T21:15:18.127Z" },
+        { "text": "yo", "createdAt": "2026-07-06T21:15:23.157Z" }
+      ]
+    }
+  ],
+  "stats": { "totalResponses": 1, "ratingAverages": { "37": 3 } }
+}

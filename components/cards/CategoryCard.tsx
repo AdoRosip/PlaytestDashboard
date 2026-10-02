@@ -1,5 +1,5 @@
 'use client';
-import Link from 'next/link';
+import Link from '@/components/layout/ReportLink';
 import { ArrowRight } from 'lucide-react';
 import type { Category } from '@/lib/types';
 import Badge from '@/components/ui/Badge';
