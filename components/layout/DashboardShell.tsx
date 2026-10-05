@@ -1,5 +1,6 @@
 'use client';
 import { useEffect } from 'react';
+import { isPortalBrowser } from '@/lib/portalBrowser';
 import { ChevronRight, SlidersHorizontal, X } from 'lucide-react';
 import Sidebar from './Sidebar';
 import MobileTopBar from './MobileTopBar';
@@ -23,7 +24,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
   const filteredParticipants = useDashboardStore((s) => countRespondents(selectFilteredResponses(s)));
 
   useEffect(() => {
-    if (!isLoaded) loadMockData();
+    if (!isLoaded && !isPortalBrowser()) loadMockData();
   }, [isLoaded, loadMockData]);
 
   // Escape closes whichever overlay is open.

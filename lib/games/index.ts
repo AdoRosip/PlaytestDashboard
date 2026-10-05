@@ -1,6 +1,7 @@
 import type { GameConfig } from './types';
 import { exoviaConfig } from './exovia';
 import { wannabeTrashmanConfig } from './wannabeTrashman';
+import { portalGenericConfig } from './portalGeneric';
 
 export type { GameConfig, KpiDefinition, FilterDetectors } from './types';
 export { exoviaConfig } from './exovia';
@@ -8,6 +9,7 @@ export { wannabeTrashmanConfig } from './wannabeTrashman';
 
 /** All known games, keyed by config id. */
 export const GAME_CONFIGS: Record<string, GameConfig> = {
+  [portalGenericConfig.id]: portalGenericConfig,
   [exoviaConfig.id]: exoviaConfig,
   [wannabeTrashmanConfig.id]: wannabeTrashmanConfig,
 };
@@ -24,6 +26,7 @@ export function getGameConfig(id: string | undefined | null): GameConfig {
 
 /** Resolve the active game config from a project's gameName (set at parse time). */
 export function getGameConfigByName(gameName: string | undefined | null): GameConfig {
+  if (gameName === portalGenericConfig.gameName) return portalGenericConfig;
   const found = GAME_LIST.find((g) => g.gameName === gameName);
   return found ?? GAME_CONFIGS[DEFAULT_GAME_ID];
 }

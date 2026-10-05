@@ -28,9 +28,15 @@ export function formatTesterId(testerId: string, fallbackId?: string): string {
 }
 
 /** Prefer the stable registry id, then a privacy-safe questionnaire id. */
-export function formatTesterLabel(
-  tester: Pick<Tester, 'id' | 'testerId' | 'playlytixId'>,
+export function getTesterDisplayName(
+  tester: Pick<Tester, 'id' | 'testerId' | 'playlytixId' | 'anonymous' | 'username'>,
 ): string {
+  if (tester.anonymous === false && tester.username?.trim() && !isEmailLike(tester.username)) {
+    return tester.username.trim();
+  }
   if (tester.playlytixId != null) return `Tester-${tester.playlytixId}`;
   return formatTesterId(tester.testerId, tester.id);
 }
+
+// Keep all existing entry points on the same privacy/display-name policy.
+export const formatTesterLabel = getTesterDisplayName;

@@ -1,5 +1,8 @@
 'use client';
-import { useMemo, useState } from 'react';
+import { Suspense, useMemo } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import ReportLink from '@/components/layout/ReportLink';
+import { filterTesterList, profileGenreFit } from '@/lib/dossier';
 import { Search, Star, AlertTriangle, Globe, Gamepad2, Clock, Monitor, UserX, Target, PenLine } from 'lucide-react';
 import { useDashboardStore, selectFilteredResponses, selectFilteredTesters, selectGameConfig } from '@/lib/store';
 import PageHeader from '@/components/ui/PageHeader';
@@ -7,7 +10,7 @@ import EmptyState from '@/components/ui/EmptyState';
 import { Users } from 'lucide-react';
 import { formatTesterLabel } from '@/lib/utils';
 import { flagLabel } from '@/lib/outliers';
-import { genreFit, engagement, testerGenres, testerPlaystyles } from '@/lib/testerProfile';
+import { engagement, testerGenres, testerPlaystyles } from '@/lib/testerProfile';
 import type { TesterFlagType } from '@/lib/types';
 import GeoDistributionMap from '@/components/charts/GeoDistributionMap';
 import { continentFor } from '@/lib/geo';
@@ -55,26 +58,38 @@ function DistributionBars({ rows, maxRows = 6 }: { rows: DistributionRow[]; maxR
   );
 }
 
-export default function TestersPage() {
+function TestersPageContent() {
   const testers = useDashboardStore(selectFilteredTesters);
   const responses = useDashboardStore(selectFilteredResponses);
   const questions = useDashboardStore((s) => s.questions);
   const config = useDashboardStore(selectGameConfig);
   const openTesterPanel = useDashboardStore((s) => s.openTesterPanel);
-  const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState<'all' | TesterFlagType | 'unmatched' | 'target_genre' | 'detailed'>('all');
+  const targets = useDashboardStore(s => s.project?.steamMatchGenres);
+  const params = useSearchParams();
+  const pathname = usePathname();
+  const router = useRouter();
+  const search = params.get('search') ?? '';
+  const filter = params.get('filter') ?? 'all';
+  const setQuery = (key: string, value: string) => {
+    const query = new URLSearchParams(params.toString());
+    if (!value || value === 'all') query.delete(key); else query.set(key, value);
+    window.history.replaceState(null, '', `${pathname}${query.size ? `?${query}` : ''}`);
+  };
+  const setSearch = (value: string) => setQuery('search', value);
+  const setFilter = (value: string) => setQuery('filter', value);
+  const detailHref = (id: string) => `${pathname}/${encodeURIComponent(id)}${params.size ? `?${params}` : ''}`;
 
   // Per-tester taste/quality intel, keyed by tester id.
   const intel = useMemo(() => {
     const map = new Map<string, { isFit: boolean; detailed: boolean }>();
     for (const t of testers) {
       map.set(t.id, {
-        isFit: genreFit(t, config).isFit,
+        isFit: profileGenreFit(t, config, targets).value === 'Target genre',
         detailed: engagement(t.id, responses, questions).tier === 'detailed',
       });
     }
     return map;
-  }, [testers, responses, questions, config]);
+  }, [testers, responses, questions, config, targets]);
 
   const targetGenreCount = useMemo(() => [...intel.values()].filter((v) => v.isFit).length, [intel]);
   const detailedCount = useMemo(() => [...intel.values()].filter((v) => v.detailed).length, [intel]);
@@ -152,28 +167,7 @@ export default function TestersPage() {
     };
   }, [testers]);
 
-  const visible = testers
-    .filter((t) => {
-      const q = search.toLowerCase();
-      const matchSearch = !q || formatTesterLabel(t).toLowerCase().includes(q);
-      const matchFilter =
-        filter === 'all'
-          ? true
-          : filter === 'unmatched'
-            ? t.inRegistry === false
-            : filter === 'target_genre'
-              ? (intel.get(t.id)?.isFit ?? false)
-              : filter === 'detailed'
-                ? (intel.get(t.id)?.detailed ?? false)
-                : (t.quality?.flags.some((f) => f.type === filter) ?? false);
-      return matchSearch && matchFilter;
-    })
-    .sort((a, b) => {
-      const aLabel = formatTesterLabel(a), bLabel = formatTesterLabel(b);
-      const na = parseInt(aLabel), nb = parseInt(bLabel);
-      if (!isNaN(na) && !isNaN(nb)) return na - nb;
-      return aLabel.localeCompare(bLabel);
-    });
+  const visible = filterTesterList(testers, search, filter, responses, questions, config, targets);
 
   if (!testers.length) {
     return (
@@ -416,7 +410,7 @@ export default function TestersPage() {
               <tr
                 key={t.id}
                 className={`border-b border-slate-700/30 hover:bg-slate-800/30 cursor-pointer transition-colors ${i % 2 === 0 ? '' : 'bg-slate-800/10'}`}
-                onClick={() => openTesterPanel(t.id)}
+                onClick={() => router.push(detailHref(t.id))}
               >
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2">
@@ -424,7 +418,7 @@ export default function TestersPage() {
                       {i + 1}
                     </div>
                     <div>
-                      <div className="text-slate-200 font-medium">{formatTesterLabel(t)}</div>
+                      <ReportLink href={detailHref(t.id)} onClick={event => event.stopPropagation()} className="text-slate-200 font-medium">{formatTesterLabel(t)}</ReportLink>
                       <div className="text-xs text-slate-500 truncate max-w-[140px]">
                         {t.inRegistry === true ? 'Registry tester' : t.inRegistry === false ? 'Response-only tester' : 'Tester'}
                       </div>
@@ -487,7 +481,10 @@ export default function TestersPage() {
                   ) : <span className="text-slate-600">—</span>}
                 </td>
                 <td className="px-4 py-3">
-                  <span className="text-xs text-indigo-400 hover:text-indigo-300">View →</span>
+                  <div className="flex items-center gap-3">
+                    <ReportLink href={detailHref(t.id)} onClick={event => event.stopPropagation()} className="text-xs text-indigo-400 hover:text-indigo-300">View →</ReportLink>
+                    <button className="text-xs text-slate-400" aria-label={`Quick view ${formatTesterLabel(t)}`} onClick={event => { event.stopPropagation(); openTesterPanel(t.id); }}>Quick view</button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -501,3 +498,5 @@ export default function TestersPage() {
     </div>
   );
 }
+
+export default function TestersPage() { return <Suspense><TestersPageContent /></Suspense>; }

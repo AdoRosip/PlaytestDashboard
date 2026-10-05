@@ -75,6 +75,12 @@ export interface TesterQuality {
 export interface Tester {
   id: string;
   testerId: string;
+  anonymous?: boolean;
+  username?: string;
+  submittedAt?: string;
+  profile?: TesterRegistryProfile;
+  files?: TesterVideo[];
+  comments?: { text: string; createdAt: string }[];
   /** Stable cross-game registry id from Playlytix (absent for unmatched testers). */
   playlytixId?: number;
   /**
@@ -112,6 +118,8 @@ export interface Category {
 }
 
 export interface Question {
+  displayOrder?: number;
+  description?: string;
   id: string;
   projectId: string;
   text: string;
@@ -167,6 +175,52 @@ export interface Project {
   totalResponses: number;
   matchedTesters: number;
   unmatchedTesters: number;
+  steamMatchGenres?: string[];
+}
+
+/** Explicit client-facing registry allowlist; never copy the raw Portal profile. */
+export interface TesterRegistryProfile {
+  testedBefore?: string;
+  avoidedGenres?: string[];
+  languages?: string[];
+  steam?: { gameCount?: number; totalHours?: number };
+  sessionLength?: string;
+  playTimes?: string;
+  motivations?: string;
+  usesVoiceChat?: string;
+  gpu?: string;
+  cpu?: string;
+  ram?: string;
+  hasVR?: string;
+  hasScreenRecorder?: string;
+  internetQuality?: string;
+  monthlySpend?: string;
+  typicalGamePrice?: string;
+  buyTiming?: string;
+  wishlistHabit?: string;
+  playsEarlyAccess?: string;
+  mtxSpending?: string;
+  discoveryChannels?: string;
+  trustedVoices?: string;
+  watchesReviews?: string;
+  steamReviews?: string;
+  gameStores?: string;
+  backsCrowdfunding?: string;
+}
+
+export interface TesterVideo {
+  id: string;
+  url?: string;
+  name?: string;
+  title?: string;
+  mimeType?: string;
+  uploadedAt?: string;
+  durationSec?: number;
+  width?: number;
+  height?: number;
+  thumbnailUrl?: string;
+  questionId?: string;
+  responseId?: string;
 }
 
 export interface RatingDistribution {

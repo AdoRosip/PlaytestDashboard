@@ -1,6 +1,6 @@
 'use client';
 import { useCallback, useMemo } from 'react';
-import Link from 'next/link';
+import Link from '@/components/layout/ReportLink';
 import {
   Users, Star,
   ArrowRight, ChevronRight, Brain,

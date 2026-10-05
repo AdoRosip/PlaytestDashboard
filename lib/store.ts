@@ -1,5 +1,6 @@
 'use client';
 import { create } from 'zustand';
+import { isPortalBrowser } from './portalBrowser';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import type {
   Project, Tester, Category, Question, Response, Theme, FilterState,
@@ -460,9 +461,11 @@ export const useDashboardStore = create<DashboardState>()(
         // Wrap localStorage to silently handle QuotaExceededError
         return {
           getItem: (key) => {
+            if (isPortalBrowser()) { try { localStorage.removeItem(key); } catch {} return null; }
             try { return localStorage.getItem(key); } catch { return null; }
           },
           setItem: (key, value) => {
+            if (isPortalBrowser()) return;
             try { localStorage.setItem(key, value); } catch {
               console.warn('localStorage quota exceeded — uploaded data will not be persisted.');
             }

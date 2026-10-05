@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from 'next';
-import { Instrument_Sans, JetBrains_Mono, Outfit } from 'next/font/google';
+import { Geist, Geist_Mono, Instrument_Sans, JetBrains_Mono, Outfit } from 'next/font/google';
 import './globals.css';
+import PortalBoundary from '@/components/layout/PortalBoundary';
+import { portalMode } from '@/lib/server/portalAuth';
 
 // Three type roles, exposed to Tailwind as CSS variables in globals.css:
 //   Outfit          logo + headings (600–800)
@@ -25,6 +27,9 @@ const jetbrainsMono = JetBrains_Mono({
   variable: '--font-jetbrains-mono',
 });
 
+const geist = Geist({ subsets: ['latin'], display: 'swap', variable: '--font-dossier-ui' });
+const geistMono = Geist_Mono({ subsets: ['latin'], display: 'swap', variable: '--font-dossier-mono' });
+
 export const metadata: Metadata = {
   title: 'Playlytix Dashboard',
   description: 'Interactive playtest feedback analysis for game studios',
@@ -42,9 +47,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html
       lang="en"
-      className={`h-full ${outfit.variable} ${instrumentSans.variable} ${jetbrainsMono.variable}`}
+      data-portal={portalMode() ? 'true' : 'false'}
+      className={`h-full ${outfit.variable} ${instrumentSans.variable} ${jetbrainsMono.variable} ${geist.variable} ${geistMono.variable}`}
     >
-      <body className="min-h-full">{children}</body>
+      <body className="min-h-full"><PortalBoundary enabled={portalMode()}>{children}</PortalBoundary></body>
     </html>
   );
 }
