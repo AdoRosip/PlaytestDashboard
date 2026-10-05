@@ -29,7 +29,7 @@ test('tester list opens the dossier, keeps filters, paginates and persists tabs'
   await expect(page.getByRole('tab', { name: 'Videos 1' })).toBeVisible();
   await page.screenshot({ path: 'test-results/dossier-desktop.png' });
   await expect(page.getByRole('meter').first()).toHaveAttribute('aria-label', 'Rated 1 of 5, group average 3.0');
-  await expect(page.getByText('avg 3.0').first()).toHaveCSS('color', 'rgb(201, 162, 39)');
+  await expect(page.getByText('avg 3.0').first()).toHaveCSS('color', 'rgb(250, 204, 21)');
   await expect(page.getByText('168 games · 3,755 h')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Setup', exact: true })).toHaveAttribute('aria-expanded', 'false');
   await page.getByRole('button', { name: 'Setup', exact: true }).click();
