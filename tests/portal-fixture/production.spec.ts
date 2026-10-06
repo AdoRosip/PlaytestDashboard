@@ -32,6 +32,12 @@ test('production response renders through the Portal flow, navigates and signs o
   await page.reload();
   await expect(page.getByText('1 submissions received.', { exact: true })).toBeVisible();
   await expect(page.getByText('hilmersen', { exact: true }).first()).toBeVisible();
+  await page.getByRole('link', { name: 'AI Analysis', exact: true }).click();
+  await expect(page).toHaveURL(/\/tests\/18\/themes$/);
+  await expect(page.getByText('Ready to analyse', { exact: true })).toBeVisible();
+  // A malformed body passes authorization but fails before any paid model call.
+  const ai = await page.request.post('/api/question-analysis', { headers: { 'content-type': 'application/json' }, data: 'not json' });
+  expect([401, 403]).not.toContain(ai.status());
   expect(errors).toEqual([]);
   await page.getByRole('button', { name: 'Sign out', exact: true }).click();
   await expect(page).toHaveURL(/\/portal-entry$/);
@@ -42,4 +48,5 @@ test('rejects anonymous requests and another client even with a valid signature'
   expect((await request.get('/api/portal/tests/18')).status()).toBe(401);
   expect((await request.get(launch(8), { maxRedirects: 0 })).status()).toBe(401);
   expect((await request.get('/api/portal/session')).status()).toBe(401);
+  expect((await request.post('/api/question-analysis', { data: {} })).status()).toBe(401);
 });

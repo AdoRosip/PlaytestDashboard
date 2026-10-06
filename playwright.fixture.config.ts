@@ -21,6 +21,8 @@ export default defineConfig({
       PLAYLYTIX_TEST_GAME_MAP: '{}',
       DASHBOARD_SSO_SECRET: 'fixture-launch-secret-for-browser-test-only',
       DASHBOARD_SESSION_SECRET: 'fixture-session-secret-for-browser-test-only',
+      // Portal pages auto-run AI; never let a test reach the paid model with a local key.
+      OPENAI_API_KEY: '',
     },
   },
 });

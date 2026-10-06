@@ -21,8 +21,8 @@ export function proxy(request: NextRequest) {
       debug.log('access_denied', { status: denied.status });
       return debug.respond(path.startsWith('/api/') ? denied : NextResponse.redirect(new URL('/portal-entry', request.url)));
     }
-    if (/^\/(upload|registry|settings|builder|themes)(\/|$)/.test(path)) return portalDenied(403, 'This feature is unavailable in Portal mode.');
-    const scoped = path.match(/^\/tests\/([1-9]\d*)\/(overview|categories|questions|testers|responses|export)(\/.*)?$/);
+    if (/^\/(upload|registry|settings|builder)(\/|$)/.test(path)) return portalDenied(403, 'This feature is unavailable in Portal mode.');
+    const scoped = path.match(/^\/tests\/([1-9]\d*)\/(overview|categories|questions|testers|responses|themes|export)(\/.*)?$/);
     if (scoped) {
       const url = request.nextUrl.clone();
       url.pathname = `/${scoped[2]}${scoped[3] || ''}`;
