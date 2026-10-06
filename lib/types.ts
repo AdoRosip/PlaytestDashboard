@@ -100,8 +100,6 @@ export interface Tester {
   hardware: string;
   similarGamesPlayed: string[];
   rawProfileJson: Record<string, unknown>;
-  adminNotes?: string;
-  paymentAmount?: number;
   // derived
   avgRating?: number;
   isOutlier?: boolean; // convenience: harsh critic OR straight-liner (the "concerning" flags)
@@ -223,32 +221,6 @@ export interface TesterVideo {
   responseId?: string;
 }
 
-export interface RatingDistribution {
-  value: number;
-  count: number;
-  pct: number;
-}
-
-export interface CategoryStat {
-  category: Category;
-  avgScore: number; // 0–100 normalized
-  questionCount: number;
-  responseCount: number;
-  negativePct: number;
-  severity: Severity;
-  topThemes: string[];
-}
-
-export interface SegmentComparison {
-  field: string;
-  segments: {
-    label: string;
-    avgScore: number;
-    issueCount: number;
-    responseCount: number;
-  }[];
-}
-
 // Player sentiment bands, derived from each tester's avg experience rating.
 // Detractors rate low, "Almost Believers" sit on the fence (3–4), Believers
 // rate high. Used to read feedback from one mindset at a time.
@@ -257,10 +229,8 @@ export type SentimentBand = 'detractors' | 'almost_believers' | 'believers';
 export interface FilterState {
   ageGroups: string[];
   genders: string[];
-  // Continent groups (Europe, Asia, …). Replaces the per-country filter in the
-  // UI; the per-country `countries` field is retained but currently unused.
+  // Continent groups (Europe, Asia, …).
   continents: string[];
-  countries: string[];
   hardwareTiers: string[];
   sessionPlaytime: null | '<1h' | '1-3h' | '3-6h' | '6h+';
   // Restrict to a single player-sentiment band (null = all bands).

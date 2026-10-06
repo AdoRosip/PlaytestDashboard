@@ -11,7 +11,7 @@ Main flow:
 1. The user uploads an `.xlsx` or `.xls` file in `app/upload/page.tsx`.
 2. `parseExcelFile()` in `lib/parser.ts` reads the workbook with `xlsx`.
 3. The parser creates normalized in-memory objects: `Project`, `Tester`, `Category`, `Question`, and `Response`.
-4. `loadFromExcel()` in `lib/store.ts` stores those objects in Zustand.
+4. `loadDataset()` in `lib/store.ts` stores those objects in Zustand.
 5. Zustand persists only the imported data to `localStorage` under `playtest-dashboard-v1`.
 6. Dashboard pages read from the store and recompute page-specific statistics.
 7. AI analysis endpoints can send selected response text to OpenAI when the user runs analysis.
@@ -108,7 +108,7 @@ Important fields:
 - Accepts `.xlsx` and `.xls`.
 - Reads the file as an `ArrayBuffer`.
 - Calls `parseExcelFile(buffer, file.name)`.
-- Passes the parse result to `loadFromExcel()`.
+- Passes the parse result to `loadDataset()`.
 - Redirects to `/overview`.
 
 ### Sheet Detection
@@ -282,7 +282,8 @@ Not persisted:
 Important actions:
 
 - `loadMockData()`: replaces store data with `lib/mockData.ts`.
-- `loadFromExcel()`: replaces store data with parsed Excel data and clears AI themes.
+- `loadDataset()`: replaces store data with a parsed Excel or Portal dataset and clears AI themes.
+- `clearDataset()`: drops the loaded dataset, filters, AI state and open panels in one update (used by Portal mode).
 - `assignQuestionToCategory()`: updates `questions[].categoryId`.
 - `runThemeAnalysis()`: sends questions/responses/categories to `/api/themes` and streams themes back into store.
 
@@ -634,7 +635,7 @@ Meaning:
 
 ## Tester Panel
 
-Main file: `components/ui/TesterPanel.tsx`.
+Main file: `components/tester/TesterProfileModal.tsx`.
 
 Source:
 

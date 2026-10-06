@@ -26,7 +26,6 @@ const noFilters: FilterState = {
   ageGroups: [],
   genders: [],
   continents: [],
-  countries: [],
   hardwareTiers: [],
   sessionPlaytime: null,
   playerSentiment: null,

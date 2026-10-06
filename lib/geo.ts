@@ -72,7 +72,7 @@ export const CONTINENTS = [
   'Unknown',
 ] as const;
 
-export function normaliseCountry(country: string): string {
+function normaliseCountry(country: string): string {
   return country.trim().toLowerCase();
 }
 

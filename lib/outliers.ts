@@ -20,7 +20,7 @@ import type { Category, Tester, Question, Response, TesterQuality, TesterFlag } 
 // filter that removes them).
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const OUTLIER_CONFIG = {
+const OUTLIER_CONFIG = {
   // Categories that are demographic/technical/admin rather than experience ratings.
   excludedCategoryIds: new Set(['cat_01', 'cat_09', 'cat_15']),
   minForRating: 3,        // benchmark responses needed to show an avg rating
@@ -201,7 +201,7 @@ export function computeTesterQuality(input: TesterQualityInput): Map<string, Tes
 // ── Convenience predicates ───────────────────────────────────────────────────
 
 /** Quality noise that justifies removing a tester from aggregates. */
-export function isQualityFlagged(q?: TesterQuality): boolean {
+function isQualityFlagged(q?: TesterQuality): boolean {
   return !!q?.straightLining;
 }
 

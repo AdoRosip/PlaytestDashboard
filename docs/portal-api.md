@@ -424,7 +424,7 @@ Before claiming full v2 support, implement and verify MultiChoice mapping, InfoB
 
 Portal mode keeps datasets in memory, removes legacy `playtest-dashboard-v1` localStorage data and has no demo fallback. Counts represent submissions; answer-based charts can have fewer participants than the total submission count. Answer text itself may contain user-entered personal information even though structured identity fields are removed.
 
-AI and registry APIs are blocked for Portal clients. Upload, registry, settings, builder and themes pages are unavailable. Overview, categories, questions, testers, responses and dashboard report export remain test-scoped. The report export is distinct from the backend payout CSV endpoint.
+Authenticated Portal clients can use AI analysis through `/api/themes`, `/api/question-analysis`, `/api/overview-insights`, and `/api/flaw-recommendations`, and can open the themes page for the current report. These AI endpoints accept analysis inputs from the browser; they do not independently fetch and verify a test ID. Registry APIs remain blocked. Upload, registry, settings, and builder pages are unavailable. Overview, categories, questions, testers, responses, and dashboard report export remain test-scoped. The report export is distinct from the backend payout CSV endpoint.
 
 ## Verification and release
 

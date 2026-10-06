@@ -60,7 +60,6 @@ const noFilters: FilterState = {
   ageGroups: [],
   genders: [],
   continents: [],
-  countries: [],
   hardwareTiers: [],
   sessionPlaytime: null,
   playerSentiment: null,
@@ -95,7 +94,7 @@ describe('countActiveFilters', () => {
     expect(countActiveFilters(noFilters)).toBe(0);
     expect(
       countActiveFilters(
-        f({ ageGroups: ['18-24', '25-34'], countries: ['Germany'], sessionPlaytime: '6h+', playedFactorio: true }),
+        f({ ageGroups: ['18-24', '25-34'], continents: ['Europe'], sessionPlaytime: '6h+', playedFactorio: true }),
       ),
     ).toBe(2 + 1 + 1 + 1);
   });
@@ -121,16 +120,16 @@ describe('computeFilteredTesterIds', () => {
     expect(ids(result)).toEqual(['a', 'b']);
   });
 
-  it('uses tester.country, falling back to segments.country', () => {
+  it('uses tester.country, falling back to segments.country for regions', () => {
     const testers = [
       tester('a', { country: 'Germany' }),
       tester('b', { segments: { country: 'Germany' } }),
       tester('c', { country: 'France' }),
     ];
     const result = computeFilteredTesterIds({
-      testers, responses: [], questions: [], filters: f({ countries: ['Germany'] }),
+      testers, responses: [], questions: [], filters: f({ continents: ['Europe'] }),
     });
-    expect(ids(result)).toEqual(['a', 'b']);
+    expect(ids(result)).toEqual(['a', 'b', 'c']);
   });
 
   it('treats a missing hardware tier as "Unknown"', () => {
@@ -159,12 +158,12 @@ describe('computeFilteredTesterIds', () => {
   it('AND-combines dimensions: a tester must satisfy every active dimension', () => {
     const testers = [
       tester('a', { ageGroup: '25-34', country: 'Germany' }),
-      tester('b', { ageGroup: '25-34', country: 'France' }),
+      tester('b', { ageGroup: '25-34', country: 'Japan' }),
       tester('c', { ageGroup: '18-24', country: 'Germany' }),
     ];
     const result = computeFilteredTesterIds({
       testers, responses: [], questions: [],
-      filters: f({ ageGroups: ['25-34'], countries: ['Germany'] }),
+      filters: f({ ageGroups: ['25-34'], continents: ['Europe'] }),
     });
     expect(ids(result)).toEqual(['a']);
   });

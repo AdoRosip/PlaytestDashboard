@@ -20,7 +20,7 @@ describe('Portal analytics DTO', () => {
     expect(data.questions).toHaveLength(1);
     expect(data.questions[0]).toMatchObject({ type: 'rating_1_5', scaleMin: 1, scaleMax: 5, categoryId: null });
     expect(data.responses[0]).toMatchObject({ rawAnswer: '3', numericValue: 3, normalizedScore: 50 });
-    expect(data.testers[0]).toMatchObject({ testerId: 'Tester-22', username: 'hilmersen', anonymous: false, inRegistry: true, country: 'Slovakia', ageGroup: '25–34', rawProfileJson: {} });
+    expect(data.testers[0]).toMatchObject({ testerId: 'Tester-22', username: 'sample-tester-01', anonymous: false, inRegistry: true, country: 'Slovakia', ageGroup: '25–34', rawProfileJson: {} });
     expect(data.testers[0].segments).toMatchObject({ platform: 'PC / Mac', genres: 'Action, RPG, Simulation / Cozy', gaming_hours: '11–20', has_controller: 'Yes', has_mic: 'Yes' });
     expect(data.testers[0].profile?.steam).toEqual({ gameCount: 168, totalHours: 3755 });
     expect(data.testers[0].comments?.[0].text).toBe('co si jak');

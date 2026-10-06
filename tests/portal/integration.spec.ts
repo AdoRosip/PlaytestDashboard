@@ -11,6 +11,7 @@ function launch(client: number, testId: number) {
 }
 test('anonymous routes deny data and invalid launch links cannot create sessions', async ({ request }) => {
   expect((await request.get('/api/portal/tests')).status()).toBe(401);
+  expect((await request.post('/api/overview-insights', { data: {} })).status()).toBe(401);
   expect((await request.get('/tests/32?token=invalid')).status()).toBe(401);
 });
 test('real QA report loads, stays scoped during navigation and stores no dataset', async ({ page }) => {
@@ -44,7 +45,6 @@ test('session selects the correct live client and cannot read the other test', a
     expect(dto.testers.every((t: { email: string; rawProfileJson: object }) => !t.email && Object.keys(t.rawProfileJson).length === 0)).toBe(true);
     expect((await request.get(`/api/portal/tests/${otherTest}`, { headers })).status()).toBe(404);
     expect((await request.post('/api/testers/match', { data: { emails: ['nobody@example.test'] } })).status()).toBe(403);
-    expect((await request.post('/api/overview-insights', { data: {} })).status()).toBe(403);
   }
 });
 test('replacing the cookie invalidates the old tab before it can fetch with the new client', async ({ page }) => {

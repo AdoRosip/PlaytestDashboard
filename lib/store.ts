@@ -117,13 +117,14 @@ interface DashboardState {
 
   // Actions
   loadMockData: () => void;
-  loadFromExcel: (data: {
+  loadDataset: (data: {
     project: Project;
     testers: Tester[];
     categories: Category[];
     questions: Question[];
     responses: Response[];
   }) => void;
+  clearDataset: () => void;
   setFilter: (patch: Partial<FilterState>) => void;
   clearFilters: () => void;
   /** Add/remove one clicked answer on one question. */
@@ -138,7 +139,6 @@ interface DashboardState {
   closeDrawer: () => void;
   openTesterPanel: (testerId: string) => void;
   closeTesterPanel: () => void;
-  updateCategory: (categoryId: string, patch: Partial<Category>) => void;
   assignQuestionToCategory: (questionId: string, categoryId: string | null) => void;
   updateQuestion: (questionId: string, patch: Partial<Question>) => void;
   addCategory: (name: string) => void;
@@ -150,7 +150,6 @@ const defaultFilters: FilterState = {
   ageGroups: [],
   genders: [],
   continents: [],
-  countries: [],
   hardwareTiers: [],
   sessionPlaytime: null,
   playerSentiment: null,
@@ -211,7 +210,7 @@ export const useDashboardStore = create<DashboardState>()(
     });
   },
 
-  loadFromExcel: (data) => {
+  loadDataset: (data) => {
     analysisGeneration += 1;
     set({
       project: data.project,
@@ -234,6 +233,30 @@ export const useDashboardStore = create<DashboardState>()(
       drawerRatingValue: null,
       testerPanelOpen: false,
       activeTesterId: null,
+    });
+  },
+
+  clearDataset: () => {
+    analysisGeneration += 1;
+    set({
+      project: null,
+      testers: [],
+      categories: [],
+      questions: [],
+      responses: [],
+      themes: [],
+      isLoaded: false,
+      filters: defaultFilters,
+      drill: {},
+      analysisStatus: 'idle',
+      analysisError: null,
+      aiCache: {},
+      drawerOpen: false,
+      drawerQuestionId: null,
+      drawerRatingValue: null,
+      testerPanelOpen: false,
+      activeTesterId: null,
+      mobileDrawer: null,
     });
   },
 
@@ -287,11 +310,6 @@ export const useDashboardStore = create<DashboardState>()(
     set({ testerPanelOpen: true, activeTesterId: testerId }),
   closeTesterPanel: () =>
     set({ testerPanelOpen: false, activeTesterId: null }),
-
-  updateCategory: (categoryId, patch) =>
-    set((s) => ({
-      categories: s.categories.map((c) => c.id === categoryId ? { ...c, ...patch } : c),
-    })),
 
   assignQuestionToCategory: (questionId, categoryId) =>
     set((s) => {
@@ -697,17 +715,5 @@ export const selectGameConfig = (state: DashboardState): GameConfig =>
 
 // ─── Other derived selectors ─────────────────────────────────────────────────
 
-export const selectTester = (store: DashboardState, testerId: string) =>
-  store.testers.find((t) => t.id === testerId);
-
 export const selectQuestion = (store: DashboardState, questionId: string) =>
   store.questions.find((q) => q.id === questionId);
-
-export const selectResponsesForQuestion = (store: DashboardState, questionId: string) =>
-  store.responses.filter((r) => r.questionId === questionId);
-
-export const selectResponsesForTester = (store: DashboardState, testerId: string) =>
-  store.responses.filter((r) => r.testerId === testerId);
-
-export const selectQuestionsForCategory = (store: DashboardState, categoryId: string) =>
-  store.questions.filter((q) => q.categoryId === categoryId);

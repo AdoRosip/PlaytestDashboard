@@ -8,7 +8,7 @@ import FilterPanel from '@/components/filters/FilterPanel';
 import CrossFilterBar from '@/components/filters/CrossFilterBar';
 import { useDashboardStore, selectFilteredResponses, selectActiveFilterCount } from '@/lib/store';
 import EvidenceDrawer from '@/components/ui/EvidenceDrawer';
-import TesterPanel from '@/components/ui/TesterPanel';
+import TesterProfileModal from '@/components/tester/TesterProfileModal';
 import { countRespondents } from '@/lib/responseStats';
 
 export default function DashboardShell({ children }: { children: React.ReactNode }) {
@@ -145,7 +145,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
       </main>
 
       <EvidenceDrawer />
-      <TesterPanel />
+      <TesterProfileModal />
     </div>
   );
 }

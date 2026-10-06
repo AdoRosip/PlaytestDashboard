@@ -5,8 +5,7 @@ import { useDashboardStore } from '@/lib/store';
 
 type Session = { clientId: string; sid: string; expiresAt: number };
 function clearDataset() {
-  useDashboardStore.getState().loadFromExcel({ project: { id: '', name: '', gameName: '', playtestName: '', createdAt: '', totalResponses: 0, matchedTesters: 0, unmatchedTesters: 0 }, testers: [], categories: [], questions: [], responses: [] });
-  useDashboardStore.setState({ project: null, isLoaded: false, mobileDrawer: null });
+  useDashboardStore.getState().clearDataset();
 }
 export default function PortalBoundary({ enabled, children }: { enabled: boolean; children: React.ReactNode }) {
   const pathname = usePathname();
@@ -58,7 +57,7 @@ export default function PortalBoundary({ enabled, children }: { enabled: boolean
         if ((await getSession()).sid !== session.sid) { invalidate(); return; }
         if (!active) return;
         if (testId) {
-          useDashboardStore.getState().loadFromExcel(data);
+          useDashboardStore.getState().loadDataset(data);
           setView({ ready: testId, warnings: data.warnings, count: data.testers.length });
         } else setView({ tests: data.tests });
       } catch (error) {

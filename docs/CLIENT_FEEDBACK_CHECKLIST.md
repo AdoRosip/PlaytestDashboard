@@ -174,7 +174,7 @@ analyses that cannot explain themselves.
 
 **Item 25 breakdown:**
 
-- [ ] **25a · shared good/poor flag — `3/5`.** Registry column + authed routes + UI. Cross-game identity already exists. Note `adminNotes` on the tester type has no column or editing route behind it — not a foundation
+- [ ] **25a · shared good/poor flag — `3/5`.** Registry column + authed routes + UI. Cross-game identity already exists. The former `adminNotes` tester type field had no column or editing route behind it and has since been removed — not a foundation
 - [ ] **25b · per-developer ratings and notes — `4/5`.** Needs real user accounts; one shared HTTP Basic credential can't record who rated whom
 - [ ] **25c · select a cohort and contact them — `5/5`.** A tester CRM: rounds, saved lists, do-not-invite status, consent, suppression, email/Discord integration, delivery state, audit. **Blocked:** requires organisation-scoped tester IDs, while the Portal plan recommends test-scoped
 
