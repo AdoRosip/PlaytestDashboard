@@ -15,15 +15,6 @@ export function severityColor(severity: Severity | Priority): string {
   }
 }
 
-export function severityDot(severity: Severity | Priority): string {
-  switch (severity) {
-    case 'Critical': return 'bg-red-400';
-    case 'High':     return 'bg-orange-400';
-    case 'Medium':   return 'bg-yellow-400';
-    case 'Low':      return 'bg-green-400';
-  }
-}
-
 // Both take an already-normalized 0–100 score (higher = better; inverse-scored
 // questions are flipped in lib/scoring.ts), so they can read polarity directly.
 //
@@ -43,14 +34,6 @@ export function scoreBgColor(score: number): string {
   return 'bg-[#df3a3a]';
 }
 
-export function normalizeScore(value: number, min: number, max: number): number {
-  return Math.round(((value - min) / (max - min)) * 100);
-}
-
-export function formatScore(score: number): string {
-  return score.toFixed(1);
-}
-
 export function questionTypeLabel(type: QuestionType): string {
   const map: Record<QuestionType, string> = {
     rating_1_5: '1–5 Rating',
@@ -66,29 +49,10 @@ export function questionTypeLabel(type: QuestionType): string {
   return map[type] ?? type;
 }
 
-export function questionTypeIcon(type: QuestionType): string {
-  const map: Record<QuestionType, string> = {
-    rating_1_5: '⭐',
-    rating_1_10: '🔢',
-    yes_no: '✓',
-    multiple_choice: '◉',
-    free_text: '💬',
-    file_upload: '📎',
-    timestamp: '🕐',
-    internal_admin: '🔒',
-    unknown: '?',
-  };
-  return map[type] ?? '?';
-}
-
 export function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('en-GB', {
     day: '2-digit', month: 'short', year: 'numeric',
   });
-}
-
-export function getInitials(name: string): string {
-  return name.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2);
 }
 
 export { formatTesterId, formatTesterLabel } from './testerIdentity';
@@ -140,12 +104,6 @@ export function computeTesterSegments(testers: Tester[]): TesterSegmentSummary {
   );
 
   return { ageGroups, hardwareTiers, gamerTypes };
-}
-
-export function avgArray(nums: (number | null)[]): number {
-  const valid = nums.filter((n): n is number => n !== null);
-  if (!valid.length) return 0;
-  return valid.reduce((a, b) => a + b, 0) / valid.length;
 }
 
 export function computeRatingDistribution(

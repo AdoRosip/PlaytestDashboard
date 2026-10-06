@@ -88,7 +88,7 @@ Expected result: test **18 / Maradona**, question **37**, submission **22**, rat
 | No category/game map | Neutral report without invented categories, game KPIs or inverse scoring |
 | Repeat submissions | Counted separately; the contract has no stable tester ID |
 
-Scores derive from answers; `stats.totalResponses` must equal the submission count. `ratingAverages` does not override scores. AI, registry enrichment, uploads, builder and themes remain unavailable under the QA Portal policy.
+Scores derive from answers; `stats.totalResponses` must equal the submission count. `ratingAverages` does not override scores. Registry enrichment, uploads, and builder remain unavailable in Portal mode. Authenticated Portal clients can now use AI analysis and the themes page; this differs from the QA policy at the time of the September 28 validation below.
 
 ## Verification and release
 

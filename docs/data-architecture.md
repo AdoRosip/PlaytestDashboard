@@ -634,7 +634,7 @@ Meaning:
 
 ## Tester Panel
 
-Main file: `components/ui/TesterPanel.tsx`.
+Main file: `components/tester/TesterProfileModal.tsx`.
 
 Source:
 

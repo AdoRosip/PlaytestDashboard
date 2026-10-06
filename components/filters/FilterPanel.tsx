@@ -146,7 +146,7 @@ export default function FilterPanel() {
   ).length;
   const hasQualityFlags = straightLinerCount > 0 || outlierCount > 0;
 
-  const toggle = <K extends 'ageGroups' | 'genders' | 'continents' | 'countries' | 'hardwareTiers'>(key: K, value: string) => {
+  const toggle = <K extends 'ageGroups' | 'genders' | 'continents' | 'hardwareTiers'>(key: K, value: string) => {
     const cur = filters[key] as string[];
     setFilter({ [key]: cur.includes(value) ? cur.filter((v) => v !== value) : [...cur, value] } as Partial<FilterState>);
   };
@@ -247,22 +247,6 @@ export default function FilterPanel() {
             </div>
           )}
 
-          {/* Country filter — replaced by Region (continent) grouping for now.
-              Kept here so it can be reinstated later as a drill-down.
-          {countries.length > 0 && (
-            <div>
-              <div className="text-xs text-slate-400 mb-2">Country</div>
-              <div className="flex flex-wrap gap-1.5">
-                {countries.slice(0, 14).map((v) => (
-                  <Chip key={v} label={v} active={filters.countries.includes(v)} onClick={() => toggle('countries', v)} />
-                ))}
-                {countries.length > 14 && (
-                  <span className="text-[10px] text-slate-600 self-center">+{countries.length - 14} more</span>
-                )}
-              </div>
-            </div>
-          )}
-          */}
         </div>
 
         {/* Player Sentiment */}

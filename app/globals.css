@@ -283,7 +283,7 @@ body {
 }
 
 /* Entrance for dialogs that mount on open rather than sliding in from an edge
-   (components/ui/TesterPanel.tsx). Animating `transform` is deliberate: Tailwind
+   (components/tester/TesterProfileModal.tsx). Animating `transform` is deliberate: Tailwind
    v4 centres with the separate `translate` property, so the two compose instead
    of the animation cancelling `-translate-x-1/2`. */
 @keyframes dialog-enter {

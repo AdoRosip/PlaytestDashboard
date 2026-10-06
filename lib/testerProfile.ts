@@ -115,10 +115,3 @@ export function engagement(testerId: string, responses: Response[], questions: Q
 
   return { freeTextTotal, answered, answeredRatio, avgWords, tier };
 }
-
-export const ENGAGEMENT_LABELS: Record<EngagementTier, string> = {
-  detailed: 'Detailed responder',
-  brief: 'Brief responder',
-  minimal: 'Low-effort',
-  none: 'No written feedback',
-};

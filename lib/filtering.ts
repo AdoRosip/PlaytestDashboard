@@ -80,7 +80,6 @@ export function hasActiveFilters(f: FilterState): boolean {
     f.ageGroups.length > 0 ||
     f.genders.length > 0 ||
     f.continents.length > 0 ||
-    f.countries.length > 0 ||
     f.hardwareTiers.length > 0 ||
     f.sessionPlaytime !== null ||
     f.playerSentiment !== null ||
@@ -181,10 +180,6 @@ export function computeFilteredTesterIds(input: FilterInput): Set<string> | null
       const c = t.country || t.segments.country || '';
       if (!filters.continents.includes(continentFor(c))) continue;
     }
-    if (filters.countries.length > 0) {
-      const c = t.country || t.segments.country || '';
-      if (!filters.countries.includes(c)) continue;
-    }
     if (
       filters.hardwareTiers.length > 0 &&
       !filters.hardwareTiers.includes(t.segments.hardware_tier ?? 'Unknown')
@@ -228,7 +223,6 @@ export function countActiveFilters(f: FilterState): number {
     f.ageGroups.length +
     f.genders.length +
     f.continents.length +
-    f.countries.length +
     f.hardwareTiers.length +
     (f.sessionPlaytime !== null ? 1 : 0) +
     (f.playerSentiment !== null ? 1 : 0) +
