@@ -59,10 +59,15 @@ describe('Portal launch and session security', () => {
     vi.stubEnv('DASHBOARD_SSO_SECRET', '');
     expect(() => verifyLaunch(launch({ d: 2, e: now + 30 }), now)).toThrow();
   });
-  it('disables registry and AI even for an authenticated client', () => {
+  it('disables the registry but allows AI for an authenticated client', () => {
     const { token } = issueSession('2');
-    for (const path of ['/api/testers/match', '/api/testers/import', '/api/themes', '/api/question-analysis', '/api/overview-insights', '/api/flaw-recommendations']) {
-      expect(requireDashboardAuth(new Request(`https://dashboard.test${path}`, { headers: { cookie: `${cookieName()}=${token}` } }))?.status).toBe(403);
+    const status = (path: string, cookie?: string) => requireDashboardAuth(new Request(`https://dashboard.test${path}`, cookie ? { headers: { cookie } } : {}))?.status;
+    for (const path of ['/api/testers/match', '/api/testers/import']) {
+      expect(status(path, `${cookieName()}=${token}`)).toBe(403);
+    }
+    for (const path of ['/api/themes', '/api/question-analysis', '/api/overview-insights', '/api/flaw-recommendations']) {
+      expect(status(path, `${cookieName()}=${token}`)).toBeUndefined();
+      expect(status(path)).toBe(401);
     }
   });
   it('uses production host-only secure HttpOnly cookies and independent secrets', () => {

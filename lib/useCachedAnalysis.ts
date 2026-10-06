@@ -1,7 +1,6 @@
 'use client';
 import { useCallback, useEffect, useRef } from 'react';
 import { useDashboardStore } from './store';
-import { isPortalBrowser } from './portalBrowser';
 
 interface Options<T> {
   /** Stable cache slot, e.g. 'overviewInsights'. */
@@ -58,7 +57,6 @@ export function useCachedAnalysis<T>({ key, signature, auto, fetcher }: Options<
   const inFlightSignature = useRef<string | null>(null);
 
   const run = useCallback(() => {
-    if (isPortalBrowser()) return;
     if (!signature) return;
     if (inFlightSignature.current === signature) return;
     inFlightSignature.current = signature;
@@ -85,7 +83,7 @@ export function useCachedAnalysis<T>({ key, signature, auto, fetcher }: Options<
   return {
     data: matches && entry?.status === 'done' ? (entry.data as T) : null,
     loading: matches && entry?.status === 'running',
-    error: isPortalBrowser() ? 'AI analysis is unavailable in Portal mode.' : matches && entry?.status === 'error' ? (entry.error ?? 'Analysis failed') : null,
+    error: matches && entry?.status === 'error' ? (entry.error ?? 'Analysis failed') : null,
     run,
   };
 }

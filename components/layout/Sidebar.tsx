@@ -89,7 +89,7 @@ export default function Sidebar() {
             </div>
             <div className="space-y-0.5">
               {items.map(({ href, label: itemLabel, icon: Icon }) => {
-                if (isPortalBrowser() && (href === '/builder' || href === '/themes')) return null;
+                if (isPortalBrowser() && href === '/builder') return null;
                 const active = pathname === href || pathname.startsWith(href + '/');
                 return (
                   <Link

@@ -32,7 +32,7 @@ export function mapPortalData(input: unknown, clientId: string, testId: string, 
   const test = object(data.test);
   if (String(id(test.TestID)) !== testId) throw new Error('Unexpected test');
   const projectId = `portal_${clientId}_${testId}`;
-  const warnings = ['People are represented by submissions; repeat submissions cannot be deduplicated. Participant counts in charts include submissions with answers. AI and registry enrichment are unavailable in Portal mode.'];
+  const warnings = ['People are represented by submissions; repeat submissions cannot be deduplicated. Participant counts in charts include submissions with answers. Registry enrichment is unavailable in Portal mode.'];
   if (config.id === 'portal-generic') warnings.push('No game-specific configuration: headline KPIs and inverse scoring are unavailable.');
   const categories: Category[] = config.categories.map(c => ({ ...c, projectId }));
   const seenQuestions = new Set<number>();
