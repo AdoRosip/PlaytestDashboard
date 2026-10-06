@@ -117,13 +117,14 @@ interface DashboardState {
 
   // Actions
   loadMockData: () => void;
-  loadFromExcel: (data: {
+  loadDataset: (data: {
     project: Project;
     testers: Tester[];
     categories: Category[];
     questions: Question[];
     responses: Response[];
   }) => void;
+  clearDataset: () => void;
   setFilter: (patch: Partial<FilterState>) => void;
   clearFilters: () => void;
   /** Add/remove one clicked answer on one question. */
@@ -209,7 +210,7 @@ export const useDashboardStore = create<DashboardState>()(
     });
   },
 
-  loadFromExcel: (data) => {
+  loadDataset: (data) => {
     analysisGeneration += 1;
     set({
       project: data.project,
@@ -232,6 +233,30 @@ export const useDashboardStore = create<DashboardState>()(
       drawerRatingValue: null,
       testerPanelOpen: false,
       activeTesterId: null,
+    });
+  },
+
+  clearDataset: () => {
+    analysisGeneration += 1;
+    set({
+      project: null,
+      testers: [],
+      categories: [],
+      questions: [],
+      responses: [],
+      themes: [],
+      isLoaded: false,
+      filters: defaultFilters,
+      drill: {},
+      analysisStatus: 'idle',
+      analysisError: null,
+      aiCache: {},
+      drawerOpen: false,
+      drawerQuestionId: null,
+      drawerRatingValue: null,
+      testerPanelOpen: false,
+      activeTesterId: null,
+      mobileDrawer: null,
     });
   },
 

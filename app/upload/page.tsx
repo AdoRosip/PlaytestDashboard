@@ -10,7 +10,7 @@ import CompanyLogo from '@/components/brand/CompanyLogo';
 
 export default function UploadPage() {
   const router = useRouter();
-  const loadFromExcel = useDashboardStore((s) => s.loadFromExcel);
+  const loadDataset = useDashboardStore((s) => s.loadDataset);
   const loadMockData = useDashboardStore((s) => s.loadMockData);
 
   const [dragging, setDragging] = useState(false);
@@ -37,14 +37,14 @@ export default function UploadPage() {
       // is a no-op (leaves testers as parsed) when the backend isn't configured.
       const { result: enriched, warning } = await enrichTestersFromRegistry(result);
       setWarnings(warning ? [...enriched.warnings, warning] : enriched.warnings);
-      loadFromExcel(enriched);
+      loadDataset(enriched);
       setStatus('done');
       setTimeout(() => router.push('/overview'), 1200);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to parse file');
       setStatus('error');
     }
-  }, [loadFromExcel, router, gameId]);
+  }, [loadDataset, router, gameId]);
 
   const onDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();

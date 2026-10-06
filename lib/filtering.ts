@@ -26,7 +26,7 @@ export function sentimentBand(enjoyRating: number | undefined): SentimentBand | 
 }
 
 /** Matches the "How much did you enjoy the game overall?" question. */
-export const ENJOY_OVERALL_RE = /enjoy.*overall|overall.*enjoy/i;
+const ENJOY_OVERALL_RE = /enjoy.*overall|overall.*enjoy/i;
 
 /**
  * Map of testerId → overall-enjoyment rating on a 0–5 scale, derived from the
@@ -63,7 +63,7 @@ export function buildEnjoyRatingMap(
 // on top of these functions.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export interface FilterInput {
+interface FilterInput {
   testers: Tester[];
   responses: Response[];
   questions: Question[];

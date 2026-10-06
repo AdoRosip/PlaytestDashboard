@@ -31,7 +31,7 @@ test('production response renders through the Portal flow, navigates and signs o
   await expect(page.getByText('asfdsgfdfg', { exact: true }).first()).toBeVisible();
   await page.reload();
   await expect(page.getByText('1 submissions received.', { exact: true })).toBeVisible();
-  await expect(page.getByText('hilmersen', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText('sample-tester-01', { exact: true }).first()).toBeVisible();
   await page.getByRole('link', { name: 'AI Analysis', exact: true }).click();
   await expect(page).toHaveURL(/\/tests\/18\/themes$/);
   await expect(page.getByText('Ready to analyse', { exact: true })).toBeVisible();
