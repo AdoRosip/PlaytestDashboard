@@ -1,6 +1,6 @@
-import { loadEnvConfig } from '@next/env';
+import nextEnv from '@next/env';
 import { createHmac } from 'node:crypto';
-loadEnvConfig(process.cwd());
+nextEnv.loadEnvConfig(process.cwd());
 if (process.env.NODE_ENV === 'production' || process.env.VERCEL) throw new Error('Local development only');
 const [clientId, testId, origin = 'http://localhost:3000'] = process.argv.slice(2);
 if (!/^[1-9]\d*$/.test(clientId || '') || !/^[1-9]\d*$/.test(testId || '')) throw new Error('Usage: node scripts/portal-launch.mjs CLIENT_ID TEST_ID [LOCAL_ORIGIN]');

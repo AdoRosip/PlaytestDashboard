@@ -12,14 +12,14 @@ function launch(client = 7) {
   return `/tests/18?token=${payload}.${signature}`;
 }
 
-test('production response renders through the Portal flow, navigates and signs out', async ({ page }) => {
+test('production response renders through the Portal flow and navigates', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.addInitScript(() => localStorage.setItem('playtest-dashboard-v1', JSON.stringify({ state: { project: { name: 'OLD CLIENT DATA' } }, version: 0 })));
   await page.route('**/api/portal/tests/18', route => route.fulfill({ json: mapPortalData(fixture, '7', '18', portalGenericConfig) }));
   await page.goto(launch());
   await expect(page).toHaveURL(/\/tests\/18\/overview$/);
-  await expect(page.getByText('1 submissions received.', { exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'All Questions', exact: true })).toBeVisible();
   await expect(page.getByText('Maradona', { exact: true }).first()).toBeVisible();
   await expect(page.getByText('OLD CLIENT DATA')).toHaveCount(0);
   expect(await page.evaluate(() => localStorage.getItem('playtest-dashboard-v1'))).toBeNull();
@@ -30,7 +30,7 @@ test('production response renders through the Portal flow, navigates and signs o
   await expect(page).toHaveURL(/\/tests\/18\/questions\/portal_7_18_q_37$/);
   await expect(page.getByText('asfdsgfdfg', { exact: true }).first()).toBeVisible();
   await page.reload();
-  await expect(page.getByText('1 submissions received.', { exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'All Questions', exact: true })).toBeVisible();
   await expect(page.getByText('sample-tester-01', { exact: true }).first()).toBeVisible();
   await page.getByRole('link', { name: 'AI Analysis', exact: true }).click();
   await expect(page).toHaveURL(/\/tests\/18\/themes$/);
@@ -39,9 +39,6 @@ test('production response renders through the Portal flow, navigates and signs o
   const ai = await page.request.post('/api/question-analysis', { headers: { 'content-type': 'application/json' }, data: 'not json' });
   expect([401, 403]).not.toContain(ai.status());
   expect(errors).toEqual([]);
-  await page.getByRole('button', { name: 'Sign out', exact: true }).click();
-  await expect(page).toHaveURL(/\/portal-entry$/);
-  expect((await page.request.get('/api/portal/session')).status()).toBe(401);
 });
 
 test('rejects anonymous requests and another client even with a valid signature', async ({ request }) => {

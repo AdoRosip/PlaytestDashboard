@@ -1,7 +1,8 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { useDashboardStore } from '@/lib/store';
+import PortalLoader, { type LoadState } from './PortalLoader';
 
 type Session = { clientId: string; sid: string; expiresAt: number };
 function clearDataset() {
@@ -11,8 +12,9 @@ export default function PortalBoundary({ enabled, children }: { enabled: boolean
   const pathname = usePathname();
   const testId = pathname.match(/^\/tests\/([1-9]\d*)\//)?.[1];
   const entry = pathname === '/portal-entry';
-  const cancelLoad = useRef<(() => void) | null>(null);
-  const [view, setView] = useState<{ ready?: string; error?: string; tests?: { id: number; name: string }[]; warnings?: string[]; count?: number }>({});
+  const [view, setView] = useState<{ ready?: string; error?: string; tests?: { id: number; name: string }[] }>({});
+  // Keyed by test so a previous test's outcome never shows on the next one.
+  const [load, setLoad] = useState<LoadState & { testId?: string }>({});
   useEffect(() => {
     if (!enabled || entry) return;
     let active = true;
@@ -20,13 +22,16 @@ export default function PortalBoundary({ enabled, children }: { enabled: boolean
     const controller = new AbortController();
     const channel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('portal-session') : null;
     let expiry: ReturnType<typeof setTimeout> | undefined;
+    let opening: ReturnType<typeof setTimeout> | undefined;
+    const updateLoad = (next: Partial<LoadState>) => {
+      if (active && testId) setLoad(l => ({ ...(l.testId === testId ? l : {}), ...next, testId }));
+    };
     clearDataset();
     const invalidate = () => {
       if (!active) return;
       active = false; controller.abort(); clearDataset();
       setView({ error: 'Your session changed or expired. Open the test again from the Portal.' });
     };
-    cancelLoad.current = invalidate;
     const getSession = async (): Promise<Session> => {
       const r = await fetch('/api/portal/session', { cache: 'no-store', signal: controller.signal });
       if (!r.ok) throw new Error('Session expired. Open the dashboard from the Portal.');
@@ -52,44 +57,37 @@ export default function PortalBoundary({ enabled, children }: { enabled: boolean
         const r = await fetch(testId ? `/api/portal/tests/${testId}` : '/api/portal/tests', {
           cache: 'no-store', headers: { 'x-portal-session': session.sid }, signal: controller.signal,
         });
-        const data = await r.json();
+        const data = await r.json().catch(() => ({}));
         if (!r.ok) throw new Error(data.error || 'Unable to load test.');
+        updateLoad({ testName: data.project?.name });
         if ((await getSession()).sid !== session.sid) { invalidate(); return; }
         if (!active) return;
         if (testId) {
           useDashboardStore.getState().loadDataset(data);
-          setView({ ready: testId, warnings: data.warnings, count: data.testers.length });
+          updateLoad({ done: true });
+          // Hold the full bar briefly so "Opening dashboard" is visible.
+          opening = setTimeout(() => setView({ ready: testId }), 600);
         } else setView({ tests: data.tests });
       } catch (error) {
-        if (active) { clearDataset(); setView({ error: error instanceof Error ? error.message : 'Unable to load test.' }); }
+        if (!active) return;
+        clearDataset();
+        const message = error instanceof Error ? error.message : 'Unable to load test.';
+        if (testId) updateLoad({ failed: message });
+        else setView({ error: message });
       }
     })();
     return () => {
-      cancelLoad.current = null;
-      active = false; controller.abort(); channel?.close(); clearTimeout(expiry); clearInterval(interval);
+      active = false; controller.abort(); channel?.close(); clearTimeout(expiry); clearTimeout(opening); clearInterval(interval);
       document.removeEventListener('visibilitychange', visibility);
       window.removeEventListener('focus', check); window.removeEventListener('pageshow', pageshow); clearDataset();
     };
   }, [enabled, entry, testId]);
   if (!enabled || entry) return children;
-  const logout = async () => {
-    cancelLoad.current?.();
-    clearDataset(); setView({ error: 'Signed out.' });
-    const channel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('portal-session') : null;
-    channel?.postMessage('logout'); channel?.close();
-    try {
-      const response = await fetch('/api/portal/session', { method: 'DELETE' });
-      if (!response.ok && response.status !== 401) throw new Error('Sign out failed');
-      window.location.assign('/portal-entry');
-    } catch {
-      setView({ error: 'Unable to finish signing out. Please retry Sign out.' });
-    }
-  };
   return <div>
-    <div className="relative z-[60] flex gap-5 items-center bg-slate-900 p-3 text-sm"><button onClick={() => window.location.assign('/tests')}>All playtests</button><button onClick={logout}>Sign out</button></div>
     {view.error ? <div className="p-12" role="alert">{view.error} <button onClick={() => window.location.assign('/tests')} className="underline">Return to playtests</button></div>
       : !testId && view.tests ? <main className="p-12"><h1 className="text-2xl mb-6">Your playtests</h1>{view.tests.length ? view.tests.map(t => <a className="block py-3 underline" href={`/tests/${t.id}/overview`} key={t.id}>{t.name}</a>) : <p>No playtests are available for this client.</p>}</main>
-      : view.ready === testId && testId ? <><div className="lg:ml-[220px] p-4 text-xs text-slate-400">{view.warnings?.map(w => <p key={w}>{w}</p>)}<p>{view.count} submissions received.</p></div>{children}</>
-      : <p className="p-12">Loading your playtest…</p>}
+      : view.ready === testId && testId ? children
+      : testId ? <PortalLoader key={testId} state={load.testId === testId ? load : {}} onRetry={() => window.location.reload()} />
+      : <p className="p-12">Loading your playtests…</p>}
   </div>;
 }

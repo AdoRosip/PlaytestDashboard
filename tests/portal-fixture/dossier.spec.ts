@@ -12,7 +12,7 @@ async function openTest(page: Page, adjust?: (data: ReturnType<typeof mapPortalD
   const payload = Buffer.from(JSON.stringify({ d: 7, e: Math.floor(Date.now() / 1000) + 300 })).toString('base64url');
   const sig = createHmac('sha256', 'fixture-launch-secret-for-browser-test-only').update(payload).digest('base64url');
   await page.goto(`/tests/18?token=${payload}.${sig}`);
-  await expect(page.getByText('2 submissions received.', { exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'All Questions', exact: true })).toBeVisible();
   await page.goto('/tests/18/testers');
   await expect(page.getByRole('link', { name: 'Tester-28', exact: true })).toBeVisible();
 }
