@@ -68,14 +68,18 @@
 .filters { display: flex; flex-wrap: wrap; gap: 18px; font-size: 13px; padding-top: 2px; color: var(--muted); }
 .filters [aria-pressed=true] { color: var(--primary); }
 .answers { border-top: 1px solid var(--strong); }
-.answer { padding: 18px 0; border-bottom: 1px solid var(--soft); scroll-margin-top: 16px; }
-.ratingRow { display: grid; grid-template-columns: minmax(0, 1fr) 220px; gap: 24px; align-items: center; }
-.answerMeta { font-size: 12px; color: var(--faint); margin-bottom: 4px; }
-.question { font-size: 14px; color: var(--body); line-height: 1.5; }
-/* TODO(spec): the global 1px border rule takes precedence over the 2px quote example. */
-.written { font-size: 15px; line-height: 1.6; white-space: pre-wrap; margin-top: 10px; padding-left: 14px; border-left: 1px solid var(--control); }
-.meterRow { display: flex; gap: 10px; align-items: center; }
-.meter { display: flex; flex: 1; gap: 3px; min-width: 30px; }
+.answer { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 12px; padding: 20px 0; border-bottom: 1px solid var(--soft); scroll-margin-top: 16px; }
+.qNumber { font-size: 12px; color: var(--faint); line-height: 21px; }
+/* Sits on the question's line, not the category label above it (18px line + 2px gap). */
+.belowMeta { padding-top: 20px; }
+.qa { min-width: 0; }
+.answerMeta { font-size: 12px; color: var(--faint); margin-bottom: 2px; }
+.question { font-size: 14px; color: var(--secondary); line-height: 1.5; }
+.written { font-size: 15px; font-weight: 500; color: var(--primary); line-height: 1.6; white-space: pre-wrap; margin-top: 8px; }
+.meterRow { display: flex; gap: 12px; align-items: center; margin-top: 8px; }
+.score { font-size: 18px; font-weight: 500; color: var(--primary); white-space: nowrap; }
+.scoreMax { font-size: 12px; color: var(--faint); margin-left: 2px; }
+.meter { display: flex; flex: 0 1 160px; gap: 3px; min-width: 30px; }
 .segment { height: 6px; border-radius: 2px; background: var(--track); flex: 1; overflow: hidden; }
 .filled { background: var(--fill); height: 100%; }
 .groupAverage { font-size: 12px; color: var(--label); white-space: nowrap; }
@@ -134,7 +138,7 @@
   .cell { padding: 14px 12px; }
   .tabHeader { flex-wrap: wrap; }
   .filters { width: 100%; }
-  .ratingRow { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  .answer { grid-template-columns: 32px minmax(0, 1fr); gap: 10px; }
   .dialog { inset: 0; width: 100%; max-width: none; height: 100dvh; max-height: 100dvh; transform: none; border-radius: 0; }
 }
 /* TODO(spec): the dashboard's two sidebars reduce usable width even on desktop.
@@ -155,7 +159,7 @@
   .identityFacts { grid-template-columns: minmax(0, 1fr); }
 }
 @container dossier-content (max-width: 540px) {
-  .ratingRow { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  .answer { grid-template-columns: 32px minmax(0, 1fr); gap: 10px; }
   .tabHeader { flex-wrap: wrap; }
   .filters { width: 100%; }
 }
