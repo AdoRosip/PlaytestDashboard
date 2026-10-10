@@ -47,7 +47,6 @@
 .group > button { display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 12px; padding: 13px 0; color: var(--body); text-align: left; }
 .group svg { color: var(--faint); transition: transform .15s; flex-shrink: 0; }
 .group [aria-expanded=true] svg { transform: rotate(180deg); }
-.languages { font-size: 13px; color: var(--label); padding-top: 13px; }
 .main { container: dossier-content / inline-size; min-width: 0; padding: 28px 32px; display: flex; flex-direction: column; gap: 28px; }
 .strip { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border: 1px solid var(--strong); border-radius: 9px; overflow: hidden; }
 .cell { padding: 16px 18px; border-right: 1px solid var(--strong); min-width: 0; }
