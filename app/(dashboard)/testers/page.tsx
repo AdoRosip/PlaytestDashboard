@@ -63,7 +63,6 @@ function TestersPageContent() {
   const responses = useDashboardStore(selectFilteredResponses);
   const questions = useDashboardStore((s) => s.questions);
   const config = useDashboardStore(selectGameConfig);
-  const openTesterPanel = useDashboardStore((s) => s.openTesterPanel);
   const targets = useDashboardStore(s => s.project?.steamMatchGenres);
   const params = useSearchParams();
   const pathname = usePathname();
@@ -481,10 +480,7 @@ function TestersPageContent() {
                   ) : <span className="text-slate-600">—</span>}
                 </td>
                 <td className="px-4 py-3">
-                  <div className="flex items-center gap-3">
-                    <ReportLink href={detailHref(t.id)} onClick={event => event.stopPropagation()} className="text-xs text-indigo-400 hover:text-indigo-300">View →</ReportLink>
-                    <button className="text-xs text-slate-400" aria-label={`Quick view ${formatTesterLabel(t)}`} onClick={event => { event.stopPropagation(); openTesterPanel(t.id); }}>Quick view</button>
-                  </div>
+                  <ReportLink href={detailHref(t.id)} onClick={event => event.stopPropagation()} className="text-xs text-indigo-400 hover:text-indigo-300">View →</ReportLink>
                 </td>
               </tr>
             ))}

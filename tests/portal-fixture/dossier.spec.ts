@@ -65,7 +65,8 @@ test('tester list opens the dossier, keeps filters, paginates and persists tabs'
 
 test('dialog retains focus, keyboard tabs, scroll lock and empty videos', async ({ page }) => {
   await openTest(page, data => { data.testers[0].files = []; });
-  const trigger = page.getByRole('button', { name: 'Quick view Tester-28' });
+  await page.getByRole('link', { name: 'Responses', exact: true }).click();
+  const trigger = page.getByRole('button', { name: 'Profile →', exact: true }).first();
   await trigger.click();
   const dialog = page.getByRole('dialog', { name: 'Tester-28' });
   await expect(dialog).toBeVisible();

@@ -38,13 +38,14 @@ function ProfileRail({ tester, submittedAt }: { tester: Tester; submittedAt?: st
     {registered && <>
       {(genres.length > 0 || !!p?.avoidedGenres?.length) && <div>{genres.length > 0 && <><div className={s.tasteLabel}>Likes</div><div className={s.chips}>{genres.map(g => <span key={g} className={s.chip}>{profileText(g)}</span>)}</div></>}
         {!!p?.avoidedGenres?.length && <div className={genres.length ? s.avoids : undefined}><div className={s.tasteLabel}>Avoids</div><div className={s.chips}>{p.avoidedGenres.map(g => <span key={g} className={s.outlineChip}>{profileText(g)}</span>)}</div></div>}</div>}
+      {!!p?.languages?.length && <div><div className={s.tasteLabel}>Languages</div><div className={s.chips}>{p.languages.map(l => <span key={l} className={s.chip}>{profileText(l)}</span>)}</div></div>}
       <div className={s.groups}>{registryGroups.map(group => {
         const rows: Fact[] = group.fields.map(([key, label]) => [label, typeof p?.[key] === 'string' ? p[key] as string : undefined]);
         if (group.title === 'Gaming habits') rows.push(['Modes', tester.segments.playstyles || tester.segments.gaming_pref], ['Platforms', tester.segments.platform]);
         if (group.title === 'Setup') rows.splice(3, 0, ['Controller', tester.segments.has_controller], ['Mic', tester.segments.has_mic]);
         // TODO(spec): legacy employment, availability, industry, gamer_type and hardware_tier have no dossier field.
         return <Group key={group.title} title={group.title} rows={rows} />;
-      })}{!!p?.languages?.length && <p className={s.languages}>Languages <span>{profileText(p.languages.join(', '))}</span></p>}</div>
+      })}</div>
     </>}
   </aside>;
 }
