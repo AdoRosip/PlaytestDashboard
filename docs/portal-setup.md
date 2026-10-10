@@ -21,7 +21,7 @@ Only the exact string `true` enables this mode. When it is enabled, the Portal s
 5. The browser requests `/api/portal/session`, then `/api/portal/tests/<id>`, sending its session cookie and the returned session ID as `x-portal-session`.
 6. Our server verifies the cookie again, rejects a mismatched session ID, selects the client's API key from `PLAYLYTIX_CLIENT_KEYS`, and requests `/tests/<id>/responses` from Viktor's API using `x-api-key`. The upstream API enforces test ownership.
 7. Our server validates and transforms the response into permitted analytics fields. The browser receives the report dataset, never the API key or signing secrets. Report navigation retains the test ID in the URL. The All playtests view uses the same authorization to list that client's tests.
-8. After session expiry, the person opens a new link from the Portal. Dashboard Sign out clears the cookie and report state. Returning to a hidden tab reloads and revalidates the report.
+8. After session expiry, the person opens a new link from the Portal. Dashboard Sign out clears the cookie and report state. Returning to a hidden tab revalidates the session quietly and keeps the report on screen.
 
 ```mermaid
 sequenceDiagram

@@ -47,3 +47,29 @@ test('rejects anonymous requests and another client even with a valid signature'
   expect((await request.get('/api/portal/session')).status()).toBe(401);
   expect((await request.post('/api/question-analysis', { data: {} })).status()).toBe(401);
 });
+
+// Fakes the tab being hidden then shown again.
+async function switchTabAway(page: import('@playwright/test').Page) {
+  await page.evaluate(() => {
+    const set = (state: string) => {
+      Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => state });
+      document.dispatchEvent(new Event('visibilitychange'));
+    };
+    set('hidden');
+    set('visible');
+  });
+}
+
+test('returning to the tab keeps the report on screen without reloading', async ({ page }) => {
+  let loads = 0;
+  await page.route('**/api/portal/tests/18', route => { loads++; return route.fulfill({ json: mapPortalData(fixture, '7', '18', portalGenericConfig) }); });
+  await page.goto(launch());
+  await expect(page.getByText('Maradona', { exact: true }).first()).toBeVisible();
+  await page.evaluate(() => { (window as unknown as { marker: boolean }).marker = true; });
+  await switchTabAway(page);
+  await page.waitForTimeout(1000);
+  expect(await page.evaluate(() => (window as unknown as { marker?: boolean }).marker)).toBe(true);
+  await expect(page.getByText('Maradona', { exact: true }).first()).toBeVisible();
+  await expect(page.getByRole('alertdialog')).toHaveCount(0);
+  expect(loads).toBe(1);
+});

@@ -121,11 +121,21 @@ export default function TesterProfile({ tester, tab: routeTab, onTabChange }: { 
               const points = max - min + 1;
               const value = response.numericValue ?? 0;
               const category = categories.find(c => c.id === q.categoryId)?.name;
-              return <article key={response.id} data-answer-id={response.id} tabIndex={-1} className={`${s.answer} ${rating ? s.ratingRow : ''} ${pendingAnswer === response.id ? s.flash : ''}`}>
-                <div><div className={s.answerMeta}>Q{index}{rating ? category ? ` · ${category}` : '' : ' · Written'}</div><p className={s.question}>{profileText(q.text)}</p>{!rating && <p className={s.written}>{profileText(response.rawAnswer)}</p>}</div>
-                {rating && <div className={s.meterRow}><div role="meter" aria-valuemin={min} aria-valuemax={max} aria-valuenow={value} aria-label={`Rated ${value} of ${max}, group average ${avg?.toFixed(1) ?? 'unavailable'}`} className={s.meter}>
-                  {points <= 10 && points > 0 && Number.isInteger(points) ? Array.from({ length: points }, (_, i) => <span key={i} className={s.segment}>{i + min <= value && <span className={s.filled} style={{ display: 'block' }} />}</span>) : <span className={s.segment}><span className={s.filled} style={{ display: 'block', width: `${Math.max(0, Math.min(100, (value - min) / (max - min) * 100))}%` }} /></span>}
-                </div><span className={s.numeric}>{value}</span><span className={`${s.groupAverage} ${avg !== undefined && Math.abs(value - avg) >= 1.5 ? s.far : ''}`}>{avg === undefined ? 'no group data' : `avg ${avg.toFixed(1)}`}</span></div>}
+              // Interview-transcript layout: question number in a gutter, category
+              // above the muted question, and the answer in brighter text below it.
+              return <article key={response.id} data-answer-id={response.id} tabIndex={-1} className={`${s.answer} ${pendingAnswer === response.id ? s.flash : ''}`}>
+                <span className={`${s.qNumber} ${s.numeric} ${rating && category ? s.belowMeta : ''}`}>Q{index}</span>
+                <div className={s.qa}>
+                  {rating && category && <div className={s.answerMeta}>{category}</div>}
+                  <p className={s.question}>{profileText(q.text)}</p>
+                  {rating ? <div className={s.meterRow}>
+                    <span className={s.score}><span className={s.numeric}>{value}</span><span className={s.scoreMax}>/{max}</span></span>
+                    <div role="meter" aria-valuemin={min} aria-valuemax={max} aria-valuenow={value} aria-label={`Rated ${value} of ${max}, group average ${avg?.toFixed(1) ?? 'unavailable'}`} className={s.meter}>
+                      {points <= 10 && points > 0 && Number.isInteger(points) ? Array.from({ length: points }, (_, i) => <span key={i} className={s.segment}>{i + min <= value && <span className={s.filled} style={{ display: 'block' }} />}</span>) : <span className={s.segment}><span className={s.filled} style={{ display: 'block', width: `${Math.max(0, Math.min(100, (value - min) / (max - min) * 100))}%` }} /></span>}
+                    </div>
+                    <span className={`${s.groupAverage} ${avg !== undefined && Math.abs(value - avg) >= 1.5 ? s.far : ''}`}>{avg === undefined ? 'no group data' : `avg ${avg.toFixed(1)}`}</span>
+                  </div> : <p className={s.written}>{profileText(response.rawAnswer)}</p>}
+                </div>
               </article>;
             })}
             {!answers.length && <p className={s.empty}>This tester didn&apos;t submit any answers.</p>}
