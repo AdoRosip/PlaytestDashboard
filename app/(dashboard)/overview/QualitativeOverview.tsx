@@ -16,7 +16,6 @@ import {
 import type { OverviewInsightsResult } from '@/app/api/overview-insights/route';
 import CompanyLogo from '@/components/brand/CompanyLogo';
 import InfoTooltip from '@/components/ui/InfoTooltip';
-import ExpandableOverviewSection from '@/components/ui/ExpandableOverviewSection';
 import { useCachedAnalysis } from '@/lib/useCachedAnalysis';
 import { filterThemesForResponses } from '@/lib/themeFiltering';
 
@@ -170,7 +169,9 @@ export default function QualitativeOverview() {
 
   if (!project) return null;
   const participants = countRespondents(responses);
-  const dateStr = new Date(project.createdAt).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+  // Portal projects have no createdAt, so only show a date that actually parses.
+  const created = new Date(project.createdAt);
+  const dateStr = Number.isNaN(created.getTime()) ? null : created.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
 
   return (
     <div className="min-h-screen mx-auto w-full max-w-[1680px] px-4 md:px-6 lg:px-8 py-10">
@@ -190,8 +191,12 @@ export default function QualitativeOverview() {
             <span className="flex items-center gap-1.5"><Users className="w-3.5 h-3.5 text-slate-500" />{participants} testers</span>
             <span className="text-slate-700">·</span>
             <span className="flex items-center gap-1.5"><PenLine className="w-3.5 h-3.5 text-slate-500" />{d.detailedResponders} detailed responders</span>
-            <span className="text-slate-700">·</span>
-            <span>{dateStr}</span>
+            {dateStr && (
+              <>
+                <span className="text-slate-700">·</span>
+                <span>{dateStr}</span>
+              </>
+            )}
           </div>
         </div>
         {/* "Download Full Report" removed — it promised a curated report but
@@ -200,7 +205,7 @@ export default function QualitativeOverview() {
       </div>
 
       {/* Commercial signal + KPI distributions */}
-      <ExpandableOverviewSection title="Headline Signals">
+      <div className="flow-root">
       {/* Columns track the number of KPIs the game config actually defines.
           A fixed 3-up grid left a dead column whenever there were only two,
           which stranded the section's enlarge button far from the cards. */}
@@ -279,10 +284,10 @@ export default function QualitativeOverview() {
           </div>
         ))}
       </div>
-      </ExpandableOverviewSection>
+      </div>
 
       {/* AI Key Takeaways — strengths, concerns, recommendations */}
-      <ExpandableOverviewSection title="Key Takeaways">
+      <div className="flow-root">
       <div className="rounded-2xl border border-slate-700/60 bg-slate-800/20 p-5 mb-8">
         <div className="flex items-center gap-3 mb-4">
           <div className="flex items-center gap-2">
@@ -385,12 +390,12 @@ export default function QualitativeOverview() {
           </div>
         )}
       </div>
-      </ExpandableOverviewSection>
+      </div>
 
       {/* Feature demand + recurring feedback themes */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
         {/* Feature demand */}
-        <ExpandableOverviewSection title="Feature Demand">
+        <div className="flow-root">
         <div className="rounded-2xl border border-slate-700/60 bg-slate-800/20 p-5">
           <div className="flex items-center gap-2 mb-1">
             <ListChecks className="w-4 h-4 text-cyan-400" />
@@ -421,10 +426,10 @@ export default function QualitativeOverview() {
             </div>
           )}
         </div>
-        </ExpandableOverviewSection>
+        </div>
 
         {/* Recurring feedback themes */}
-        <ExpandableOverviewSection title="Recurring Feedback Themes">
+        <div className="flow-root">
         <div className="rounded-2xl border border-slate-700/60 bg-slate-800/20 p-5">
           <div className="flex items-center gap-2 mb-1">
             <MessageSquareText className="w-4 h-4 text-indigo-400" />
@@ -496,12 +501,12 @@ export default function QualitativeOverview() {
             </div>
           )}
         </div>
-        </ExpandableOverviewSection>
+        </div>
       </div>
 
       {/* Quantified qualitative strip */}
       {d.semi.length > 0 && (
-        <ExpandableOverviewSection title="Quantified Qualitative">
+        <div className="flow-root">
         <div className="rounded-2xl border border-slate-700/60 bg-slate-800/20 p-5 mb-8">
           <div className="flex items-center gap-2 mb-1">
             <TrendingDown className="w-4 h-4 text-slate-400" />
@@ -547,7 +552,7 @@ export default function QualitativeOverview() {
             })}
           </div>
         </div>
-        </ExpandableOverviewSection>
+        </div>
       )}
     </div>
   );
