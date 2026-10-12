@@ -19,7 +19,6 @@ import CompanyLogo from '@/components/brand/CompanyLogo';
 import CoreExperienceScores from '@/components/charts/CoreExperienceScores';
 import QuestionHighlights from '@/components/charts/QuestionHighlights';
 import PlayerDemoWidget from '@/components/ui/PlayerDemoWidget';
-import ExpandableOverviewSection from '@/components/ui/ExpandableOverviewSection';
 import { useCachedAnalysis } from '@/lib/useCachedAnalysis';
 import { computeOverviewHeadlines } from '@/lib/overviewHeadlines';
 
@@ -475,7 +474,9 @@ function ScoringOverview() {
 
   if (!project) return null;
 
-  const dateStr =new Date(project.createdAt).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+  // Portal projects have no createdAt, so only show a date that actually parses.
+  const created = new Date(project.createdAt);
+  const dateStr = Number.isNaN(created.getTime()) ? null : created.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
   const participantCount = countRespondents(responses);
 
   // ── Hero tile helpers ────────────────────────────────────────────────────
@@ -520,7 +521,7 @@ function ScoringOverview() {
                     : `${d.dateRange.start} – ${d.dateRange.end}`}
                 </span>
               </>
-            ) : (
+            ) : dateStr && (
               <>
                 <span className="text-slate-700">·</span>
                 <span className="text-sm text-slate-400">{dateStr}</span>
@@ -673,20 +674,20 @@ function ScoringOverview() {
       </div>
 
       {/* ── SECTION 2: CORE EXPERIENCE SCORES ────────────────────────── */}
-      <ExpandableOverviewSection title="Core Experience Scores">
+      <div className="flow-root">
         <CoreExperienceScores categories={d.catScores} />
-      </ExpandableOverviewSection>
+      </div>
 
       {/* ── SECTION 3: THREE-COLUMN INSIGHTS ─────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.4fr_1fr] gap-5 mb-10">
 
         {/* ── Left: BEST & WORST QUESTIONS ─────────────────────────── */}
-        <ExpandableOverviewSection title="Best and Worst Questions">
+        <div className="flow-root">
         <QuestionHighlights best={d.bestQuestions} worst={d.worstQuestions} />
-        </ExpandableOverviewSection>
+        </div>
 
         {/* ── Middle: BIGGEST FLAWS + AI RECOMMENDATIONS (wider) ───── */}
-        <ExpandableOverviewSection title="Biggest Flaws and Recommendations">
+        <div className="flow-root">
         <div className="flex flex-col gap-4">
           <div className="bg-slate-800/20 rounded-2xl border border-slate-700/60 p-5 flex-1 flex flex-col">
 
@@ -788,17 +789,17 @@ function ScoringOverview() {
             )}
           </div>
         </div>
-        </ExpandableOverviewSection>
+        </div>
 
         {/* ── Right: WHO ARE YOUR PLAYERS ──────────────────────────── */}
-        <ExpandableOverviewSection title="Who Are Your Players">
+        <div className="flow-root">
         <PlayerDemoWidget testers={testers} />
-        </ExpandableOverviewSection>
+        </div>
       </div>
 
       {/* ── SECTION 4: PLAYER SEGMENT INSIGHTS ──────────────────────── */}
       {(d.segmentCards.length > 0 || d.champion || d.divider) && (
-        <ExpandableOverviewSection title="Player Segment Insights">
+        <div className="flow-root">
         <>
           <SectionLabel action={
             <Link href="/testers" className="flex items-center gap-1 text-indigo-400 hover:text-indigo-300 transition-colors">
@@ -808,7 +809,7 @@ function ScoringOverview() {
             Player Segment Insights
           </SectionLabel>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-10">
             {/* Champions — best-performing segment */}
             {d.champion && (
               <div className="bg-slate-800/20 rounded-2xl border border-slate-700/60 p-5">
@@ -899,20 +900,8 @@ function ScoringOverview() {
             ))}
           </div>
         </>
-        </ExpandableOverviewSection>
-      )}
-
-      {/* ── FOOTER ──────────────────────────────────────────────────── */}
-      <div className="pt-6 border-t border-slate-700/60 flex items-center justify-between">
-        <span className="flex items-center gap-1.5 text-xs text-slate-500">
-          <CompanyLogo className="w-5" />
-          Playlytix · {dateStr}
-        </span>
-        <div className="flex items-center gap-5">
-          <Link href="/categories" className="text-xs text-slate-500 hover:text-slate-300 transition-colors">Category Scores</Link>
-          <Link href="/testers" className="text-xs text-slate-500 hover:text-slate-300 transition-colors">Testers</Link>
         </div>
-      </div>
+      )}
 
     </div>
   );
