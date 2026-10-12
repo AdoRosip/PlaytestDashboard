@@ -119,7 +119,9 @@ export function mapPortalData(input: unknown, clientId: string, testId: string, 
     const q = quality.get(tester.id);
     if (q) { tester.quality = q; tester.avgRating = q.avgRating; tester.isOutlier = isConcerning(q); }
   }
-  const project: Project = { id: projectId, name: text(test.TestName), gameName: config.gameName,
+  // The generic config has no real game title, so show the Portal test's name instead.
+  const gameName = config.id === 'portal-generic' ? text(test.TestName) : config.gameName;
+  const project: Project = { id: projectId, name: text(test.TestName), gameName, gameConfigId: config.id,
     playtestName: text(test.TestName), createdAt: '', totalResponses: testers.length, matchedTesters: testers.length, unmatchedTesters: 0,
     steamMatchGenres: Array.isArray(test.steamMatchGenres) ? test.steamMatchGenres.map(text) : undefined };
   return { project, questions, testers, responses, categories, warnings };

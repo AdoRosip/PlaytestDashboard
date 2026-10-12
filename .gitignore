@@ -43,6 +43,7 @@ yarn-error.log*
 /wannabeTrashmanAssests
 *.xlsx
 *.xls
+/docs/
 
 # typescript
 *.tsbuildinfo

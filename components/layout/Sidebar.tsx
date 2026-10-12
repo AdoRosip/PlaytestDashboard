@@ -5,7 +5,7 @@ import { isPortalBrowser } from '@/lib/portalBrowser';
 import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard, Layers, HelpCircle, Sparkles,
-  Users, Table2, Download, SlidersHorizontal, FolderTree, X,
+  Users, Table2,SlidersHorizontal, FolderTree, X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useDashboardStore, selectActiveFilterCount } from '@/lib/store';
@@ -26,7 +26,6 @@ const NAV_SECTIONS = [
     label: 'DATA',
     items: [
       { href: '/responses', label: 'Responses', icon: Table2 },
-      { href: '/export',    label: 'Export',    icon: Download },
     ],
   },
   {

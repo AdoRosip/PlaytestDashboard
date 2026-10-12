@@ -15,7 +15,7 @@ import {
 } from './filtering';
 import { computeTesterQuality, isConcerning, qualityExcludedCategoryIds } from './outliers';
 import { computeNormalizedScore, scaleForType } from './scoring';
-import { getGameConfigByName, type GameConfig } from './games';
+import { getProjectGameConfig, type GameConfig } from './games';
 import {
   buildPerQuestionSets, matchingTesterIds,
   toggleDrill as toggleDrillSelection, removeDrill as removeDrillSelection,
@@ -321,7 +321,7 @@ export const useDashboardStore = create<DashboardState>()(
            s.testers,
            questions,
            s.responses,
-           getGameConfigByName(s.project?.gameName),
+           getProjectGameConfig(s.project),
          ),
        };
     }),
@@ -359,7 +359,7 @@ export const useDashboardStore = create<DashboardState>()(
           s.testers,
           questions,
           responses,
-          getGameConfigByName(s.project?.gameName),
+          getProjectGameConfig(s.project),
         ),
       };
     }),
@@ -612,7 +612,7 @@ export const selectSegmentTesterIds = (state: DashboardState): Set<string> | nul
     responses,
     questions,
     filters,
-    config: getGameConfigByName(state.project?.gameName),
+    config: getProjectGameConfig(state.project),
   });
   segmentTesterIdsCache = { filters, testers, responses, questions, value };
   return value;
@@ -709,9 +709,9 @@ export const selectCrossFilterCount = (state: DashboardState): number =>
 export const selectAnyFilterActive = (state: DashboardState): boolean =>
   countActiveFilters(state.filters) > 0 || Object.keys(state.drill).length > 0;
 
-/** The active game config, resolved from the loaded project's gameName. */
+/** The active game config, resolved from the loaded project. */
 export const selectGameConfig = (state: DashboardState): GameConfig =>
-  getGameConfigByName(state.project?.gameName);
+  getProjectGameConfig(state.project);
 
 // ─── Other derived selectors ─────────────────────────────────────────────────
 
