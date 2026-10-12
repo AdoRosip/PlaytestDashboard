@@ -476,6 +476,7 @@ export function parseExcelFile(buffer: ArrayBuffer, fileName: string, config: Ga
     id: 'proj_import',
     name: fileName.replace(/\.(xlsx|xls)$/i, ''),
     gameName: config.gameName,
+    gameConfigId: config.id,
     playtestName: fileName,
     createdAt: new Date().toISOString(),
     totalResponses: participantTesters.length,

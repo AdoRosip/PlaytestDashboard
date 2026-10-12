@@ -4,7 +4,7 @@ import Link from '@/components/layout/ReportLink';
 import {
   Users, Star,
   ArrowRight, ChevronRight, Brain,
-  AlertTriangle, Clock, Flag,
+  AlertTriangle, Clock, Flag, Bug, ThumbsUp, Repeat,
   BookOpen, Trophy, Split,
   Sparkles, Lightbulb, RefreshCw,
 } from 'lucide-react';
@@ -16,11 +16,12 @@ import { countRespondents } from '@/lib/responseStats';
 import InfoTooltip from '@/components/ui/InfoTooltip';
 import QualitativeOverview from './QualitativeOverview';
 import CompanyLogo from '@/components/brand/CompanyLogo';
-import CategoryGaugeRow from '@/components/charts/CategoryGaugeRow';
+import CoreExperienceScores from '@/components/charts/CoreExperienceScores';
 import QuestionHighlights from '@/components/charts/QuestionHighlights';
 import PlayerDemoWidget from '@/components/ui/PlayerDemoWidget';
 import ExpandableOverviewSection from '@/components/ui/ExpandableOverviewSection';
 import { useCachedAnalysis } from '@/lib/useCachedAnalysis';
+import { computeOverviewHeadlines } from '@/lib/overviewHeadlines';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared micro-components
@@ -51,6 +52,24 @@ function SectionLabel({ children, action }: { children: React.ReactNode; action?
         <div className="w-16 h-px bg-slate-700" />
       </div>
       {action && <div className="text-xs text-slate-400">{action}</div>}
+    </div>
+  );
+}
+
+function HeroTile({ icon: Icon, label, info, value, sub, warn = false }: {
+  icon: React.ElementType; label: string; info: string; value: string; sub: string; warn?: boolean;
+}) {
+  return (
+    <div className="bg-slate-800/30 rounded-2xl border border-slate-700/60 p-5">
+      <div className="flex items-center gap-2 mb-3">
+        <div className="w-7 h-7 rounded-lg bg-slate-700/60 flex items-center justify-center">
+          <Icon className="w-3.5 h-3.5 text-slate-400" />
+        </div>
+        <span className="text-xs font-medium text-slate-400 leading-tight">{label}</span>
+        <InfoTooltip text={info} />
+      </div>
+      <div className={`text-2xl font-bold ${warn ? 'text-amber-400' : 'text-white'}`}>{value}</div>
+      <div className="text-[10px] text-slate-500 mt-0.5">{sub}</div>
     </div>
   );
 }
@@ -201,17 +220,21 @@ function ScoringOverview() {
       : null;
 
     const allNorm = responses.filter(r => r.normalizedScore !== null).map(r => r.normalizedScore!);
-    const overallScore = allNorm.length
-      ? Math.round(allNorm.reduce((a, b) => a + b, 0) / allNorm.length)
-      : null;
 
     // ── KPI questions (config-driven — see the active game's config.kpis) ────
     // Each KPI is matched to a question by regex; we use the question's detected
     // scale, falling back to the KPI's declared scaleMax.
+    const kpiQuestionIds = new Set<string>();
     const kpiStats = config.kpis.map((kpi) => {
       const qq = questions.find((q) => kpi.pattern.test(q.text));
+      if (qq) kpiQuestionIds.add(qq.id);
       return { key: kpi.key, label: kpi.label, stats: qq ? qSentiment(qq.id, qq.scaleMax ?? kpi.scaleMax) : null };
     });
+
+    // ── Generic headline tiles (overall / recommend / play again / bugs) ────
+    // Shown only when the form asks the matching question; skips any question
+    // a config KPI tile above already covers.
+    const headlines = computeOverviewHeadlines(questions, responses, kpiQuestionIds);
 
     // ── Tutorial completion ────────────────────────────────────────────────
     const tutorialQ = questions.find(q =>
@@ -398,8 +421,8 @@ function ScoringOverview() {
       maxTierCount,
       avgTier,
       tierN: progressValues.length,
-      overallScore,
       kpiStats,
+      headlines,
       tutorialPct,
       bestQuestions,
       worstQuestions,
@@ -477,7 +500,6 @@ function ScoringOverview() {
               {project.gameName || project.name}
             </h1>
           </div>
-          <p className="text-base text-slate-400 mt-1.5">{project.playtestName}</p>
           <div className="flex items-center gap-3 mt-3 flex-wrap">
             <span className="flex items-center gap-1.5 text-sm text-slate-400">
               <Users className="w-3.5 h-3.5 text-slate-500" />
@@ -511,17 +533,6 @@ function ScoringOverview() {
             </span>
           </div>
         </div>
-        <div className="flex flex-col items-end gap-2 flex-shrink-0">
-          {/* "Download Full Report" removed — it promised a curated report but
-              only linked to the CSV export page. Reinstate once there is a
-              decision on what the report should actually contain. */}
-          {d.overallScore !== null && (
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-900/20 border border-emerald-700/30 text-[10px] font-semibold text-emerald-400">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-              {d.overallScore >= 70 ? 'Excellent' : d.overallScore >= 50 ? 'Good' : 'Needs Attention'} · {d.overallScore}/100
-            </div>
-          )}
-        </div>
       </div>
 
       {/* ── SECTION 1: HERO KPI TILES ────────────────────────────────── */}
@@ -537,7 +548,7 @@ function ScoringOverview() {
               <span className="text-xs font-medium text-slate-400 leading-tight">{kpi.label}</span>
               <InfoTooltip text={`Average rating from the "${kpi.label}" question, matched automatically by keywords. Shown as average / scale max.`} />
             </div>
-            <div className={`text-2xl font-bold ${kpi.stats ? 'text-[#00FFFF]' : 'text-slate-600'}`}>
+            <div className={`text-2xl font-bold ${kpi.stats ? 'text-white' : 'text-slate-600'}`}>
               {kpi.stats ? `${kpi.stats.avg.toFixed(1)} / ${kpi.stats.max}` : '—'}
             </div>
             <div className="text-[10px] text-slate-500 mt-0.5">
@@ -546,6 +557,34 @@ function ScoringOverview() {
           </div>
         ))}
 
+        {d.headlines.overall && (
+          <HeroTile icon={Star} label="Overall Rating"
+            info="Average answer to the overall-experience rating question. Sub-label shows the share of testers who rated it in the top fifth of the scale."
+            value={`${d.headlines.overall.avg.toFixed(1)} / ${d.headlines.overall.max}`}
+            sub={`${d.headlines.overall.highPct}% rated ${d.headlines.overall.highFrom}+ · n=${d.headlines.overall.n}`} />
+        )}
+        {d.headlines.recommend && (
+          <HeroTile icon={ThumbsUp} label="Would Recommend"
+            info="Share of testers who answered in the top two points of the 'recommend to a friend' rating question."
+            value={`${d.headlines.recommend.pct}%`}
+            sub={`rated ${d.headlines.recommend.from}–${d.headlines.recommend.max} · n=${d.headlines.recommend.n}`} />
+        )}
+        {d.headlines.playAgain && (
+          <HeroTile icon={Repeat} label="Would Play Again"
+            info="Share of testers who answered in the top two points of the 'play again' rating question."
+            value={`${d.headlines.playAgain.pct}%`}
+            sub={`rated ${d.headlines.playAgain.from}–${d.headlines.playAgain.max} · n=${d.headlines.playAgain.n}`} />
+        )}
+        {d.headlines.bugs && (
+          <HeroTile icon={Bug} label="Hit a Bug"
+            info="Share of testers who answered Yes to the bugs / crashes question. Highlighted when half or more of testers hit an issue."
+            value={`${d.headlines.bugs.pct}%`}
+            sub={`${d.headlines.bugs.count} of ${d.headlines.bugs.n} testers`}
+            warn={d.headlines.bugs.pct >= 50} />
+        )}
+
+        {/* Playtime and progression tiles appear only when the form asks for them */}
+        {d.avgPlaytime !== null && (<>
         {/* Avg Playtime */}
         <div className="bg-slate-800/30 rounded-2xl border border-slate-700/60 p-5">
           <div className="flex items-center gap-2 mb-3">
@@ -555,7 +594,7 @@ function ScoringOverview() {
             <span className="text-xs font-medium text-slate-400 leading-tight">Avg Playtime</span>
             <InfoTooltip text="Mean session length across all testers. Parsed from the playtime question — handles numeric hours, text like '1h 30m' or '90 minutes', and HH:MM clock format." />
           </div>
-          <div className={`text-2xl font-bold ${d.avgPlaytime !== null ? 'text-[#00FFFF]' : 'text-slate-600'}`}>
+          <div className={`text-2xl font-bold ${d.avgPlaytime !== null ? 'text-white' : 'text-slate-600'}`}>
             {formatHours(d.avgPlaytime)}
           </div>
           <div className="text-[10px] text-slate-500 mt-0.5">
@@ -572,15 +611,17 @@ function ScoringOverview() {
             <span className="text-xs font-medium text-slate-400 leading-tight">Total Playtime</span>
             <InfoTooltip text="Sum of all testers' session lengths. Parsed from the same playtime question as Avg Playtime." />
           </div>
-          <div className={`text-2xl font-bold ${d.totalPlaytime !== null ? 'text-[#00FFFF]' : 'text-slate-600'}`}>
+          <div className={`text-2xl font-bold ${d.totalPlaytime !== null ? 'text-white' : 'text-slate-600'}`}>
             {formatHours(d.totalPlaytime)}
           </div>
           <div className="text-[10px] text-slate-500 mt-0.5">
             {d.totalPlaytime !== null ? 'combined across all testers' : 'no playtime data detected'}
           </div>
         </div>
+        </>)}
 
         {/* Progression Reached */}
+        {d.avgTier !== null && (
         <div className="bg-slate-800/30 rounded-2xl border border-slate-700/60 p-5">
           <div className="flex items-center gap-2 mb-3">
             <div className="w-7 h-7 rounded-lg bg-slate-700/60 flex items-center justify-center">
@@ -589,11 +630,12 @@ function ScoringOverview() {
             <span className="text-xs font-medium text-slate-400 leading-tight">Progression Reached</span>
             <InfoTooltip text="Average tier/level reached across testers, parsed from the progress question. Accepts numbers, Roman numerals, and word forms (e.g. 'reached Tier III'). Sub-label shows the single furthest tier hit by any tester." />
           </div>
-          <div className={`text-2xl font-bold ${d.avgTier !== null ? 'text-[#00FFFF]' : 'text-slate-600'}`}>
+          <div className={`text-2xl font-bold ${d.avgTier !== null ? 'text-white' : 'text-slate-600'}`}>
             {progressionValue}
           </div>
           <div className="text-[10px] text-slate-500 mt-0.5">{progressionSub}</div>
         </div>
+        )}
 
         {/* Tutorial Completion — fallback to participant count */}
         {tutorialDisplay !== null ? (
@@ -605,7 +647,7 @@ function ScoringOverview() {
               <span className="text-xs font-medium text-slate-400 leading-tight">Completed Tutorial</span>
               <InfoTooltip text="% of testers who answered yes / completed / done on a tutorial or onboarding question (yes-no or multiple-choice type). Matched by keywords like 'tutorial' or 'onboarding'." />
             </div>
-            <div className="text-2xl font-bold text-[#00FFFF]">{tutorialDisplay}</div>
+            <div className="text-2xl font-bold text-white">{tutorialDisplay}</div>
             <div className="text-[10px] text-slate-500 mt-0.5">of testers finished tutorial</div>
           </div>
         ) : (
@@ -620,7 +662,7 @@ function ScoringOverview() {
               <span className="text-xs font-medium text-slate-400 leading-tight">Tests Completed</span>
               <InfoTooltip text="Number of unique testers with at least one recorded response. Shown when no tutorial/onboarding question is detected in the form." />
             </div>
-            <div className="text-2xl font-bold text-[#00FFFF]">{participantCount}</div>
+            <div className="text-2xl font-bold text-white">{participantCount}</div>
             <div className="text-[10px] text-slate-500 mt-0.5">
               {participantCount === project.totalResponses
                 ? 'all tests shown'
@@ -632,17 +674,7 @@ function ScoringOverview() {
 
       {/* ── SECTION 2: CORE EXPERIENCE SCORES ────────────────────────── */}
       <ExpandableOverviewSection title="Core Experience Scores">
-      <SectionLabel action={
-        <Link href="/categories" className="flex items-center gap-1 text-indigo-400 hover:text-indigo-300 transition-colors">
-          All categories <ChevronRight className="w-3 h-3" />
-        </Link>
-      }>
-        Core Experience Scores
-      </SectionLabel>
-
-      <div className="bg-slate-800/20 rounded-2xl border border-slate-700/60 p-5 mb-10">
-        <CategoryGaugeRow categories={d.catScores} />
-      </div>
+        <CoreExperienceScores categories={d.catScores} />
       </ExpandableOverviewSection>
 
       {/* ── SECTION 3: THREE-COLUMN INSIGHTS ─────────────────────────── */}
@@ -879,9 +911,6 @@ function ScoringOverview() {
         <div className="flex items-center gap-5">
           <Link href="/categories" className="text-xs text-slate-500 hover:text-slate-300 transition-colors">Category Scores</Link>
           <Link href="/testers" className="text-xs text-slate-500 hover:text-slate-300 transition-colors">Testers</Link>
-          <Link href="/export" className="flex items-center gap-1 text-xs font-medium text-indigo-400 hover:text-indigo-300 transition-colors">
-            Export data <ArrowRight className="w-3 h-3" />
-          </Link>
         </div>
       </div>
 

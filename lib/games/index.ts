@@ -31,6 +31,12 @@ export function getGameConfigByName(gameName: string | undefined | null): GameCo
   return found ?? GAME_CONFIGS[DEFAULT_GAME_ID];
 }
 
+/** Resolve a project's config by its stored config id, falling back to gameName for older projects. */
+export function getProjectGameConfig(project: { gameName?: string; gameConfigId?: string } | null | undefined): GameConfig {
+  if (project?.gameConfigId && GAME_CONFIGS[project.gameConfigId]) return GAME_CONFIGS[project.gameConfigId];
+  return getGameConfigByName(project?.gameName);
+}
+
 /** First category rule whose regex matches the question text wins (or null). */
 export function categoryForQuestion(config: GameConfig, questionText: string): string | null {
   for (const [catId, pattern] of config.categoryRules) {

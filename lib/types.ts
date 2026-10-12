@@ -168,6 +168,8 @@ export interface Project {
   id: string;
   name: string;
   gameName: string;
+  /** Id of the GameConfig used to parse this project; projects saved before it existed resolve by gameName. */
+  gameConfigId?: string;
   playtestName: string;
   createdAt: string;
   totalResponses: number;
