@@ -51,6 +51,6 @@ test('replacing the cookie invalidates the old tab before it can fetch with the 
   await page.request.get(launch(2, 28), { maxRedirects: 0 });
   expect((await page.request.get('/api/portal/tests/28', { headers: { 'x-portal-session': sid } })).status()).toBe(409);
   await page.evaluate(() => window.dispatchEvent(new Event('focus')));
-  await expect(page.getByRole('alert').filter({ hasText: 'session changed or expired' })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'All Questions', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('alertdialog', { name: 'This session was replaced' })).toBeVisible();
+  await expect(page.locator('[inert]').getByRole('link', { name: 'All Questions', exact: true })).toHaveCount(1);
 });

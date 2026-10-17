@@ -1,10 +1,10 @@
 'use client';
-import { useState, type PointerEvent } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
 } from 'recharts';
 
 import { ratingColors } from '@/lib/chartColors';
+import { useTouchTooltip } from './useTouchTooltip';
 
 interface RatingBarChartProps {
   data: { value: number; count: number; pct: number }[];
@@ -17,36 +17,23 @@ interface RatingBarChartProps {
   // chart would paint the good answers red. Raw values arrive un-flipped —
   // `normalizedScore` is corrected in lib/scoring.ts, but this data is not.
   isInverseScored?: boolean;
+  palette?: string[];
 }
 
 export default function RatingBarChart({
-  data, scale = 5, onBarClick, selectedValues, isInverseScored = false,
+  data, scale = 5, onBarClick, selectedValues, isInverseScored = false, palette,
 }: RatingBarChartProps) {
-  // Touch has no hover, so nothing ever fires the mouseleave that closes the
-  // tooltip recharts opened under the finger — it just sits over the chart until
-  // you tap elsewhere. Dropping it on pointer-up, for touch and pen only, keeps
-  // press-and-hold usable for reading a bar's numbers while a plain tap-to-filter
-  // leaves nothing behind. `undefined` hands control back to recharts, so a mouse
-  // behaves exactly as before.
-  const [tooltipSuppressed, setTooltipSuppressed] = useState(false);
-  // Returning the same value lets React bail out, so this is safe on every move.
-  const allowTooltip = () => setTooltipSuppressed((suppressed) => (suppressed ? false : suppressed));
-  const dismissAfterTouch = (event: PointerEvent) => {
-    if (event.pointerType !== 'mouse') setTooltipSuppressed(true);
-  };
+  const { wrapperProps, tooltipActive } = useTouchTooltip();
 
-  const colors = ratingColors(scale, isInverseScored);
+  const colors = palette
+    ? (isInverseScored ? [...palette].reverse() : palette)
+    : ratingColors(scale, isInverseScored);
   const colorFor = (value: number) => colors[value - 1] ?? colors[0];
   const selectionActive = Boolean(selectedValues?.length);
 
   return (
     <>
-    <div
-      onPointerDown={allowTooltip}
-      onPointerMove={allowTooltip}
-      onPointerUp={dismissAfterTouch}
-      onPointerCancel={dismissAfterTouch}
-    >
+    <div {...wrapperProps}>
     <ResponsiveContainer width="100%" height={200} minWidth={0}>
       <BarChart data={data} margin={{ top: 4, right: 4, bottom: 4, left: -20 }}>
         <XAxis
@@ -61,7 +48,7 @@ export default function RatingBarChart({
           tickLine={false}
         />
         <Tooltip
-          active={tooltipSuppressed ? false : undefined}
+          active={tooltipActive}
           cursor={false}
           contentStyle={{
             background: '#0B1021',

@@ -3,179 +3,153 @@ import { useMemo, useRef, useState } from 'react';
 import { geoNaturalEarth1, geoPath } from 'd3-geo';
 import { feature } from 'topojson-client';
 import worldTopo from 'world-atlas/countries-110m.json';
-import { COUNTRY_CODE_TO_CONTINENT } from '@/lib/countryContinents';
+import s from '@/components/testers/testers.module.css';
 
-interface ContinentRow {
+interface CountryRow {
   label: string;
   count: number;
-  pct: number;
 }
 
 interface Props {
-  data: ContinentRow[];
+  /** Testers per country, keyed by the free-text country names testers give. */
+  data: CountryRow[];
 }
 
 // ── One-time geometry prep (runs once at module load) ────────────────────────
+// The view box matches the 1.9 aspect ratio of the map frame.
 const VIEW_W = 980;
-const VIEW_H = 480;
+const VIEW_H = 516;
 
 interface CountryShape {
   d: string;
-  continent: string;
   name: string;
+  /** Lowercased atlas name, used to join tester countries onto shapes. */
+  key: string;
 }
 
 const COUNTRY_SHAPES: CountryShape[] = (() => {
   // topojson/world-atlas are loosely typed; cast through unknown locally.
   const topo = worldTopo as unknown as Parameters<typeof feature>[0];
   const fc = feature(topo, (topo as { objects: Record<string, unknown> }).objects.countries as never) as unknown as {
-    features: { id: string | number; properties: { name?: string } }[];
+    features: { id?: string | number; properties: { name?: string } }[];
   };
-
-  // Keep only countries we can attribute to a continent (drops Antarctica and a
-  // handful of uninhabited territories) — also gives a clean projection fit.
-  const usable = fc.features.filter((f) => COUNTRY_CODE_TO_CONTINENT[Number(f.id)]);
-
+  const usable = fc.features.filter((f) => f.properties?.name && f.properties.name !== 'Antarctica');
   const projection = geoNaturalEarth1().fitExtent(
-    [[8, 8], [VIEW_W - 8, VIEW_H - 8]],
+    [[4, 4], [VIEW_W - 4, VIEW_H - 4]],
     { type: 'FeatureCollection', features: usable } as never,
   );
   const path = geoPath(projection);
-
   return usable.map((f) => ({
     d: path(f as never) ?? '',
-    continent: COUNTRY_CODE_TO_CONTINENT[Number(f.id)],
-    name: f.properties?.name ?? '',
+    name: f.properties.name!,
+    key: f.properties.name!.toLowerCase(),
   }));
 })();
 
-// ── Colour ramp: dim blue → bright cyan as the count approaches the max ──────
-function fillForCount(count: number, max: number): string {
-  if (count <= 0) return 'rgba(148,163,184,0.08)'; // faint slate base
-  const t = max > 0 ? count / max : 0;
-  const g = Math.round(102 + (255 - 102) * t);
-  const opacity = 0.3 + 0.55 * t;
-  return `rgba(0,${g},255,${opacity})`;
+// Free-text spellings → world-atlas names (lowercased).
+const ALIASES: Record<string, string> = {
+  usa: 'united states of america', us: 'united states of america', 'u.s.': 'united states of america',
+  'u.s.a.': 'united states of america', 'united states': 'united states of america', america: 'united states of america',
+  uk: 'united kingdom', 'u.k.': 'united kingdom', 'great britain': 'united kingdom', britain: 'united kingdom',
+  england: 'united kingdom', scotland: 'united kingdom', wales: 'united kingdom', 'northern ireland': 'united kingdom',
+  'czech republic': 'czechia', 'russian federation': 'russia',
+  korea: 'south korea', 'republic of korea': 'south korea', 'korea, republic of': 'south korea',
+  'bosnia and herzegovina': 'bosnia and herz.', 'dominican republic': 'dominican rep.',
+  'north macedonia': 'macedonia', 'ivory coast': "côte d'ivoire", "cote d'ivoire": "côte d'ivoire",
+  uae: 'united arab emirates', holland: 'netherlands', 'the netherlands': 'netherlands',
+  türkiye: 'turkey', turkiye: 'turkey', 'viet nam': 'vietnam', swaziland: 'eswatini',
+  'democratic republic of the congo': 'dem. rep. congo', 'dr congo': 'dem. rep. congo',
+  'central african republic': 'central african rep.', 'south sudan': 's. sudan',
+};
+
+function atlasKey(country: string): string {
+  const key = country.trim().toLowerCase();
+  return ALIASES[key] ?? key;
+}
+
+// ── Colour scale: #0B4FC4 at the smallest count → #00FFFF at the largest ─────
+const LOW = [0x0b, 0x4f, 0xc4];
+const HIGH = [0x00, 0xff, 0xff];
+const EMPTY = 'rgba(255,255,255,.07)';
+
+function scale(count: number, min: number, max: number): string {
+  if (count <= 0) return EMPTY;
+  const t = max > min ? (count - min) / (max - min) : 1;
+  const [r, g, b] = LOW.map((lo, i) => Math.round(lo + (HIGH[i] - lo) * t));
+  return `rgb(${r},${g},${b})`;
 }
 
 export default function GeoDistributionMap({ data }: Props) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [hover, setHover] = useState<{ continent: string; x: number; y: number; flip: boolean } | null>(null);
+  const frameRef = useRef<HTMLDivElement>(null);
+  const [hover, setHover] = useState<{ name: string; count: number; x: number; y: number; flip: boolean } | null>(null);
 
-  const { byContinent, maxCount, hasAny } = useMemo(() => {
-    const map = new Map<string, ContinentRow>();
-    let max = 0;
-    let any = false;
+  const { counts, min, max } = useMemo(() => {
+    const counts = new Map<string, number>();
     for (const row of data) {
-      if (row.label === 'Unknown') continue;
-      map.set(row.label, row);
-      if (row.count > max) max = row.count;
-      if (row.count > 0) any = true;
+      const key = atlasKey(row.label);
+      counts.set(key, (counts.get(key) ?? 0) + row.count);
     }
-    return { byContinent: map, maxCount: max, hasAny: any };
+    const onMap = COUNTRY_SHAPES.map((shape) => counts.get(shape.key) ?? 0).filter((n) => n > 0);
+    return { counts, min: onMap.length ? Math.min(...onMap) : 0, max: onMap.length ? Math.max(...onMap) : 0 };
   }, [data]);
 
-  const hoveredRow = hover ? byContinent.get(hover.continent) : null;
+  const summary = useMemo(
+    () => [...data].sort((a, b) => b.count - a.count).slice(0, 8).map((r) => `${r.label} ${r.count}`).join(', '),
+    [data],
+  );
 
-  function handleMove(continent: string, e: React.MouseEvent) {
-    const rect = containerRef.current?.getBoundingClientRect();
+  function handleMove(shape: CountryShape, count: number, e: React.MouseEvent) {
+    const rect = frameRef.current?.getBoundingClientRect();
     if (!rect) return;
     const x = e.clientX - rect.left;
-    // Decide tooltip flip here (event time) — reading the ref during render is a
-    // React anti-pattern and won't trigger a re-render when the size changes.
-    setHover({ continent, x, y: e.clientY - rect.top, flip: x > rect.width - 120 });
+    setHover({ name: shape.name, count, x, y: e.clientY - rect.top, flip: x > rect.width - 140 });
   }
 
   return (
-    <div className="w-full">
-    <div
-      ref={containerRef}
-      className="relative w-full aspect-[2/1] min-h-[300px] rounded-xl border border-indigo-500/30 bg-[#0B1021] overflow-hidden"
-      onMouseLeave={() => setHover(null)}
-    >
-      <svg viewBox={`0 0 ${VIEW_W} ${VIEW_H}`} className="absolute inset-0 h-full w-full" role="img" aria-label="Tester distribution by continent">
-        <defs>
-          <radialGradient id="geoGlow" cx="50%" cy="45%" r="75%">
-            <stop offset="0%" stopColor="rgba(0,255,255,0.10)" />
-            <stop offset="60%" stopColor="rgba(0,102,255,0.05)" />
-            <stop offset="100%" stopColor="rgba(11,16,33,0)" />
-          </radialGradient>
-        </defs>
-        <rect width={VIEW_W} height={VIEW_H} fill="url(#geoGlow)" />
-
-        {COUNTRY_SHAPES.map((shape, i) => {
-          const row = byContinent.get(shape.continent);
-          const count = row?.count ?? 0;
-          const isHovered = hover?.continent === shape.continent;
-          const dimmed = hover && !isHovered;
-          return (
-            <path
-              key={i}
-              d={shape.d}
-              fill={fillForCount(count, maxCount)}
-              stroke={isHovered ? '#00FFFF' : 'rgba(0,255,255,0.15)'}
-              strokeWidth={isHovered ? 1.1 : 0.4}
-              opacity={dimmed ? 0.55 : 1}
-              style={{ cursor: count > 0 ? 'pointer' : 'default', transition: 'opacity 120ms' }}
-              onMouseMove={(e) => handleMove(shape.continent, e)}
-              onMouseEnter={(e) => handleMove(shape.continent, e)}
-            />
-          );
-        })}
-      </svg>
-
-      {!hasAny && (
-        <div className="absolute inset-0 flex items-center justify-center text-xs text-slate-500">
-          No location data for this tester set
-        </div>
-      )}
-
-      {hover && (
-        <div
-          className="pointer-events-none absolute z-10 rounded-lg bg-slate-900 border border-slate-700 px-3 py-2 shadow-xl"
-          style={{
-            left: Math.min(hover.x + 12, VIEW_W),
-            top: hover.y + 12,
-            transform: hover.flip ? 'translateX(-100%)' : undefined,
-          }}
+    <div>
+      <div ref={frameRef} className={s.mapFrame} onMouseLeave={() => setHover(null)}>
+        <svg
+          viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
+          className={s.mapSvg}
+          role="img"
+          aria-label={summary ? `Testers per country: ${summary}` : 'No country data for this tester set'}
         >
-          <div className="text-xs font-semibold text-white">{hover.continent}</div>
-          <div className="text-[11px] text-[#00FFFF] font-bold">
-            {hoveredRow?.count ?? 0} tester{(hoveredRow?.count ?? 0) !== 1 ? 's' : ''}
-            {hoveredRow && hoveredRow.count > 0 && (
-              <span className="text-slate-500 font-normal"> · {hoveredRow.pct}%</span>
-            )}
+          {COUNTRY_SHAPES.map((shape) => {
+            const count = counts.get(shape.key) ?? 0;
+            const hovered = hover?.name === shape.name;
+            return (
+              <path
+                key={shape.key}
+                d={shape.d}
+                fill={scale(count, min, max)}
+                stroke={hovered ? '#00FFFF' : '#0B1021'}
+                strokeWidth={hovered ? 1.2 : 0.5}
+                onMouseEnter={(e) => handleMove(shape, count, e)}
+                onMouseMove={(e) => handleMove(shape, count, e)}
+              />
+            );
+          })}
+        </svg>
+
+        {hover && (
+          <div
+            className={s.mapTip}
+            style={{ left: hover.x + 12, top: hover.y + 12, transform: hover.flip ? 'translateX(calc(-100% - 24px))' : undefined }}
+          >
+            <div className={s.mapTipName}>{hover.name}</div>
+            <div className={s.mapTipCount}>{hover.count} tester{hover.count === 1 ? '' : 's'}</div>
           </div>
+        )}
+      </div>
+
+      {max > 0 && (
+        <div className={s.mapLegend}>
+          <span>Testers per country</span>
+          <span className={s.mapLegendNum}>{min}</span>
+          <span className={s.mapLegendBar} style={{ background: `linear-gradient(90deg, ${scale(min, min, max)}, ${scale(max, min, max)})` }} aria-hidden="true" />
+          <span className={s.mapLegendNum}>{max}</span>
         </div>
       )}
-    </div>
-
-    {/* Scale legend. The map shades whole continents from a single figure, so the
-        label says "per continent" — a country-level reading would be wrong. */}
-    {hasAny && (
-      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
-        <div className="flex items-center gap-2">
-          <span className="text-[11px] text-slate-400">Testers per continent</span>
-          <span className="text-[11px] text-slate-500 tabular-nums">0</span>
-          <div
-            className="h-2.5 w-28 rounded-full border border-slate-700/60"
-            style={{
-              background: `linear-gradient(to right, ${fillForCount(1, maxCount)}, ${fillForCount(maxCount, maxCount)})`,
-            }}
-            role="img"
-            aria-label={`Colour scale from 0 to ${maxCount} testers per continent`}
-          />
-          <span className="text-[11px] text-slate-300 font-semibold tabular-nums">{maxCount}</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span
-            className="h-2.5 w-2.5 rounded-sm border border-slate-700/60"
-            style={{ background: fillForCount(0, maxCount) }}
-          />
-          <span className="text-[11px] text-slate-500">No testers</span>
-        </div>
-      </div>
-    )}
     </div>
   );
 }

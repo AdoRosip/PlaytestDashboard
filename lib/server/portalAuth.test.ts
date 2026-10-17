@@ -65,7 +65,7 @@ describe('Portal launch and session security', () => {
     for (const path of ['/api/testers/match', '/api/testers/import']) {
       expect(status(path, `${cookieName()}=${token}`)).toBe(403);
     }
-    for (const path of ['/api/themes', '/api/question-analysis', '/api/overview-insights', '/api/flaw-recommendations']) {
+    for (const path of ['/api/themes', '/api/question-analysis', '/api/overview-insights', '/api/transcript-summary']) {
       expect(status(path, `${cookieName()}=${token}`)).toBeUndefined();
       expect(status(path)).toBe(401);
     }

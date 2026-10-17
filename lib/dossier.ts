@@ -57,13 +57,34 @@ export function profileGenreFit(tester: Tester, config: GameConfig, targets?: st
   return { value: fit.isFit ? 'Target genre' : 'Outside target', reason: fit.isFit ? fit.matched.join(', ') : 'no target genres matched' };
 }
 
+export const CORE_AUDIENCE_HOURS = 50;
+
+/**
+ * Plays one of the test's target genres and has 50h+ on a linked Steam
+ * library. The registry only exposes total Steam hours (not per genre), so the
+ * genre half comes from the tester's stated preferences.
+ */
+export function isCoreAudience(tester: Tester, config: GameConfig, targets?: string[]) {
+  return (tester.profile?.steam?.totalHours ?? 0) >= CORE_AUDIENCE_HOURS && profileGenreFit(tester, config, targets).value === 'Target genre';
+}
+
+/** Roster quick filters. `filter` is a comma-separated list; every listed filter must match. */
 export function filterTesterList(testers: Tester[], search: string, filter: string, responses: Response[], questions: Question[], config: GameConfig, targets?: string[]) {
+  const query = search.trim().toLowerCase();
+  const filters = filter.split(',').filter(f => f && f !== 'all');
+  const matches = (t: Tester, f: string) => {
+    if (f === 'target_genre') return profileGenreFit(t, config, targets).value === 'Target genre';
+    if (f === 'core') return isCoreAudience(t, config, targets);
+    if (f === 'detailed') return engagement(t.id, responses, questions).tier === 'detailed';
+    if (f === 'unmatched') return t.inRegistry === false;
+    if (f === 'recording') return videoFiles(t.files).length > 0;
+    if (f === 'flagged') return !!t.quality?.flags.length;
+    return !!t.quality?.flags.some(flag => flag.type === f);
+  };
   return testers.filter(t => {
-    if (search && !getTesterDisplayName(t).toLowerCase().includes(search.toLowerCase())) return false;
-    if (filter === 'target_genre') return profileGenreFit(t, config, targets).value === 'Target genre';
-    if (filter === 'detailed') return engagement(t.id, responses, questions).tier === 'detailed';
-    if (filter === 'unmatched') return t.inRegistry === false;
-    return filter === 'all' || !!t.quality?.flags.some(f => f.type === filter);
+    if (query && !getTesterDisplayName(t).toLowerCase().includes(query)
+      && !(t.segments.country || t.country || '').toLowerCase().includes(query)) return false;
+    return filters.every(f => matches(t, f));
   }).sort((a, b) => getTesterDisplayName(a).localeCompare(getTesterDisplayName(b), undefined, { numeric: true }));
 }
 

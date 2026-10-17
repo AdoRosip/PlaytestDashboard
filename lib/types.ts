@@ -4,6 +4,7 @@ export type QuestionType =
   | 'yes_no'
   | 'multiple_choice'
   | 'free_text'
+  | 'duration'
   | 'file_upload'
   | 'timestamp'
   | 'internal_admin'
@@ -126,6 +127,8 @@ export interface Question {
   sourceColumn: string;
   scaleMin?: number;
   scaleMax?: number;
+  // Answer options in the form's own order, when the source provides them.
+  options?: string[];
   // When true, a high numeric answer is *negative* (e.g. "how frustrated were
   // you?"). Score normalization and outlier math invert these.
   isInverseScored?: boolean;
@@ -221,6 +224,25 @@ export interface TesterVideo {
   thumbnailUrl?: string;
   questionId?: string;
   responseId?: string;
+  /** Present when the Portal has a parsed .srt for this video; the cues load on demand. */
+  transcript?: VideoTranscriptRef;
+}
+
+/** Where to fetch a video's transcript from the Portal, plus its size. */
+export interface VideoTranscriptRef {
+  testId: string;
+  /** Portal submission id (the API's responseId). */
+  submissionId: number;
+  fileId: number;
+  cues: number;
+  durationSec?: number;
+}
+
+/** One subtitle line; times are seconds from the start of its video. */
+export interface TranscriptCue {
+  start: number;
+  end: number;
+  text: string;
 }
 
 // Player sentiment bands, derived from each tester's avg experience rating.

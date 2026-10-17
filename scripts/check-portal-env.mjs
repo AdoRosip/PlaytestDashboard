@@ -9,7 +9,7 @@ if (!conditional || process.env.VERCEL_ENV === 'production' || process.env.PORTA
     console.log('Portal configuration passed (no credentials printed).');
   } catch (error) {
     console.error('Portal configuration failed:', error instanceof PortalConfigurationError ? error.message : 'INVALID_CONFIGURATION');
-    console.error('See docs/portal-production.md for the required environment variables.');
+    console.error('See README.md for the required environment variables.');
     process.exitCode = 1;
   }
 }

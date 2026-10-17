@@ -8,6 +8,7 @@ import { Layers } from 'lucide-react';
 import type { Severity } from '@/lib/types';
 import { countRespondents } from '@/lib/responseStats';
 import { filterThemesForResponses } from '@/lib/themeFiltering';
+import { categoryScoringResponses } from '@/lib/categoryScoring';
 
 function deriveSeverity(score: number, negativePct: number): Severity {
   if (score < 40 || negativePct > 50) return 'Critical';
@@ -39,7 +40,7 @@ export default function CategoriesPage() {
   const categoriesWithStats = categories.map((cat) => {
     const catQuestions = questions.filter((q) => q.categoryId === cat.id);
     const catResponses = responses.filter((r) => catQuestions.some((q) => q.id === r.questionId));
-    const ratingResponses = catResponses.filter((r) => r.normalizedScore !== null);
+    const ratingResponses = categoryScoringResponses(catQuestions, catResponses);
 
     const avgScore = ratingResponses.length > 0
       ? Math.round(ratingResponses.reduce((s, r) => s + (r.normalizedScore ?? 0), 0) / ratingResponses.length)

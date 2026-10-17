@@ -163,3 +163,29 @@
   .filters { width: 100%; }
 }
 @media (prefers-reduced-motion: reduce) { .flash { animation-timing-function: step-end; } }
+
+/* Video transcript: AI summary, then every timed line; clicking one seeks the player. */
+.transcript { margin-top: 24px; border-top: 1px solid var(--strong); padding-top: 18px; }
+.transcriptHead { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; margin-bottom: 12px; }
+.transcriptTitle { font-size: 15px; font-weight: 500; }
+.transcriptSearch { flex: 0 1 240px; min-width: 0; padding: 6px 10px; border: 1px solid var(--control); border-radius: 6px; background: var(--sunken); color: var(--primary); font-size: 13px; }
+.transcriptSearch::placeholder { color: var(--faint); }
+.summary { margin-bottom: 14px; padding: 12px 14px; border-radius: 8px; background: var(--sunken); }
+.summaryHead { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.summaryLabel { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--accent); }
+.summaryAction { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--link); }
+.summaryText { margin-top: 8px; font-size: 14px; color: var(--body); line-height: 1.6; }
+.summaryError { margin-top: 8px; font-size: 13px; color: #F26D6D; }
+.moments { margin-top: 10px; list-style: none; padding: 0; }
+.moment { display: grid; grid-template-columns: 56px 8px minmax(0, 1fr); gap: 8px; align-items: baseline; width: 100%; padding: 5px 0; text-align: left; font-size: 13px; color: var(--body); }
+.moment:hover { color: var(--primary); }
+.tone { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); align-self: center; }
+.tone[data-tone=positive] { background: #7ED957; }
+.tone[data-tone=negative] { background: #F26D6D; }
+.cueList { max-height: 360px; overflow-y: auto; border-top: 1px solid var(--soft); }
+.cue { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 8px; width: 100%; padding: 6px 8px 6px 0; border-bottom: 1px solid var(--soft); text-align: left; font-size: 13px; color: var(--body); line-height: 1.5; }
+.cue:hover:not(:disabled) { color: var(--primary); background: var(--chip); }
+.cue[aria-current=true] { color: var(--primary); background: var(--chip); }
+.cue:disabled { cursor: default; }
+.cueTime { font-size: 12px; color: var(--faint); padding-left: 2px; }
+.cue[aria-current=true] .cueTime { color: var(--accent); }

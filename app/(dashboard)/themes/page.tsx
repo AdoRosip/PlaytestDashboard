@@ -6,12 +6,8 @@ import {
 } from 'lucide-react';
 import { useDashboardStore, selectAnyFilterActive, selectFilteredResponses } from '@/lib/store';
 import PageHeader from '@/components/ui/PageHeader';
-import Badge from '@/components/ui/Badge';
 import EmptyState from '@/components/ui/EmptyState';
-import type { Severity } from '@/lib/types';
 import { filterThemesForResponses } from '@/lib/themeFiltering';
-
-const severityOrder: Record<Severity, number> = { Critical: 0, High: 1, Medium: 2, Low: 3 };
 
 export default function ThemesPage() {
   const storedThemes    = useDashboardStore((s) => s.themes);
@@ -28,7 +24,6 @@ export default function ThemesPage() {
   const openDrawer      = useDashboardStore((s) => s.openDrawer);
 
   const [expanded, setExpanded] = useState<string | null>(null);
-  const [filter, setFilter]     = useState<Severity | 'All'>('All');
 
   const themes = useMemo(
     () => filterThemesForResponses(storedThemes, responses, filtersActive),
@@ -42,10 +37,7 @@ export default function ThemesPage() {
     (r) => questions.find((q) => q.id === r.questionId)?.type === 'free_text' && r.rawAnswer?.trim(),
   ).length;
 
-  const sorted = [...themes].sort(
-    (a, b) => severityOrder[a.severity] - severityOrder[b.severity] || b.frequency - a.frequency,
-  );
-  const visible = filter === 'All' ? sorted : sorted.filter((t) => t.severity === filter);
+  const visible = [...themes].sort((a, b) => b.frequency - a.frequency);
 
   // No data loaded yet
   if (!isLoaded) {
@@ -157,24 +149,9 @@ export default function ThemesPage() {
       {/* Theme list */}
       {hasThemes && (
         <>
-          {/* Disclaimer + filter */}
+          {/* Count + disclaimer */}
           <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              {(['All', 'Critical', 'High', 'Medium', 'Low'] as const).map((f) => (
-                <button
-                  key={f}
-                  onClick={() => setFilter(f)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border ${
-                    filter === f
-                      ? 'bg-indigo-600/20 border-indigo-500/40 text-indigo-300'
-                      : 'border-slate-700 text-slate-400 hover:text-slate-200 hover:border-slate-500'
-                  }`}
-                >
-                  {f}
-                </button>
-              ))}
-              <span className="text-xs text-slate-500 ml-1">{visible.length} themes</span>
-            </div>
+            <span className="text-xs text-slate-500">{visible.length} themes</span>
             <div className="flex items-center gap-1.5 text-xs text-slate-500 bg-slate-800/60 border border-slate-700/60 rounded-lg px-3 py-1.5">
               <Info className="w-3 h-3" />
               AI summaries are indicative — verify with source responses
@@ -196,16 +173,11 @@ export default function ThemesPage() {
                     className="flex items-center gap-3 px-5 py-4 cursor-pointer hover:bg-slate-800/40 transition-colors"
                     onClick={() => setExpanded(isOpen ? null : theme.id)}
                   >
-                    <Badge label={theme.severity} severity={theme.severity} variant="severity" />
-
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium text-white">{theme.label}</div>
                       <div className="flex items-center gap-3 mt-0.5">
                         {cat && <span className="text-xs text-slate-500">{cat.name}</span>}
                         <span className="text-xs text-slate-600">{theme.frequency} responses</span>
-                        <span className="text-xs text-slate-600">
-                          {Math.round(theme.confidence * 100)}% confidence
-                        </span>
                       </div>
                     </div>
 
@@ -259,12 +231,6 @@ export default function ThemesPage() {
                             <ExternalLink className="w-3 h-3" />
                             View source responses
                           </button>
-                        )}
-                        {theme.priority && (
-                          <span className="text-xs text-slate-600">
-                            Priority:{' '}
-                            <span className="text-slate-400 font-medium">{theme.priority}</span>
-                          </span>
                         )}
                       </div>
                     </div>

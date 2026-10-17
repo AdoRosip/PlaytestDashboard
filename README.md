@@ -2,7 +2,7 @@
 
 ## Getting Started
 
-Start with the [complete Portal API guide: QA and production](docs/portal-api.md). It covers credentials, master-key derivation, environment variables, Portal launches, actual API requests, payloads, current compatibility gaps, deployment and troubleshooting. Use the [QA environment template](docs/portal-qa.env.example) or [production environment template](docs/portal-production.env.example). Vercel Production always enforces Portal authentication; `npm run build` validates its configuration first. Keep QA credentials scoped to Preview. The earlier [QA record](docs/portal-setup.md) and [production preparation record](docs/portal-production.md) preserve dated validation results.
+Portal mode is configured with `PORTAL_MODE=true`, `PLAYLYTIX_API_BASE_URL`, `DASHBOARD_SSO_SECRET`, `DASHBOARD_SESSION_SECRET` (a separate secret), `PLAYLYTIX_CLIENT_KEYS` (a JSON object of client ID to client-scoped API key, never the master key) and `PLAYLYTIX_TEST_GAME_MAP` (JSON, `{}` by default). AI features also need `OPENAI_API_KEY`. No variable uses `NEXT_PUBLIC_`. Vercel Production always enforces Portal authentication; `npm run build` validates its configuration first. Keep QA credentials scoped to Preview. The full integration guide is kept outside this repository.
 
 Run `npm test`, `npm run lint`, and `npm run build` to verify changes. `npm run check:portal-env` validates Portal settings without printing secrets or contacting the API. `npm run test:portal:fixture` starts an isolated local server and exercises the browser flow against the supplied response using fake credentials. `npm run test:portal` remains an opt-in live QA suite. Run browser tests and builds sequentially because Next.js generates shared type files.
 

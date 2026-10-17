@@ -5,6 +5,7 @@ import {
   matchingTesterIds,
   applyDrill,
   toggleDrill,
+  computeChoiceDistribution,
   removeDrill,
   type DrillSelection,
 } from './crossFilter';
@@ -272,5 +273,29 @@ describe('toggleDrill with verbatim answers', () => {
   it('sorts numbers ahead of verbatim answers', () => {
     const d: DrillSelection = toggleDrill(toggleDrill({}, 'Q1', 'N/A'), 'Q1', 5);
     expect(d.Q1).toEqual([5, 'N/A']);
+  });
+});
+
+describe('computeChoiceDistribution', () => {
+  const answers = (...values: string[]) => values.map((rawAnswer) => ({ rawAnswer }));
+
+  it('orders bars by the unfiltered counts and keeps options the filter empties', () => {
+    const all = answers('No', 'Yes', 'Yes', ' Yes ', 'Maybe', '');
+    expect(computeChoiceDistribution(answers('No', 'No', 'Maybe'), all)).toEqual([
+      { label: 'Yes', count: 0, pct: 0 },
+      { label: 'Maybe', count: 1, pct: 33 },
+      { label: 'No', count: 2, pct: 67 },
+    ]);
+  });
+
+  it('keeps the form option order ahead of answer counts', () => {
+    const dist = computeChoiceDistribution(answers('Too hard', 'Too hard', 'Other'), answers('Too hard', 'Too hard', 'Other'),
+      ['Too easy', ' About right', 'Too hard']);
+    expect(dist.map((d) => [d.label, d.count])).toEqual([['Too easy', 0], ['About right', 0], ['Too hard', 2], ['Other', 1]]);
+  });
+
+  it('buckets on the same trimmed key the cross-filter matches', () => {
+    const dist = computeChoiceDistribution(answers(' Yes', 'Yes '), answers('Yes'));
+    expect(dist).toEqual([{ label: 'Yes', count: 2, pct: 100 }]);
   });
 });

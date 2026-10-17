@@ -26,6 +26,17 @@ describe('Portal analytics DTO', () => {
     expect(data.testers[0].comments?.[0].text).toBe('co si jak');
     expect(JSON.stringify(data)).not.toMatch(/payoutStatus|evaluationScore|syncedAt|subscriptions/);
   });
+  it('links a video to its transcript only when the Portal reports one', () => {
+    const input = fixture();
+    input.questions.push({ QuestionID: 412, QuestionText: 'Recording', QuestionDescription: '', DisplayOrder: 2, TypeName: 'File' });
+    input.responses[0].files = [
+      { questionId: 412, fileName: 'attachment-1.mkv', contentType: 'video/x-matroska', url: 'https://files.test/a', fileId: 9031, transcript: { cues: 1240, durationSeconds: 17980 } },
+      { questionId: 412, fileName: 'attachment-2.mp4', contentType: 'video/mp4', url: 'https://files.test/b', fileId: 9032, transcript: null },
+    ] as never;
+    const files = mapPortalData(input, '18', '32', portalGenericConfig).testers[0].files!;
+    expect(files[0].transcript).toEqual({ testId: '32', submissionId: 7, fileId: 9031, cues: 1240, durationSec: 17980 });
+    expect(files[1].transcript).toBeUndefined();
+  });
   it('rejects inconsistent scale metadata and invalid ordering even for a single question', () => {
     const input = structuredClone(productionResponse);
     input.questions[0].Scale.max = 10;
@@ -49,6 +60,26 @@ describe('Portal analytics DTO', () => {
     expect(data.project.totalResponses).toBe(1);
     expect(data.testers).toHaveLength(1);
     expect(data.responses).toHaveLength(0);
+  });
+  it('accepts numeric answer values such as Duration minutes', () => {
+    const input = fixture();
+    input.questions.push({ QuestionID: 2, QuestionText: 'How long?', QuestionDescription: '', DisplayOrder: 2, TypeName: 'Duration' });
+    (input.responses[0].answers as { questionId: number; value: unknown }[]).push({ questionId: 2, value: 320 });
+    const data = mapPortalData(input, '18', '32', portalGenericConfig);
+    expect(data.questions.find(q => q.sourceColumn === '2')?.type).toBe('duration');
+    expect(data.responses.find(r => r.rawAnswer === '320')).toMatchObject({ numericValue: null, normalizedScore: null });
+    expect(data.warnings).not.toContain('Unsupported question type: Duration. Answers remain unscored.');
+  });
+  it('keeps choice options in form order and ignores a malformed list', () => {
+    const input = fixture();
+    input.questions.push(
+      { QuestionID: 2, QuestionText: 'Difficulty?', QuestionDescription: '', DisplayOrder: 2, TypeName: 'SingleChoice', Options: ['Too easy', 'About right', 'Too hard'] } as never,
+      { QuestionID: 3, QuestionText: 'Mode?', QuestionDescription: '', DisplayOrder: 3, TypeName: 'SingleChoice', Options: [1, 2] } as never,
+    );
+    const data = mapPortalData(input, '18', '32', portalGenericConfig);
+    expect(data.questions[1].options).toEqual(['Too easy', 'About right', 'Too hard']);
+    expect(data.questions[2].options).toBeUndefined();
+    expect(data.questions[0].options).toBeUndefined();
   });
   it('supports an empty test', () => {
     const input = fixture(); input.responses = []; input.stats.totalResponses = 0;

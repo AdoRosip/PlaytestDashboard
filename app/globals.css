@@ -91,7 +91,7 @@ html {
 
 body {
   background:
-    linear-gradient(180deg, rgba(0, 102, 255, 0.1), transparent 260px),
+    linear-gradient(180deg, rgba(0, 102, 255, 0.08), transparent 320px),
     #0B1021;
   color: #FFF;
   font-family: var(--font-sans);
@@ -153,6 +153,50 @@ body {
 
 .recharts-surface:focus:not(:focus-visible) {
   outline: none;
+}
+
+/* ---------------------------------------------------------------------------
+   Engraved separators — a 1px dark line with a 1px light edge beside it, so a
+   divider reads as a groove cut into the surface rather than a line drawn on it.
+   Major grooves split sections; `-soft` grooves are row lines inside lists.
+
+   Columns: give each column `.groove-cell` (left + top groove) inside a container
+   with `overflow: hidden`. Every column is pulled 2px left and up, so the groove
+   of a column that starts a line, or sits on the first line, falls outside the
+   container and is clipped. The same markup is then right whether the columns
+   run as a row, wrap, or stack — only grooves *between* columns ever show.
+   Unlayered so these outrank Tailwind's border/shadow utilities.
+   --------------------------------------------------------------------------- */
+:root {
+  --groove-dark: rgba(0, 0, 0, 0.7);
+  --groove-light: rgba(255, 255, 255, 0.075);
+  --groove-soft-dark: rgba(0, 0, 0, 0.45);
+  --groove-soft-light: rgba(255, 255, 255, 0.045);
+}
+
+.groove-t      { border-top: 1px solid var(--groove-dark); box-shadow: inset 0 1px 0 var(--groove-light); }
+.groove-b      { border-bottom: 1px solid var(--groove-dark); box-shadow: 0 1px 0 var(--groove-light); }
+.groove-y      { border-top: 1px solid var(--groove-dark); border-bottom: 1px solid var(--groove-dark);
+                 box-shadow: inset 0 1px 0 var(--groove-light), 0 1px 0 var(--groove-light); }
+.groove-r      { border-right: 1px solid var(--groove-dark); box-shadow: 1px 0 0 var(--groove-light); }
+.groove-t-soft { border-top: 1px solid var(--groove-soft-dark); box-shadow: inset 0 1px 0 var(--groove-soft-light); }
+.groove-b-soft { border-bottom: 1px solid var(--groove-soft-dark); box-shadow: 0 1px 0 var(--groove-soft-light); }
+
+.groove-cell {
+  margin-left: -2px;
+  margin-top: -2px;
+  border-left: 1px solid var(--groove-dark);
+  border-top: 1px solid var(--groove-dark);
+  box-shadow: inset 1px 0 0 var(--groove-light), inset 0 1px 0 var(--groove-light);
+}
+
+/* "Export" on the overview prints the page — keep the dark surface on paper/PDF
+   instead of letting the browser drop backgrounds and leave white-on-white. */
+@media print {
+  html, body {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
 }
 
 ::-webkit-scrollbar { width: 4px; height: 4px; }

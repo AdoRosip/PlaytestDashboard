@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { createHmac } from 'node:crypto';
 vi.mock('server-only', () => ({}));
-import { portalApi } from './portalApi';
+import { portalApi, portalTranscripts } from './portalApi';
 import { issueSession, cookieName } from './portalAuth';
 import { GET as launch } from '../../app/auth/launch/route';
 import { DELETE as logout } from '../../app/api/portal/session/route';
@@ -76,6 +76,32 @@ it('handles malformed JSON and network failure safely', async () => {
   expect((await portalApi(request('2'))).status).toBe(502);
   vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('network'); }));
   expect((await portalApi(request('2'))).status).toBe(502);
+});
+it('proxies transcripts with the session key and forwards only timed lines', async () => {
+  const fetchMock = vi.fn(async () => Response.json({ responseId: 145, transcripts: [{ fileId: 9031, fileName: 'attachment-1.mkv',
+    cues: [{ start: 760.1, end: 764.9, text: '<i>later</i>' }, { start: 12.48, end: 15.2, text: 'first' }, { start: 'x', end: 1, text: 'bad' }] }] }));
+  vi.stubGlobal('fetch', fetchMock);
+  const result = await portalTranscripts(request('2'), '32', '145');
+  expect(result.status).toBe(200);
+  expect(result.headers.get('cache-control')).toBe('private, no-store');
+  expect(fetchMock).toHaveBeenCalledWith('https://upstream.example/api/tests/32/responses/145/transcripts', expect.objectContaining({
+    headers: { 'x-api-key': 'a'.repeat(64), Accept: 'application/json' }, cache: 'no-store', redirect: 'error',
+  }));
+  expect(await result.json()).toEqual({ transcripts: [{ fileId: 9031, cues: [
+    { start: 12.48, end: 15.2, text: 'first' }, { start: 760.1, end: 764.9, text: 'later' }] }] });
+});
+it('rejects bad transcript ids, stale tabs and mismatched submissions', async () => {
+  const fetchMock = vi.fn(async () => Response.json({ responseId: 999, transcripts: [] }));
+  vi.stubGlobal('fetch', fetchMock);
+  expect((await portalTranscripts(request('2'), '32', '../steam')).status).toBe(400);
+  const stale = request('2'); stale.headers.set('x-portal-session', 'old-tab');
+  expect((await portalTranscripts(stale, '32', '145')).status).toBe(409);
+  expect(fetchMock).not.toHaveBeenCalled();
+  expect((await portalTranscripts(request('2'), '32', '145')).status).toBe(502);
+  vi.stubGlobal('fetch', vi.fn(async () => new Response('private', { status: 404 })));
+  const missing = await portalTranscripts(request('2'), '32', '145');
+  expect(missing.status).toBe(404);
+  expect(await missing.text()).not.toContain('private');
 });
 it('launches with a clean redirect and rejects invalid links', () => {
   const payload = Buffer.from(JSON.stringify({ d: 18, e: Math.floor(Date.now() / 1000) + 300 })).toString('base64url');

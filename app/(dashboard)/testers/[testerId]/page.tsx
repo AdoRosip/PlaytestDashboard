@@ -24,7 +24,7 @@ function TesterDetail() {
   const visible = filterTesterList(testers, params.get('search') ?? '', params.get('filter') ?? 'all', responses, questions, config, targets);
   const index = visible.findIndex(t => t.id === testerId);
   const tab: ProfileTab = params.get('tab') === 'videos' ? 'videos' : 'answers';
-  const listParams = new URLSearchParams(params.toString()); listParams.delete('tab');
+  const listParams = new URLSearchParams(params.toString()); listParams.set('tab', 'roster');
   const backHref = `/testers${listParams.size ? `?${listParams}` : ''}`;
   const setTab = (next: ProfileTab) => {
     const query = new URLSearchParams(params.toString());
