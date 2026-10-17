@@ -11,7 +11,7 @@ import { POLARITY, rampColor } from '@/lib/chartColors';
 import { engagement } from '@/lib/testerProfile';
 import {
   distributionOf, semiStructured, ratingDistribution, ratingSentiment,
-  numericAnswers, textAnswers, isChoiceQuestion,
+  numericAnswers, textAnswers, substantiveAnswers, isChoiceQuestion,
 } from '@/lib/qualitative';
 import type { OverviewInsightsResult } from '@/app/api/overview-insights/route';
 import CompanyLogo from '@/components/brand/CompanyLogo';
@@ -20,13 +20,6 @@ import { useCachedAnalysis } from '@/lib/useCachedAnalysis';
 import { filterThemesForResponses } from '@/lib/themeFiltering';
 
 const COMMERCIAL_KEY = /wishlist|recommend|nps|continue|retention/i;
-const NON_ANSWERS = new Set(['no', 'n/a', 'na', 'none', 'nope', 'nothing', 'idk', '-', '.', 'yes']);
-const PRIORITY_STYLE: Record<string, string> = {
-  Critical: 'bg-red-500/15 text-red-300 border-red-500/30',
-  High: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
-  Medium: 'bg-sky-500/15 text-sky-300 border-sky-500/30',
-  Low: 'bg-slate-600/20 text-slate-300 border-slate-600/40',
-};
 
 function readiness(ratio: number): { label: string; tone: string } {
   if (ratio >= 0.7) return { label: 'Strong', tone: 'text-emerald-400' };
@@ -95,10 +88,7 @@ export default function QualitativeOverview() {
       .filter((q) => q.type === 'free_text' && !isAdmin(q.categoryId))
       .map((q) => ({
         question: q.text,
-        answers: textAnswers(responses, q.id)
-          .map((a) => a.trim())
-          .filter((a) => a.length > 3 && !NON_ANSWERS.has(a.toLowerCase()))
-          .slice(0, 18),
+        answers: substantiveAnswers(responses, q.id),
       }))
       .filter((f) => f.answers.length > 0);
 
@@ -377,10 +367,7 @@ export default function QualitativeOverview() {
               <div className="space-y-2">
                 {insights.recommendations.map((r, i) => (
                   <div key={i} className="rounded-lg border border-indigo-500/20 bg-indigo-500/5 p-3">
-                    <div className="flex items-center justify-between gap-2 mb-1">
-                      <div className="text-xs font-semibold text-slate-200 truncate">{r.area}</div>
-                      <span className={`text-[9px] px-1.5 py-0.5 rounded-full border flex-shrink-0 ${PRIORITY_STYLE[r.priority] ?? PRIORITY_STYLE.Low}`}>{r.priority}</span>
-                    </div>
+                    <div className="text-xs font-semibold text-slate-200 truncate mb-1">{r.area}</div>
                     <div className="text-[11px] text-slate-400 leading-relaxed">{r.problem}</div>
                     <div className="text-[11px] text-indigo-200 leading-relaxed mt-1">→ {r.recommendation}</div>
                   </div>
@@ -486,12 +473,7 @@ export default function QualitativeOverview() {
                 .slice(0, 8)
                 .map((t) => (
                   <div key={t.id} className="rounded-lg border border-slate-700/50 bg-slate-900/30 p-3">
-                    <div className="flex items-center justify-between gap-2 mb-1">
-                      <span className="text-xs font-semibold text-slate-200">{t.label}</span>
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
-                        t.severity === 'Critical' || t.severity === 'High' ? 'bg-amber-500/15 text-amber-300' : 'bg-slate-700/50 text-slate-400'
-                      }`}>{t.severity}</span>
-                    </div>
+                    <div className="text-xs font-semibold text-slate-200 mb-1">{t.label}</div>
                     {t.summary && <p className="text-[11px] text-slate-400 leading-relaxed">{t.summary}</p>}
                   </div>
                 ))}

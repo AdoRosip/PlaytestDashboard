@@ -23,7 +23,7 @@ export function id(value: unknown): number {
 const types: Record<string, QuestionType> = {
   Rating1_5: 'rating_1_5', Rating1_10: 'rating_1_10', ScaleAgree: 'rating_1_5',
   ScaleQuality: 'rating_1_5', ScaleIntent: 'rating_1_5', SingleChoice: 'multiple_choice',
-  ShortText: 'free_text', LongText: 'free_text', URL: 'free_text', File: 'file_upload',
+  ShortText: 'free_text', LongText: 'free_text', URL: 'free_text', File: 'file_upload', Duration: 'duration',
 };
 
 /** Build a client DTO with explicit profile/media allowlists and no operator fields. */
@@ -96,7 +96,7 @@ export function mapPortalData(input: unknown, clientId: string, testId: string, 
     testers.push({ id: testerId, testerId: `Tester-${submissionId}`, email: '', discord: '', segments,
       ageGroup: segments.age_group || '', country: segments.country || '', gamingProfile: segments.playstyles || '',
       hardware: 'Unavailable', similarGamesPlayed: [], rawProfileJson: {},
-      ...mapProfileExtras(row, profile, testerId, new Map(questions.map(q => [q.sourceColumn, q.id]))),
+      ...mapProfileExtras(row, profile, testerId, new Map(questions.map(q => [q.sourceColumn, q.id])), { testId, submissionId }),
     });
     const answered = new Set<number>();
     for (const rawAnswer of array(row.answers)) {

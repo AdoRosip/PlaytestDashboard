@@ -110,6 +110,19 @@ export function textAnswers(responses: Response[], questionId: string): string[]
   return responses.filter((r) => r.questionId === questionId).map((r) => r.rawAnswer);
 }
 
+const NON_ANSWERS = new Set(['no', 'n/a', 'na', 'none', 'nope', 'nothing', 'idk', '-', '.', 'yes']);
+
+/**
+ * Text answers worth sending to the AI: trimmed, with one-word non-answers
+ * ("no", "n/a", …) dropped, capped at `limit` per question.
+ */
+export function substantiveAnswers(responses: Response[], questionId: string, limit = 18): string[] {
+  return textAnswers(responses, questionId)
+    .map((a) => a.trim())
+    .filter((a) => a.length > 3 && !NON_ANSWERS.has(a.toLowerCase()))
+    .slice(0, limit);
+}
+
 /** Is this a question we should render as a choice-demand bar? */
 export function isChoiceQuestion(q: Question): boolean {
   return q.type === 'yes_no' || q.type === 'multiple_choice';

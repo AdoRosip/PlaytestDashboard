@@ -1,20 +1,21 @@
 'use client';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import Link from '@/components/layout/ReportLink';
-import { RefreshCw } from 'lucide-react';
-import { useDashboardStore, selectAnyFilterActive, selectFilteredResponses, selectFilteredTesters, selectGameConfig } from '@/lib/store';
-import type { Severity } from '@/lib/types';
-import { filterThemesForResponses } from '@/lib/themeFiltering';
-import type { FlawRecommendationsResult } from '@/app/api/flaw-recommendations/route';
+import { useDashboardStore, selectAnyFilterActive, selectFilteredResponses, selectGameConfig } from '@/lib/store';
+import type { OverviewInsightsInput, OverviewInsightsResult } from '@/app/api/overview-insights/route';
 import { countRespondents } from '@/lib/responseStats';
-import { scoreBandColor } from '@/lib/coreScores';
+import { filterThemesForResponses } from '@/lib/themeFiltering';
+import { distributionOf, isChoiceQuestion, substantiveAnswers, textAnswers } from '@/lib/qualitative';
 import QualitativeOverview from './QualitativeOverview';
 import CoreExperienceScores from '@/components/overview/CoreExperienceScores';
 import QuestionHighlights from '@/components/overview/QuestionHighlights';
-import PlayerMix from '@/components/overview/PlayerMix';
+import RecurringThemes from '@/components/overview/RecurringThemes';
+import KeyTakeaways from '@/components/overview/KeyTakeaways';
 import css from '@/components/overview/overview.module.css';
 import { useCachedAnalysis } from '@/lib/useCachedAnalysis';
 import { computeOverviewHeadlines } from '@/lib/overviewHeadlines';
+import { categoryScoringResponses } from '@/lib/categoryScoring';
+import { formatDurationMinutes, parseDurationMinutes } from '@/lib/duration';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared micro-components
@@ -45,17 +46,6 @@ function KpiCell({ label, info, value, unit, sub, tone, href }: Kpi) {
   );
   const cls = `${css.kpiCell} groove-cell`;
   return href ? <Link href={href} className={cls}>{body}</Link> : <div className={cls}>{body}</div>;
-}
-
-function formatHours(hours: number | null): string {
-  if (hours === null) return '—';
-  if (hours < 1) return `${Math.round(hours * 60)}m`;
-  if (hours < 10) {
-    const whole = Math.floor(hours);
-    const minutes = Math.round((hours - whole) * 60);
-    return minutes > 0 ? `${whole}h ${minutes}m` : `${whole}h`;
-  }
-  return `${Math.round(hours)}h`;
 }
 
 function parsePlaytimeHours(rawAnswer: string, numericValue: number | null): number | null {
@@ -113,11 +103,8 @@ function formatDateRange(start: Date, end: Date): string {
   return `${start.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} – ${full(end)}`;
 }
 
-/** Spreadsheet uploads record the file name as the playtest name — not worth showing. */
-function buildLabel(playtestName: string): string | null {
-  const name = playtestName.trim();
-  return name && !/\.(xlsx?|csv)$/i.test(name) ? name : null;
-}
+/** Category names that hold admin/recording fields rather than player feedback. */
+const INTERNAL_CATEGORY = /admin|internal|evidence|background|recording/i;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Main page
@@ -138,8 +125,10 @@ function ScoringOverview() {
   const questions  = useDashboardStore(s => s.questions);
   const responses  = useDashboardStore(selectFilteredResponses);
   const categories = useDashboardStore(s => s.categories);
-  const testers    = useDashboardStore(selectFilteredTesters);
   const themes     = useDashboardStore(s => s.themes);
+  const themeStatus = useDashboardStore(s => s.analysisStatus);
+  const themeError = useDashboardStore(s => s.analysisError);
+  const runThemeAnalysis = useDashboardStore(s => s.runThemeAnalysis);
   const config     = useDashboardStore(selectGameConfig);
   const filtersActive = useDashboardStore(selectAnyFilterActive);
   const visibleThemes = useMemo(
@@ -150,8 +139,8 @@ function ScoringOverview() {
   const d = useMemo(() => {
     // ── helpers ────────────────────────────────────────────────────────────
     const catStats = (catId: string) => {
-      const qIds = new Set(questions.filter(q => q.categoryId === catId).map(q => q.id));
-      const vals = responses.filter(r => qIds.has(r.questionId) && r.normalizedScore !== null).map(r => r.normalizedScore!);
+      const vals = categoryScoringResponses(questions.filter(q => q.categoryId === catId), responses)
+        .map(r => r.normalizedScore!);
       return vals.length >= 3 ? { avg: vals.reduce((a, b) => a + b, 0) / vals.length, n: vals.length } : null;
     };
 
@@ -168,7 +157,7 @@ function ScoringOverview() {
     };
 
     // ── Playtime stats ─────────────────────────────────────────────────────
-    const playtimeQ = questions.find(q =>
+    const playtimeQ = questions.find(q => q.type === 'duration') ?? questions.find(q =>
       !/factorio|satisfactory/i.test(q.text) &&
       /(?:how many|approximately|approx|total)?.*(?:hours|playtime|play time|time played).*(?:play|played|game|session)?|session.*(?:duration|length)/i.test(q.text)
     );
@@ -176,7 +165,10 @@ function ScoringOverview() {
       ? responses
           .filter(r => r.questionId === playtimeQ.id)
           .flatMap(r => {
-            const hours = parsePlaytimeHours(r.rawAnswer, r.numericValue);
+            const minutes = playtimeQ.type === 'duration' ? parseDurationMinutes(r.rawAnswer) : null;
+            const hours = playtimeQ.type === 'duration'
+              ? minutes === null ? null : minutes / 60
+              : parsePlaytimeHours(r.rawAnswer, r.numericValue);
             return hours !== null ? [hours] : [];
           })
       : [];
@@ -234,43 +226,25 @@ function ScoringOverview() {
 
     // ── Category scores ────────────────────────────────────────────────────
     const catScores = categories
-      .filter(c => !/admin|internal|evidence|background|recording/i.test(c.name))
+      .filter(c => !INTERNAL_CATEGORY.test(c.name))
       .flatMap(c => { const s = catStats(c.id); return s ? [{ ...c, avg: s.avg, n: s.n }] : []; })
       .sort((a, b) => b.avg - a.avg);
 
-    // ── Biggest flaws: the worst-scoring areas + their evidence ────────────
-    // The lowest 3 categories, richest first, carrying the themes and the
-    // representative negative quotes the AI recommendation endpoint needs.
-    const flaws = [...catScores].slice(-3).reverse().map(c => {
-      const qIds = new Set(questions.filter(q => q.categoryId === c.id).map(q => q.id));
-      const rVals = responses.filter(r => qIds.has(r.questionId) && r.normalizedScore !== null);
-      const negativePct = rVals.length
-        ? Math.round((rVals.filter(r => r.normalizedScore! < 40).length / rVals.length) * 100)
-        : 0;
-      const catThemes = visibleThemes.filter(t => t.categoryId === c.id);
-      // Quotes the testers actually wrote: theme exemplars first, then any
-      // substantive free-text answers in this category. Deduped, capped at 4.
-      const themeQuotes = catThemes.flatMap(t => t.representativeQuotes ?? []);
-      const freeTextQuotes = responses
-        .filter(r =>
-          qIds.has(r.questionId) && r.numericValue === null &&
-          r.rawAnswer.trim().length >= 30 && r.rawAnswer.trim().length <= 220)
-        .map(r => r.rawAnswer.trim());
-      const quotes = [...new Set([...themeQuotes, ...freeTextQuotes])].slice(0, 4);
-      return {
-        id: c.id,
-        title: c.name,
-        score: Math.round(c.avg),
-        n: c.n,
-        negativePct,
-        themes: catThemes.map(t => ({
-          label: t.label,
-          summary: t.summary,
-          severity: t.severity as Severity,
-        })),
-        quotes,
-      };
-    });
+    // ── Evidence for the AI takeaways ──────────────────────────────────────
+    // Open-ended answers and choice splits, skipping admin/internal sections.
+    const internalCats = new Set(categories.filter(c => INTERNAL_CATEGORY.test(c.name)).map(c => c.id));
+    const feedbackQs = questions.filter(q => !q.categoryId || !internalCats.has(q.categoryId));
+    const freeText = feedbackQs
+      .filter(q => q.type === 'free_text')
+      .map(q => ({ question: q.text, answers: substantiveAnswers(responses, q.id) }))
+      .filter(f => f.answers.length > 0);
+    const choices = feedbackQs
+      .filter(isChoiceQuestion)
+      .map(q => ({
+        question: q.text,
+        options: distributionOf(textAnswers(responses, q.id)).map(b => ({ label: b.label, pct: b.pct })),
+      }))
+      .filter(c => c.options.length > 0);
 
     // ── Best & worst rated questions ───────────────────────────────────────
     // Average normalized score per rating question (excluding admin/internal).
@@ -293,12 +267,6 @@ function ScoringOverview() {
     const bestQuestions = questionScores.slice(0, perSide);
     const worstQuestions = questionScores.slice(questionScores.length - perSide).reverse();
 
-    // ── Question count ─────────────────────────────────────────────────────
-    const questionCount = questions.filter(q =>
-      q.categoryId !== null &&
-      !/cat_15|admin|internal/i.test(q.categoryId)
-    ).length;
-
     // ── Date range ─────────────────────────────────────────────────────────
     const timestamps = responses
       .map(r => new Date(r.submittedAt).getTime())
@@ -310,8 +278,10 @@ function ScoringOverview() {
 
     return {
       catScores,
-      flaws,
+      freeText,
+      choices,
       avgPlaytime,
+      playtimeN: playtimeValues.length,
       maxTier,
       maxTierCount,
       avgTier,
@@ -321,52 +291,65 @@ function ScoringOverview() {
       tutorialPct,
       bestQuestions,
       worstQuestions,
-      questionCount,
       dateRange,
     };
-  }, [questions, responses, categories, visibleThemes, config]);
+  }, [questions, responses, categories, config]);
 
-  // ── AI recommendations for the biggest flaws (auto-run, cached) ───────────
-  const flawPayload = useMemo(() => ({
-    gameName: project?.gameName || project?.name || '',
-    flaws: d.flaws.map((f) => ({
-      area: f.title,
-      score: f.score,
-      negativePct: f.negativePct,
-      themes: f.themes,
-      quotes: f.quotes,
-    })),
-  }), [project?.gameName, project?.name, d.flaws]);
+  // ── AI key takeaways (auto-run, cached) ───────────────────────────────────
+  const insightsPayload = useMemo((): OverviewInsightsInput => {
+    const kpis: OverviewInsightsInput['kpis'] = d.kpiStats.flatMap(({ label, stats }) => stats
+      ? [{ label, avg: stats.avg, max: stats.max, positivePct: stats.positive, negativePct: stats.negative }]
+      : []);
+    const { overall, recommend, playAgain } = d.headlines;
+    if (overall) kpis.push({ label: 'Overall rating', avg: overall.avg, max: overall.max, positivePct: overall.highPct, negativePct: null });
+    if (recommend) kpis.push({ label: 'Would recommend (% in top two points)', avg: recommend.pct, max: 100, positivePct: null, negativePct: null });
+    if (playAgain) kpis.push({ label: 'Would play again (% in top two points)', avg: playAgain.pct, max: 100, positivePct: null, negativePct: null });
+    return {
+      gameName: project?.gameName || project?.name || '',
+      kpis,
+      choices: d.choices,
+      freeText: d.freeText,
+      categories: d.catScores.map(c => ({ name: c.name, score: Math.round(c.avg), n: c.n })),
+      ratedQuestions: [
+        ...d.bestQuestions.map(q => ({ question: q.text, score: q.score, side: 'best' as const })),
+        ...d.worstQuestions.map(q => ({ question: q.text, score: q.score, side: 'worst' as const })),
+      ],
+    };
+  }, [project?.gameName, project?.name, d]);
 
-  const fetchFlawRecs = useCallback(async (): Promise<FlawRecommendationsResult> => {
-    const res = await fetch('/api/flaw-recommendations', {
+  const fetchInsights = useCallback(async (): Promise<OverviewInsightsResult> => {
+    const res = await fetch('/api/overview-insights', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(flawPayload),
+      body: JSON.stringify(insightsPayload),
     });
     const data = await res.json();
     if (!res.ok) throw new Error((data as { error?: string }).error ?? `HTTP ${res.status}`);
-    return data as FlawRecommendationsResult;
-  }, [flawPayload]);
+    return data as OverviewInsightsResult;
+  }, [insightsPayload]);
 
-  const flawSignature = useMemo(
-    () => (d.flaws.length > 0 ? JSON.stringify(flawPayload) : ''),
-    [d.flaws.length, flawPayload],
+  // Quotes have to come from somewhere, so only analyse once testers wrote text.
+  const hasInsightInput = d.freeText.length > 0;
+  const insightsSignature = useMemo(
+    () => (hasInsightInput ? JSON.stringify(insightsPayload) : ''),
+    [hasInsightInput, insightsPayload],
   );
 
-  const {
-    data: aiRecs,
-    loading: aiLoading,
-    error: aiError,
-    run: runFlawRecs,
-  } = useCachedAnalysis<FlawRecommendationsResult>({
-    key: 'flawRecs',
-    signature: flawSignature,
-    // As with takeaways: the unfiltered view analyses itself; a filtered cohort
-    // is asked for explicitly.
+  const insights = useCachedAnalysis<OverviewInsightsResult>({
+    key: 'overviewInsights',
+    signature: insightsSignature,
+    // The unfiltered view analyses itself; a filtered cohort is asked for explicitly.
     auto: !filtersActive,
-    fetcher: fetchFlawRecs,
+    fetcher: fetchInsights,
   });
+
+  // Recurring themes: auto-run once per dataset. Themes persist in the store
+  // and the endpoint always analyses the full imported set, so filters never
+  // invalidate them.
+  useEffect(() => {
+    if (!hasInsightInput || themes.length > 0 || themeStatus !== 'idle') return;
+    void runThemeAnalysis();
+  }, [hasInsightInput, themes.length, themeStatus, runThemeAnalysis]);
 
   if (!project) return null;
 
@@ -378,8 +361,6 @@ function ScoringOverview() {
 
   const metaParts = [
     `${participantCount} testers`,
-    d.questionCount > 0 ? `${d.questionCount} core questions` : null,
-    buildLabel(project.playtestName),
     d.dateRange ? formatDateRange(d.dateRange.start, d.dateRange.end) : dateStr,
   ].filter(Boolean);
 
@@ -433,13 +414,17 @@ function ScoringOverview() {
     info: "% of testers who answered yes / completed / done on a tutorial or onboarding question (yes-no or multiple-choice type). Matched by keywords like 'tutorial' or 'onboarding'.",
     value: String(d.tutorialPct), unit: '%', sub: 'of testers finished tutorial',
   });
+  if (d.avgPlaytime !== null) kpis.push({
+    key: 'duration', label: 'Average duration',
+    info: 'Average reported session duration among the visible responses with a valid duration. Portal Duration answers are in minutes.',
+    value: formatDurationMinutes(d.avgPlaytime * 60),
+    sub: `${d.playtimeN} ${d.playtimeN === 1 ? 'response' : 'responses'} with duration`,
+  });
   kpis.push({
     key: 'tests', label: 'Tests completed',
-    info: "Number of unique testers with at least one recorded response. Average session is parsed from the playtime question — numeric hours, text like '1h 30m' or '90 minutes', or HH:MM.",
+    info: 'Number of unique testers with at least one recorded response.',
     value: String(participantCount),
-    sub: d.avgPlaytime !== null
-      ? `Average session ${formatHours(d.avgPlaytime)}`
-      : participantCount === project.totalResponses ? 'all tests shown' : `${participantCount} of ${project.totalResponses} shown`,
+    sub: participantCount === project.totalResponses ? 'all tests shown' : `${participantCount} of ${project.totalResponses} shown`,
     href: '/testers',
   });
 
@@ -449,7 +434,6 @@ function ScoringOverview() {
       {/* ── HEADER ───────────────────────────────────────────────────── */}
       <header className={css.header}>
         <div className={css.headerText}>
-          <div className={css.breadcrumb}>Playlytix / Playtest results</div>
           <h1 className={css.title}>
             {gameName}
           </h1>
@@ -465,89 +449,24 @@ function ScoringOverview() {
       {/* ── CORE EXPERIENCE SCORES ───────────────────────────────────── */}
       <CoreExperienceScores categories={d.catScores} />
 
-      {/* ── BEST & WORST · BIGGEST FLAWS · PLAYERS ───────────────────── */}
+      {/* ── KEY TAKEAWAYS ─────────────────────────────────────────────── */}
+      <KeyTakeaways {...insights} hasInput={hasInsightInput} filtersActive={filtersActive} />
+
+      {/* ── BEST & WORST · RECURRING THEMES ─────────────────────────── */}
       <div className={`${css.bottomRow} groove-b`}>
         <section className={`${css.col} ${css.colQuestions} groove-cell`}>
           <QuestionHighlights best={d.bestQuestions} worst={d.worstQuestions} />
         </section>
 
-        <section className={`${css.col} ${css.colFlaws} groove-cell`}>
-          <div className={css.sectionHead}>
-            <h2 className={css.sectionLabel}>Biggest flaws</h2>
-            <span className={css.hint}>Where players pushed back hardest</span>
-          </div>
-
-          {d.flaws.length === 0 ? (
-            <p className={css.empty}>No category scores yet · needs ≥3 rated responses per category</p>
-          ) : (
-            <>
-              {d.flaws.map((f) => {
-                const color = scoreBandColor(f.score);
-                return (
-                  <Link key={f.id} href={`/categories/${f.id}`} className={css.flaw}>
-                    <div className={css.flawHead}>
-                      <span className={css.flawName} title={f.title}>{f.title}</span>
-                      <span className={css.flawScore} style={{ color }}>{f.score}</span>
-                    </div>
-                    <span className={css.bar} aria-hidden="true">
-                      <span className={css.barFill} style={{ width: `${Math.max(2, f.score)}%`, background: color }} />
-                    </span>
-                    <div className={css.flawMeta}>{f.negativePct}% rated low</div>
-                  </Link>
-                );
-              })}
-
-              {/* AI-generated recommendations for the flaws above */}
-              <div className={`${css.ai} groove-t`}>
-                <div className={css.aiHead}>
-                  <span className={css.aiLabel}>AI recommendations</span>
-                  {!aiRecs && (
-                    <button type="button" onClick={runFlawRecs} disabled={aiLoading} className={css.aiAction}>
-                      {aiLoading
-                        ? <><RefreshCw className="w-3 h-3 animate-spin" aria-hidden="true" /> Generating…</>
-                        : 'Generate'}
-                    </button>
-                  )}
-                </div>
-
-                {aiLoading ? (
-                  <div aria-label="Generating recommendations">
-                    {[0, 1, 2].map(i => (
-                      <div key={i} className={`${css.recRow} groove-t-soft`}>
-                        <span className={css.recNum}>{String(i + 1).padStart(2, '0')}</span>
-                        <span>
-                          <span className={css.skeleton} />
-                          <span className={css.skeleton} style={{ width: '45%' }} />
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                ) : aiError ? (
-                  <p className={css.error}>{aiError}</p>
-                ) : aiRecs ? (
-                  aiRecs.recommendations.length === 0 ? (
-                    <p className={css.empty}>No recommendations returned</p>
-                  ) : (
-                    aiRecs.recommendations.map((r, i) => (
-                      <div key={i} className={`${css.recRow} groove-t-soft`}>
-                        <span className={css.recNum}>{String(i + 1).padStart(2, '0')}</span>
-                        <div>
-                          <p className={css.recText} title={r.problem}>{r.recommendation}</p>
-                          <p className={css.recMeta}>{r.area} · {r.priority} priority</p>
-                        </div>
-                      </div>
-                    ))
-                  )
-                ) : (
-                  <p className={css.empty}>Not generated for this filtered cohort yet</p>
-                )}
-              </div>
-            </>
-          )}
-        </section>
-
-        <section className={`${css.col} ${css.colPlayers} groove-cell`}>
-          <PlayerMix testers={testers} />
+        <section className={`${css.col} ${css.colThemes} groove-cell`}>
+          <RecurringThemes
+            themes={themes}
+            visible={visibleThemes}
+            status={themeStatus}
+            error={themeError}
+            run={() => void runThemeAnalysis()}
+            hasInput={hasInsightInput}
+          />
         </section>
       </div>
 

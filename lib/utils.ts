@@ -41,6 +41,7 @@ export function questionTypeLabel(type: QuestionType): string {
     yes_no: 'Yes / No',
     multiple_choice: 'Multiple Choice',
     free_text: 'Free Text',
+    duration: 'Duration',
     file_upload: 'File Upload',
     timestamp: 'Timestamp',
     internal_admin: 'Internal',

@@ -88,8 +88,8 @@ interface DashboardState {
   analysisStatus: AnalysisStatus;
   analysisError: string | null;
 
-  // Signature-keyed cache for the other AI passes (overview takeaways, flaw
-  // recommendations). Persisted, so a reload reuses the result instead of
+  // Signature-keyed cache for the other AI passes (overview key takeaways).
+  // Persisted, so a reload reuses the result instead of
   // re-buying it.
   aiCache: Record<string, AiCacheEntry>;
   beginAiRun: (key: string, signature: string) => void;
@@ -173,7 +173,7 @@ export const useDashboardStore = create<DashboardState>()(
   isLoaded: false,
   filters: defaultFilters,
   drill: {},
-  filterPanelOpen: true,
+  filterPanelOpen: false,
   mobileDrawer: null,
   analysisStatus: 'idle',
   analysisError: null,

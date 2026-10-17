@@ -27,7 +27,7 @@ export function requireDashboardAuth(request: Request): Response | null {
     if (!readSession(request)) return portalDenied();
     const path = new URL(request.url).pathname;
     // AI analyses the session's already-loaded answers; the registry spans all clients and stays blocked.
-    const allowed = path.startsWith('/api/portal/') || /^\/api\/(themes|question-analysis|overview-insights|flaw-recommendations)$/.test(path);
+    const allowed = path.startsWith('/api/portal/') || /^\/api\/(themes|question-analysis|overview-insights|transcript-summary)$/.test(path);
     if (path.startsWith('/api/') && !allowed) return portalDenied(403, 'This feature is unavailable in Portal mode.');
     return null;
   }

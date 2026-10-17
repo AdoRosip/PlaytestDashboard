@@ -1,4 +1,4 @@
-import type { TesterRegistryProfile, TesterVideo } from '../types';
+import type { TesterRegistryProfile, TesterVideo, VideoTranscriptRef } from '../types';
 import { profileText, registryGroups } from '../dossier';
 
 function string(value: unknown): string | undefined {
@@ -45,7 +45,15 @@ export function mapRegistryProfile(source: Record<string, unknown>): TesterRegis
   return result;
 }
 
-export function mapProfileExtras(row: Record<string, unknown>, profile: Record<string, unknown>, testerId: string, questionIds: Map<string, string>) {
+function transcriptRef(file: Record<string, unknown>, testId: string, submissionId: number): VideoTranscriptRef | undefined {
+  const fileId = file.fileId;
+  const transcript = record(file.transcript);
+  const cues = number(transcript.cues);
+  if (!Number.isSafeInteger(fileId) || (fileId as number) <= 0 || !cues) return undefined;
+  return { testId, submissionId, fileId: fileId as number, cues, durationSec: number(transcript.durationSeconds) };
+}
+
+export function mapProfileExtras(row: Record<string, unknown>, profile: Record<string, unknown>, testerId: string, questionIds: Map<string, string>, source: { testId: string; submissionId: number }) {
   const anonymous = typeof profile.anonymous === 'boolean' ? profile.anonymous : undefined;
   // The Portal includes registry fields inline; no separate registry lookup is needed.
   const inRegistry = typeof profile.inRegistry === 'boolean' ? profile.inRegistry
@@ -60,6 +68,7 @@ export function mapProfileExtras(row: Record<string, unknown>, profile: Record<s
       title: string(f.title), uploadedAt: date(f.uploadedAt), durationSec: number(f.durationSec),
       width: number(f.width), height: number(f.height), thumbnailUrl: url(f.thumbnailUrl),
       questionId: questionIds.get(String(f.questionId)),
+      transcript: transcriptRef(f, source.testId, source.submissionId),
     };
   }).filter(f => f.mimeType?.startsWith('video/') || /\.(mp4|webm|mov|m4v|avi|mkv|ogv)$/i.test(f.name ?? ''));
   const comments = (Array.isArray(row.comments) ? row.comments : []).flatMap(raw => {

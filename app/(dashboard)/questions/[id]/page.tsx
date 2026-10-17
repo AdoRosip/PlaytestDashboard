@@ -130,7 +130,7 @@ export default function QuestionDetailPage({ params }: { params: Promise<{ id: s
   }, [questions, responses, id]);
 
   const runAiAnalysis = async () => {
-    if (!question) return;
+    if (question?.type !== 'free_text') return;
     const requestId = ++aiRequestId.current;
     const requestedSignature = responseSignature;
     setAiLoadingSignature(requestedSignature);
@@ -197,7 +197,7 @@ export default function QuestionDetailPage({ params }: { params: Promise<{ id: s
           actions={
             <div className="flex items-center gap-2">
               {cat && <Badge label={cat.name} variant="accent" />}
-              <button
+              {question.type === 'free_text' && <button
                 onClick={() => setAiPanelOpen((o) => !o)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
                   aiPanelOpen
@@ -207,7 +207,7 @@ export default function QuestionDetailPage({ params }: { params: Promise<{ id: s
               >
                 <Sparkles className="w-3.5 h-3.5" />
                 Analyse Responses
-              </button>
+              </button>}
             </div>
           }
         />
@@ -525,7 +525,7 @@ export default function QuestionDetailPage({ params }: { params: Promise<{ id: s
       </div>
 
       {/* ── AI Insights panel (side-by-side) ─────────────────────────── */}
-      {aiPanelOpen && (
+      {question.type === 'free_text' && aiPanelOpen && (
         <div className="w-full xl:w-[400px] xl:flex-shrink-0 xl:sticky xl:top-8 max-h-[80vh] xl:max-h-[calc(100vh-5rem)] flex flex-col rounded-xl border border-slate-700/60 bg-[#0d1220] overflow-hidden">
           {/* Panel header */}
           <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800 flex-shrink-0">

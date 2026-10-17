@@ -1,9 +1,8 @@
 'use client';
-import { use, useEffect, useMemo, useRef, useState } from 'react';
+import { use, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import Link from '@/components/layout/ReportLink';
 import { ChevronDown, LayoutGrid, Sparkles } from 'lucide-react';
 import { useDashboardStore, selectAnyFilterActive, selectSegmentFilteredResponses } from '@/lib/store';
-import Badge from '@/components/ui/Badge';
 import QuestionSummaryDialog from '@/components/ui/QuestionSummaryDialog';
 import { questionTypeLabel, computeRatingDistribution } from '@/lib/utils';
 import { isRatingType } from '@/lib/scoring';
@@ -20,9 +19,25 @@ import {
 import type { Question, Response } from '@/lib/types';
 import { filterThemesForResponses } from '@/lib/themeFiltering';
 import { scoreBandColor } from '@/lib/coreScores';
+import { categoryScoringResponses } from '@/lib/categoryScoring';
 import css from './category.module.css';
 
 type ChartLayout = 'large' | 'medium' | 'small';
+const CHART_LAYOUT_KEY = 'category-chart-layout';
+function readChartLayout(): ChartLayout {
+  let stored: string | null = null;
+  try { stored = sessionStorage.getItem(CHART_LAYOUT_KEY); } catch { /* storage blocked */ }
+  return stored === 'large' || stored === 'small' ? stored : 'medium';
+}
+function subscribeChartLayout(onChange: () => void) {
+  window.addEventListener(CHART_LAYOUT_KEY, onChange);
+  window.addEventListener('storage', onChange);
+  return () => {
+    window.removeEventListener(CHART_LAYOUT_KEY, onChange);
+    window.removeEventListener('storage', onChange);
+  };
+}
+const serverChartLayout = (): ChartLayout => 'medium';
 const ratingPalette = ['#F26D6D', '#F2A65A', '#E8C547', '#A8E05F', '#7ED957'];
 
 function AnswerList({ responses, testerNumbers, ratingsByTester, ratingQuestions }: {
@@ -90,16 +105,11 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ id: s
 
   // Question whose AI summary dialog is open (null = closed).
   const [summaryQ, setSummaryQ] = useState<Question | null>(null);
-  const [chartLayout, setChartLayout] = useState<ChartLayout>('medium');
+  const chartLayout = useSyncExternalStore(subscribeChartLayout, readChartLayout, serverChartLayout);
   const [ratingsExpanded, setRatingsExpanded] = useState(true);
   const [layoutMenuOpen, setLayoutMenuOpen] = useState(false);
   const layoutControlRef = useRef<HTMLDivElement>(null);
   const layoutTriggerRef = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    const stored = sessionStorage.getItem('category-chart-layout');
-    if (stored === 'large' || stored === 'medium' || stored === 'small') setChartLayout(stored);
-  }, []);
 
   useEffect(() => {
     if (!layoutMenuOpen) return;
@@ -121,8 +131,8 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ id: s
   }, [layoutMenuOpen]);
 
   const selectChartLayout = (layout: ChartLayout) => {
-    setChartLayout(layout);
-    sessionStorage.setItem('category-chart-layout', layout);
+    try { sessionStorage.setItem(CHART_LAYOUT_KEY, layout); } catch { /* storage blocked */ }
+    window.dispatchEvent(new Event(CHART_LAYOUT_KEY));
     setLayoutMenuOpen(false);
     layoutTriggerRef.current?.focus();
   };
@@ -162,7 +172,7 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ id: s
   const catQuestions = questions.filter((q) => q.categoryId === id);
   const catResponses = cohortResponses.filter((r) => catQuestions.some((q) => q.id === r.questionId));
   const catThemes = themes.filter((t) => t.categoryId === id);
-  const scoredResponses = catResponses.filter((r) => r.normalizedScore !== null);
+  const scoredResponses = categoryScoringResponses(catQuestions, catResponses);
   const categoryScore = scoredResponses.length > 0
     ? Math.round(scoredResponses.reduce((sum, r) => sum + (r.normalizedScore ?? 0), 0) / scoredResponses.length)
     : null;
@@ -222,7 +232,6 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ id: s
           <div className={css.themes}>
             {catThemes.map((t) => (
               <Link key={t.id} href={`/themes`} className={css.themeLink}>
-                  <Badge label={t.severity} severity={t.severity} variant="severity" />
                   <span>{t.label}</span>
                   <span className={css.themeFrequency}>{t.frequency}</span>
               </Link>
@@ -295,9 +304,6 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ id: s
               const avgNorm = scored.length
                 ? Math.round(scored.reduce((s, r) => s + (r.normalizedScore ?? 0), 0) / scored.length)
                 : null;
-              const lowScorePct = scored.length
-                ? Math.round((scored.filter((r) => (r.normalizedScore ?? 0) < 40).length / scored.length) * 100)
-                : null;
 
               return (
                 <div key={q.id} className={css.ratingItem}>
@@ -310,7 +316,7 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ id: s
                       <div className="min-w-0">
                         <p className={css.questionText}>{q.text}</p>
                         <div className="flex items-center gap-2 mt-1.5">
-                          <span className={css.questionType}>{questionTypeLabel(q.type)}</span>
+                          {isChoice && <span className={css.questionType}>{questionTypeLabel(q.type)}</span>}
                           <span className={css.questionMeta}>{visible.length} responses</span>
                         </div>
                       </div>
@@ -325,12 +331,6 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ id: s
                         </div>
                       )}
                       <div className="flex items-center gap-2 sm:gap-3">
-                        <button
-                          onClick={() => setSummaryQ(q)}
-                          className={css.actionLink}
-                        >
-                          <Sparkles className="w-3.5 h-3.5" /> Summarise
-                        </button>
                         <Link
                           href={`/questions/${q.id}`}
                           className={css.actionLink}
@@ -341,21 +341,8 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ id: s
                     </div>
                   </div>
 
-                  {avgNorm !== null && (
-                    <div className={css.ratingScoreBar}>
-                      <div className={css.scoreTrack}><div className={css.scoreFill}
-                        style={{ width: `${avgNorm}%`, backgroundColor: scoreBandColor(avgNorm) }} /></div>
-                      {lowScorePct !== null && (
-                        <div className={css.questionMeta}>{lowScorePct}% low scores</div>
-                      )}
-                    </div>
-                  )}
-
                   {dist ? (
                     <div className="mt-auto">
-                      <div className="text-[10px] text-slate-500 mb-2 uppercase tracking-wide">
-                        Rating distribution (click a bar to cross-filter)
-                      </div>
                       <RatingBarChart
                         data={dist}
                         scale={q.type === 'rating_1_10' ? 10 : 5}
@@ -406,22 +393,26 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ id: s
                   <div className={css.prosePrompt}>
                     <div className="min-w-0">
                       <div className={css.proseEyebrow}>{q.description?.trim() || questionTypeLabel(q.type)}</div>
-                      <p className={css.questionText}>{q.text}</p>
+                      <p className={css.questionText}>
+                        {q.type === 'free_text'
+                          ? <Link href={`/questions/${q.id}`} className={css.questionLink}>{q.text}</Link>
+                          : q.text}
+                      </p>
                       <div className={css.proseCount}>{proseResponses.length} answers</div>
                     </div>
                     <div className={css.proseActions}>
-                      <button
+                      {q.type === 'free_text' && <button
                         onClick={() => setSummaryQ(q)}
                         className={css.actionLink}
                       >
                         <Sparkles className="w-3.5 h-3.5" /> Summarise
-                      </button>
-                      <Link
+                      </button>}
+                      {q.type !== 'free_text' && <Link
                         href={`/questions/${q.id}`}
                         className={css.actionLink}
                       >
                         Detail →
-                      </Link>
+                      </Link>}
                     </div>
                   </div>
 
@@ -453,7 +444,7 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ id: s
 
       {/* AI summary dialog — summarises the (drill-filtered) responses for the
           chosen question via the same pass as the question-detail AI panel. */}
-      {summaryQ && (
+      {summaryQ?.type === 'free_text' && (
         <QuestionSummaryDialog
           question={summaryQ}
           responses={applyDrill(responses.filter((r) => r.questionId === summaryQ.id))}

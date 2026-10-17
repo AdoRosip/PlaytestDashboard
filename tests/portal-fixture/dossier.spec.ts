@@ -104,6 +104,8 @@ test('cohort averages update on the detail page and existing profile buttons sti
   await page.setViewportSize({ width: 1600, height: 1000 });
   await openTest(page, data => { data.testers[1].segments.gender = 'Female'; });
   await page.getByRole('link', { name: 'Tester-28', exact: true }).click();
+  // The filter panel starts collapsed.
+  await page.getByRole('button', { name: 'Expand filters', exact: true }).click();
   await page.getByRole('button', { name: 'Male', exact: true }).first().click();
   await expect(page.getByRole('meter').first()).toHaveAttribute('aria-label', 'Rated 1 of 5, group average 1.0');
   await expect(page.getByRole('button', { name: 'Next', exact: true })).toBeDisabled();
@@ -186,4 +188,24 @@ test('players rows expand into labelled column charts and fit 375px', async ({ p
   await page.getByRole('button', { name: /^Gender\b/ }).click();
   await expect(age).toHaveAttribute('aria-expanded', 'true');
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375);
+});
+
+test('category layout persists and many answer ratings fit narrow screens', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await openTest(page);
+  await page.goto('/tests/18/categories/portal_7_18_category_controls');
+  await page.getByRole('button', { name: 'Chart layout: medium', exact: true }).click();
+  await page.getByRole('button', { name: 'Small', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Chart layout: small', exact: true })).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole('button', { name: 'Chart layout: small', exact: true })).toBeVisible();
+  for (const width of [375, 768]) {
+    await page.setViewportSize({ width, height: 812 });
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth), {
+      message: `Category content should fit the ${width}px viewport after charts resize`,
+      timeout: 10000,
+    }).toBeLessThanOrEqual(width);
+  }
+  expect(errors).toEqual([]);
 });

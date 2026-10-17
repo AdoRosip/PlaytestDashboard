@@ -20,7 +20,7 @@ test('production response renders through the Portal flow and navigates', async 
   await page.goto(launch());
   await expect(page).toHaveURL(/\/tests\/18\/overview$/);
   await expect(page.getByRole('link', { name: 'All Questions', exact: true })).toBeVisible();
-  await expect(page.getByText('Maradona', { exact: true }).first()).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Maradona', exact: true })).toBeVisible();
   await expect(page.getByText('OLD CLIENT DATA')).toHaveCount(0);
   expect(await page.evaluate(() => localStorage.getItem('playtest-dashboard-v1'))).toBeNull();
   await page.getByRole('link', { name: 'All Questions', exact: true }).click();
@@ -48,6 +48,19 @@ test('rejects anonymous requests and another client even with a valid signature'
   expect((await request.post('/api/question-analysis', { data: {} })).status()).toBe(401);
 });
 
+test('replacing the session closes the loaded report with a blocking dialog', async ({ page }) => {
+  await page.route('**/api/portal/tests/18', route => route.fulfill({ json: mapPortalData(fixture, '7', '18', portalGenericConfig) }));
+  await page.goto(launch());
+  await expect(page.getByRole('heading', { name: 'Maradona', exact: true })).toBeVisible();
+  const { sid } = await (await page.request.get('/api/portal/session')).json();
+  await page.request.get(launch(9), { maxRedirects: 0 });
+  expect((await page.request.get('/api/portal/tests/18', { headers: { 'x-portal-session': sid } })).status()).toBe(409);
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+  await expect(page.getByRole('alertdialog', { name: 'This session was replaced' })).toBeVisible();
+  await expect(page.locator('[inert]').getByRole('link', { name: 'All Questions', exact: true })).toHaveCount(1);
+  await expect(page.getByRole('heading', { name: 'Maradona', exact: true, includeHidden: true })).toHaveCount(0);
+});
+
 // Fakes the tab being hidden then shown again.
 async function switchTabAway(page: import('@playwright/test').Page) {
   await page.evaluate(() => {
@@ -64,12 +77,12 @@ test('returning to the tab keeps the report on screen without reloading', async 
   let loads = 0;
   await page.route('**/api/portal/tests/18', route => { loads++; return route.fulfill({ json: mapPortalData(fixture, '7', '18', portalGenericConfig) }); });
   await page.goto(launch());
-  await expect(page.getByText('Maradona', { exact: true }).first()).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Maradona', exact: true })).toBeVisible();
   await page.evaluate(() => { (window as unknown as { marker: boolean }).marker = true; });
   await switchTabAway(page);
   await page.waitForTimeout(1000);
   expect(await page.evaluate(() => (window as unknown as { marker?: boolean }).marker)).toBe(true);
-  await expect(page.getByText('Maradona', { exact: true }).first()).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Maradona', exact: true })).toBeVisible();
   await expect(page.getByRole('alertdialog')).toHaveCount(0);
   expect(loads).toBe(1);
 });

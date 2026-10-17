@@ -1,7 +1,9 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
-import type { TesterVideo } from '@/lib/types';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type { TesterVideo, TranscriptCue } from '@/lib/types';
 import { profileAnswers, profileDate, profileText } from '@/lib/dossier';
+import { toVtt } from '@/lib/playlytix/transcripts';
+import TranscriptPanel, { useTranscript } from './TranscriptPanel';
 import s from './TesterProfile.module.css';
 
 export type VideoMetadata = { durationSec?: number; width?: number; height?: number; thumbnail?: string };
@@ -56,11 +58,20 @@ function Thumbnail({ file, metadata, onMetadata }: { file: TesterVideo; metadata
   </div>;
 }
 
-function Player({ file, name, onMetadata }: { file: TesterVideo; name: string; onMetadata: (id: string, data: VideoMetadata) => void }) {
+/** A same-origin blob URL, so captions need no CORS from the storage host and never expire. */
+function useVttUrl(cues?: TranscriptCue[]) {
+  const url = useMemo(() => cues?.length ? URL.createObjectURL(new Blob([toVtt(cues)], { type: 'text/vtt' })) : undefined, [cues]);
+  useEffect(() => () => { if (url) URL.revokeObjectURL(url); }, [url]);
+  return url;
+}
+
+function Player({ file, name, captions, onVideo, onMetadata }: { file: TesterVideo; name: string; captions?: string; onVideo: (video: HTMLVideoElement | null) => void; onMetadata: (id: string, data: VideoMetadata) => void }) {
   const [error, setError] = useState(!file.url);
   const [loaded, setLoaded] = useState(false);
   return <div className={`${s.player} ${loaded ? '' : s.stripes}`}>
-    {!error && <video controls preload="metadata" playsInline src={file.url} aria-label={name} onError={() => setError(true)} onLoadedMetadata={event => { setLoaded(true); onMetadata(file.id, readMetadata(event.currentTarget)); }} />}
+    {!error && <video ref={onVideo} controls preload="metadata" playsInline src={file.url} aria-label={name} onError={() => setError(true)} onLoadedMetadata={event => { setLoaded(true); onMetadata(file.id, readMetadata(event.currentTarget)); }}>
+      {captions && <track kind="captions" label="Transcript" src={captions} />}
+    </video>}
     {error && <div className={s.playerError}><p>This video can&apos;t be played in the browser</p>{file.url && <a href={file.url} download target="_blank" rel="noreferrer">Download</a>}</div>}
   </div>;
 }
@@ -72,8 +83,11 @@ export default function VideosPanel({ files, answers, metadata, onMetadata, onLi
   const [selected, setSelected] = useState(0);
   const [focused, setFocused] = useState(0);
   const items = useRef<(HTMLButtonElement | null)[]>([]);
-  if (!files.length) return <p className={s.empty}>No recordings uploaded.</p>;
+  const [video, setVideo] = useState<HTMLVideoElement | null>(null);
   const file = files[selected] ?? files[0];
+  const transcript = useTranscript(file?.transcript);
+  const captions = useVttUrl(transcript.cues);
+  if (!file) return <p className={s.empty}>No recordings uploaded.</p>;
   const meta = metadata[file.id];
   const width = file.width ?? meta?.width, height = file.height ?? meta?.height;
   const uploaded = profileDate(file.uploadedAt);
@@ -81,10 +95,11 @@ export default function VideosPanel({ files, answers, metadata, onMetadata, onLi
   // TODO(spec): Portal uploads point at File questions with no answers[] entry;
   // show a Linked answer action only when an actual response exists.
   return <div className={s.videoGrid}><div>
-    <Player key={file.id} file={file} name={title(file, selected)} onMetadata={onMetadata} />
+    <Player key={file.id} file={file} name={title(file, selected)} captions={captions} onVideo={setVideo} onMetadata={onMetadata} />
     <h2 className={s.videoTitle}>{title(file, selected)}</h2>
     <p className={`${s.videoMeta} ${s.numeric}`}>{[uploaded ? `Uploaded ${uploaded}` : '', duration(file.durationSec ?? meta?.durationSec), width && height ? `${width} × ${height}` : ''].filter(Boolean).join(' · ')}</p>
     {linked && <button className={s.linked} onClick={() => onLinkedAnswer(linked.response.id)}><div className={s.micro}>Linked answer</div><div className={`${s.linkedText} ${s.truncate}`}>Q{linked.index} · &quot;{profileText(linked.response.rawAnswer)}&quot;</div></button>}
+    {file.transcript && <TranscriptPanel key={file.id} cueRef={file.transcript} transcript={transcript} video={video} />}
   </div><div className={s.playlist} role="listbox" aria-label="Recordings" aria-orientation="vertical">
     {files.map((item, i) => <button key={item.id} ref={el => { items.current[i] = el; }} role="option" aria-selected={i === selected} aria-label={title(item, i)} className={s.playlistItem} tabIndex={focused === i ? 0 : -1} onFocus={() => setFocused(i)} onClick={() => setSelected(i)} onKeyDown={event => {
       if (['ArrowDown', 'ArrowUp', 'ArrowRight', 'ArrowLeft', 'Home', 'End'].includes(event.key)) {

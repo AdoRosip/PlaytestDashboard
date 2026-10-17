@@ -1,12 +1,15 @@
 import OpenAI from 'openai';
 import { requireDashboardAuth } from '@/lib/server/requestAuth';
 
-// Client sends a compact, sampled view of the qualitative feedback.
+// Client sends a compact, sampled view of the feedback. Rating-heavy forms
+// also send their category scorecard and best/worst rated questions.
 export interface OverviewInsightsInput {
   gameName: string;
   kpis: { label: string; avg: number | null; max: number; positivePct: number | null; negativePct: number | null }[];
   choices: { question: string; options: { label: string; pct: number }[] }[];
   freeText: { question: string; answers: string[] }[];
+  categories?: { name: string; score: number; n: number }[];         // 0–100 normalized
+  ratedQuestions?: { question: string; score: number; side: 'best' | 'worst' }[];
 }
 
 export interface OverviewInsight {
@@ -35,9 +38,9 @@ export async function POST(req: Request) {
   }
 
   const body = (await req.json()) as OverviewInsightsInput;
-  const { gameName, kpis = [], choices = [], freeText = [] } = body ?? {};
+  const { gameName, kpis = [], choices = [], freeText = [], categories = [], ratedQuestions = [] } = body ?? {};
 
-  if (freeText.length === 0 && kpis.length === 0) {
+  if (freeText.length === 0 && kpis.length === 0 && categories.length === 0) {
     return Response.json({ strengths: [], concerns: [], recommendations: [] } satisfies OverviewInsightsResult);
   }
 
@@ -50,6 +53,14 @@ export async function POST(req: Request) {
     .map((c) => `- ${c.question}\n${c.options.map((o) => `    · ${o.label}: ${o.pct}%`).join('\n')}`)
     .join('\n') || '(none)';
 
+  const categoryBlock = categories
+    .map((c) => `- ${c.name}: ${c.score}/100 (n=${c.n})`)
+    .join('\n') || '(none)';
+
+  const ratedBlock = ratedQuestions
+    .map((q) => `- [${q.side}] ${q.question}: ${q.score}/100`)
+    .join('\n') || '(none)';
+
   // Bound the payload: cap answers per question and answer length.
   const ftBlock = freeText
     .map((f) => {
@@ -59,10 +70,16 @@ export async function POST(req: Request) {
     .join('\n\n');
 
   const prompt = `You are a senior game design consultant analysing playtest feedback for "${gameName || 'this game'}".
-This form was mostly open-ended, so read the actual answers carefully. Ground every point in the data below — never invent issues or use generic platitudes.
+Read the actual answers carefully. Ground every point in the data below — never invent issues or use generic platitudes.
 
 RATINGS:
 ${kpiBlock}
+
+CATEGORY SCORES (0–100, higher is better):
+${categoryBlock}
+
+BEST AND WORST RATED QUESTIONS (0–100):
+${ratedBlock}
 
 DIRECT-CHOICE QUESTIONS:
 ${choiceBlock}
@@ -80,8 +97,8 @@ Return a JSON object with exactly this structure:
 Rules:
 - 3 to 5 strengths, 3 to 5 concerns, and one recommendation per concern (worst first).
 - Quotes must be real excerpts from the answers above, lightly trimmed. Omit "quote" if none fits.
-- Priority reflects how strongly and how often the concern shows up in the data.
-- Be specific to THIS game (trash-collecting, upgrades, lockpicking, random events, etc. as relevant). Keep every field concise.`;
+- Priority reflects how strongly and how often the concern shows up in the data, including low category scores.
+- Be specific to THIS game's mechanics and systems as the answers describe them. Keep every field concise.`;
 
   const openai = new OpenAI({ apiKey });
 

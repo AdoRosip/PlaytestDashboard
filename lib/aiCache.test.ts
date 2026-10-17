@@ -76,12 +76,12 @@ describe('AI result cache', () => {
     const { beginAiRun, completeAiRun } = useDashboardStore.getState();
 
     beginAiRun('overviewInsights', 'sig-a');
-    beginAiRun('flawRecs', 'sig-b');
-    completeAiRun('flawRecs', 'sig-b', { recommendations: [] });
+    beginAiRun('questionAnalysis', 'sig-b');
+    completeAiRun('questionAnalysis', 'sig-b', { recommendations: [] });
 
     const cache = useDashboardStore.getState().aiCache;
     expect(cache.overviewInsights.status).toBe('running');
-    expect(cache.flawRecs.status).toBe('done');
+    expect(cache.questionAnalysis.status).toBe('done');
   });
 
   it('drops cached analyses when a new dataset is loaded', () => {

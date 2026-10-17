@@ -9,7 +9,7 @@ import type { Question, QuestionType } from '@/lib/types';
 
 const QUESTION_TYPES: QuestionType[] = [
   'rating_1_5', 'rating_1_10', 'yes_no', 'multiple_choice',
-  'free_text', 'file_upload', 'timestamp', 'internal_admin', 'unknown',
+  'free_text', 'duration', 'file_upload', 'timestamp', 'internal_admin', 'unknown',
 ];
 
 // Per-question type control. Editing recomputes scores and tester quality in the
