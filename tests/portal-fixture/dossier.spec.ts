@@ -13,7 +13,7 @@ async function openTest(page: Page, adjust?: (data: ReturnType<typeof mapPortalD
   const sig = createHmac('sha256', 'fixture-launch-secret-for-browser-test-only').update(payload).digest('base64url');
   await page.goto(`/tests/18?token=${payload}.${sig}`);
   await expect(page.getByRole('link', { name: 'All Questions', exact: true })).toBeVisible();
-  await page.goto('/tests/18/testers');
+  await page.goto('/tests/18/testers?tab=roster');
   await expect(page.getByRole('link', { name: 'Tester-28', exact: true })).toBeVisible();
 }
 
@@ -53,13 +53,13 @@ test('tester list opens the dossier, keeps filters, paginates and persists tabs'
   await expect(page.getByRole('heading', { name: 'Tester-29' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Next', exact: true })).toBeDisabled();
   await page.getByRole('link', { name: 'Testers', exact: true }).last().click();
-  await page.getByPlaceholder('Search by tester ID…').fill('29');
+  await page.getByPlaceholder('Search response ID or country').fill('29');
   await page.getByRole('link', { name: 'Tester-29', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Prev', exact: true })).toBeDisabled();
   await expect(page.getByRole('button', { name: 'Next', exact: true })).toBeDisabled();
   await page.getByRole('link', { name: 'Testers', exact: true }).last().click();
-  await expect(page).toHaveURL(/\/tests\/18\/testers\?search=29$/);
-  await expect(page.getByPlaceholder('Search by tester ID…')).toHaveValue('29');
+  await expect(page).toHaveURL(/\/tests\/18\/testers\?search=29&tab=roster$/);
+  await expect(page.getByPlaceholder('Search response ID or country')).toHaveValue('29');
   expect(errors).toEqual([]);
 });
 
@@ -168,4 +168,22 @@ test('native playback reads metadata, captures thumbnails and selects recordings
   await video.evaluate((el: HTMLVideoElement) => { el.muted = true; return el.play(); });
   await expect.poll(() => video.evaluate((el: HTMLVideoElement) => el.currentTime)).toBeGreaterThan(0);
   await page.screenshot({ path: 'test-results/dossier-videos.png' });
+});
+
+test('players rows expand into labelled column charts and fit 375px', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await openTest(page);
+  await page.getByRole('tab', { name: 'Players' }).click();
+  await expect(page.getByRole('heading', { name: 'Typical tester' })).toBeVisible();
+  const age = page.getByRole('button', { name: /^Age\b/ });
+  await expect(age).toHaveAttribute('aria-expanded', 'false');
+  await expect(page.getByRole('img', { name: /^Age:/ })).toHaveCount(0);
+  await age.click();
+  await expect(age).toHaveAttribute('aria-expanded', 'true');
+  const panel = page.locator(`#${await age.getAttribute('aria-controls')}`);
+  await expect(panel).toBeVisible();
+  await expect(panel.getByRole('img', { name: /^Age: .+ \d+%/ })).toBeVisible();
+  await page.getByRole('button', { name: /^Gender\b/ }).click();
+  await expect(age).toHaveAttribute('aria-expanded', 'true');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375);
 });

@@ -126,6 +126,8 @@ export interface Question {
   sourceColumn: string;
   scaleMin?: number;
   scaleMax?: number;
+  // Answer options in the form's own order, when the source provides them.
+  options?: string[];
   // When true, a high numeric answer is *negative* (e.g. "how frustrated were
   // you?"). Score normalization and outlier math invert these.
   isInverseScored?: boolean;

@@ -56,6 +56,10 @@ export function mapPortalData(input: unknown, clientId: string, testId: string, 
     }
     if (type === 'unknown') warnings.push(`Unsupported question type: ${typeName}. Answers remain unscored.`);
     const questionText = text(q.QuestionText);
+    // Option order is the scale's own order ("Far too easy" … "Far too hard"), which
+    // charts keep. Only used for display, so a malformed list is ignored, not fatal.
+    const options = type === 'multiple_choice' && Array.isArray(q.Options) && q.Options.every(o => typeof o === 'string')
+      ? (q.Options as string[]).map(o => o.trim()).filter(Boolean) : undefined;
     let categoryId = categoryForQuestion(config, questionText);
     if (q.Category != null) {
       const category = object(q.Category);
@@ -66,7 +70,7 @@ export function mapPortalData(input: unknown, clientId: string, testId: string, 
     return [{ id: `${projectId}_q_${questionId}`, projectId, text: questionText,
       description: q.QuestionDescription == null ? undefined : text(q.QuestionDescription),
       type, categoryId, sourceColumn: String(questionId), displayOrder: q.DisplayOrder as number,
-      scaleMin: rating ? 1 : undefined, scaleMax: rating ? scaleMax : undefined,
+      scaleMin: rating ? 1 : undefined, scaleMax: rating ? scaleMax : undefined, options,
       isInverseScored: rating && config.inverseScoringPatterns.some(p => p.test(questionText)),
     }];
   });
@@ -102,7 +106,8 @@ export function mapPortalData(input: unknown, clientId: string, testId: string, 
       answered.add(questionId);
       const q = questionMap.get(String(questionId));
       if (!q) continue;
-      const value = text(a.value);
+      // Some question types (e.g. Duration) send numeric answers.
+      const value = typeof a.value === 'number' && Number.isFinite(a.value) ? String(a.value) : text(a.value);
       const rating = q.type === 'rating_1_5' || q.type === 'rating_1_10';
       const candidate = /^\d+$/.test(value.trim()) ? Number(value) : NaN;
       const numericValue = rating && candidate >= 1 && candidate <= q.scaleMax! ? candidate : null;

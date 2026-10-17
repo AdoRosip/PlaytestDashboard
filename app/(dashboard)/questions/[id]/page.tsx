@@ -10,7 +10,8 @@ import RatingBarChart from '@/components/charts/RatingBarChart';
 import SegmentBreakdown from '@/components/charts/SegmentBreakdown';
 import CollapsibleSection from '@/components/ui/CollapsibleSection';
 import { questionTypeLabel, scoreColor, formatDate, computeRatingDistribution, formatTesterLabel } from '@/lib/utils';
-import { applyDrill, buildPerQuestionSets, matchingTesterIds, numericDrillValues } from '@/lib/crossFilter';
+import ChoiceBarChart from '@/components/charts/ChoiceBarChart';
+import { applyDrill, buildPerQuestionSets, computeChoiceDistribution, matchingTesterIds, numericDrillValues, type DrillValue } from '@/lib/crossFilter';
 
 // TODO: AI analysis results are local state and are cleared on navigation.
 // Future improvement: persist in Zustand store keyed by questionId so results
@@ -97,7 +98,7 @@ export default function QuestionDetailPage({ params }: { params: Promise<{ id: s
     return rr.length > 0 ? computeRatingDistribution(rr, scale) : null;
   }, [allQuestionResponses, scale]);
 
-  const toggleRatingFilter = (value: number) => {
+  const toggleRatingFilter = (value: DrillValue) => {
     toggleDrill(id, value);
     // An existing analysis describes a different response set after the filter changes.
     setAiAnalysis(null);
@@ -172,20 +173,14 @@ export default function QuestionDetailPage({ params }: { params: Promise<{ id: s
   const highCount = ratingResponses.filter((r) => (r.normalizedScore ?? 0) >= 65).length;
   const midCount  = ratingResponses.length - lowCount - highCount;
 
-  // Option frequency for multiple choice / yes-no questions
-  const mcDist = (question.type === 'multiple_choice' || question.type === 'yes_no')
-    ? (() => {
-        const counts: Record<string, number> = {};
-        for (const r of qResponses) {
-          const val = r.rawAnswer.trim();
-          if (val) counts[val] = (counts[val] ?? 0) + 1;
-        }
-        const total = qResponses.length;
-        return Object.entries(counts)
-          .sort((a, b) => b[1] - a[1])
-          .map(([label, count]) => ({ label, count, pct: total > 0 ? Math.round((count / total) * 100) : 0 }));
-      })()
+  // Option frequency for multiple choice / yes-no questions. Like the rating
+  // chart it excludes this question's own selection, so clicking "Yes" doesn't
+  // leave "No" with nothing to click.
+  const isChoice = question.type === 'multiple_choice' || question.type === 'yes_no';
+  const mcDist = isChoice && allQuestionResponses.some((r) => r.rawAnswer.trim())
+    ? computeChoiceDistribution(allQuestionResponses, responses.filter((r) => r.questionId === id), question.options)
     : [];
+  const selectedAnswers = (selectedRatings ?? []).filter((v): v is string => typeof v === 'string');
 
   return (
     <div className="mx-auto w-full max-w-[1680px] flex flex-col xl:flex-row items-stretch xl:items-start gap-6 py-8 px-4 md:px-6 lg:px-8">
@@ -221,7 +216,7 @@ export default function QuestionDetailPage({ params }: { params: Promise<{ id: s
           <div className="mb-6 flex items-center justify-between gap-4 rounded-xl border border-indigo-500/40 bg-indigo-950/60 px-4 py-3">
             <div className="flex items-center gap-2 text-xs text-indigo-200">
               <Filter className="w-3.5 h-3.5" />
-              Showing testers who scored
+              Showing testers who {isChoice ? 'answered' : 'scored'}
               <span className="flex items-center gap-1">
                 {selectedRatings?.map((value, index) => (
                   <span key={value} className="flex items-center gap-1">
@@ -308,21 +303,16 @@ export default function QuestionDetailPage({ params }: { params: Promise<{ id: s
         {mcDist.length > 0 && (
           <CollapsibleSection
             title="Response Breakdown"
-            description="Distribution of answers across the visible responses"
+            description={ratingFilterActive
+              ? `Filtering this page to "${selectedAnswers.join('" or "')}". Click a selected bar to remove it, or another bar to add it.`
+              : 'Click one or more bars to include testers behind those answers.'}
             className="mb-6"
           >
-            <div className="space-y-2.5">
-              {mcDist.map(({ label, count, pct }) => (
-                <div key={label} className="flex items-center gap-3">
-                  <div className="w-40 text-xs text-slate-300 truncate flex-shrink-0" title={label}>{label}</div>
-                  <div className="flex-1 h-4 bg-slate-700/40 rounded-full overflow-hidden">
-                    <div className="h-full rounded-full bg-indigo-500/50" style={{ width: `${pct}%` }} />
-                  </div>
-                  <div className="w-6 text-xs font-semibold text-white text-right flex-shrink-0">{count}</div>
-                  <div className="w-9 text-[10px] text-slate-500 text-right flex-shrink-0">{pct}%</div>
-                </div>
-              ))}
-            </div>
+            <ChoiceBarChart
+              data={mcDist}
+              selectedValues={selectedAnswers}
+              onBarClick={toggleRatingFilter}
+            />
           </CollapsibleSection>
         )}
 

@@ -37,6 +37,42 @@ export type DrillSelection = Record<string, DrillValue[]>;
  */
 export const answerKey = (rawAnswer: string): string => rawAnswer.trim();
 
+/**
+ * Answer counts for a yes/no or multiple-choice chart, bucketed by `answerKey`
+ * so a clicked bar resolves to exactly the testers it counted.
+ *
+ * Bar order is the form's own `options` order when known — choice scales such as
+ * "Far too easy" … "Far too hard" are ordinal — followed by any other answer in
+ * `all` (the question's answers before any cross-filter), most common first.
+ * Every option gets a bar, so filtering changes bar heights but never reorders
+ * them or drops one. Percentages are of the answered `visible` responses.
+ */
+export function computeChoiceDistribution(
+  visible: Pick<Response, 'rawAnswer'>[],
+  all: Pick<Response, 'rawAnswer'>[],
+  options: string[] = [],
+): { label: string; count: number; pct: number }[] {
+  const tally = (list: Pick<Response, 'rawAnswer'>[]) => {
+    const counts = new Map<string, number>();
+    for (const r of list) {
+      const key = answerKey(r.rawAnswer ?? '');
+      if (key) counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+    return counts;
+  };
+  const order = [...new Set(options.map(answerKey).filter(Boolean))];
+  const seen = [...tally(all)].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([label]) => label);
+  for (const label of seen) if (!order.includes(label)) order.push(label);
+  const counts = tally(visible);
+  // A visible answer missing from `all` would be a caller bug, but keep it rather than hide data.
+  for (const label of counts.keys()) if (!order.includes(label)) order.push(label);
+  const total = [...counts.values()].reduce((s, n) => s + n, 0);
+  return order.map((label) => {
+    const count = counts.get(label) ?? 0;
+    return { label, count, pct: total > 0 ? Math.round((count / total) * 100) : 0 };
+  });
+}
+
 /** The numeric members of a selection — rating bar charts only understand numbers. */
 export function numericDrillValues(values: DrillValue[] | undefined): number[] {
   return (values ?? []).filter((v): v is number => typeof v === 'number');

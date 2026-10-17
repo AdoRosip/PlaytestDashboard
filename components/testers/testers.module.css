@@ -1,0 +1,644 @@
+/* Testers page — one continuous surface, like the report overview. No cards or
+   panels: sections and columns are split only by the engraved `.groove-*` lines
+   in globals.css. Shared text roles (section label, legend, bars) come from
+   overview.module.css; this module holds the Testers-specific layout.
+
+   Multi-column rows: the row is a wrapping flex container with `overflow:
+   hidden` and a negative left margin equal to the column padding; each column
+   carries `.groove-cell`, so the groove in front of whichever column starts a
+   line is clipped and wrapped columns never show a leading divider. */
+
+.page {
+  container-type: inline-size;
+  padding: 36px clamp(20px, 3vw, 44px) 32px;
+  font-family: var(--font-sans);
+  color: rgba(255, 255, 255, 0.86);
+}
+
+.mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.faint { color: rgba(255, 255, 255, 0.36); }
+
+/* ── Header ─────────────────────────────────────────────────────────────── */
+
+.header { padding-bottom: 24px; }
+
+/* ── Tabs ───────────────────────────────────────────────────────────────── */
+
+.tabs {
+  display: flex;
+  gap: 28px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.tab {
+  flex-shrink: 0;
+  padding-bottom: 12px;
+  font-size: 14px;
+  line-height: 1.2;
+  white-space: nowrap;
+  color: rgba(255, 255, 255, 0.58);
+  transition: color 120ms;
+  outline: none;
+}
+.tab:hover { color: rgba(255, 255, 255, 0.86); }
+.tab:focus-visible { color: #FFF; text-decoration: underline; text-underline-offset: 4px; }
+
+.tabActive {
+  color: #FFF;
+  font-weight: 500;
+  box-shadow: inset 0 -2px 0 #00FFFF;
+}
+
+.tabCount {
+  margin-left: 6px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.36);
+}
+
+/* ── Shared ─────────────────────────────────────────────────────────────── */
+
+.muted {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.mutedLine {
+  padding: 22px 0;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.blockLabel {
+  margin-bottom: 8px;
+  font-size: 12px;
+  white-space: nowrap;
+  color: rgba(255, 255, 255, 0.58);
+}
+
+.sectionMeta {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.gradientFill {
+  background: linear-gradient(90deg, #0066FF, #00FFFF);
+}
+
+/* ── Overview tab: KPI strip ────────────────────────────────────────────── */
+
+.kpiRow {
+  display: flex;
+  flex-wrap: wrap;
+  overflow: hidden;
+  margin-left: -24px;
+}
+
+.kpiCell {
+  flex: 1 1 170px;
+  min-width: 0;
+  padding: 22px 24px 24px;
+}
+
+.kpiValue {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Overview tab: geographic spread ────────────────────────────────────── */
+
+.geo { padding: 28px 0 30px; }
+
+.geoRow {
+  display: flex;
+  flex-wrap: wrap;
+  overflow: hidden;
+  margin-left: -28px;
+}
+
+.mapCol {
+  flex: 2 1 480px;
+  min-width: 0;
+  padding: 0 28px;
+}
+
+.sideCol {
+  flex: 1 1 280px;
+  min-width: 0;
+  padding-left: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* Once the side column wraps under the map, its groove becomes a top line. */
+@container (max-width: 760px) {
+  .mapCol { padding-bottom: 26px; }
+  .sideCol { padding-top: 26px; }
+}
+
+.mapFrame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1.9;
+}
+
+.mapSvg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.mapSvg path { transition: fill 120ms; }
+
+.mapTip {
+  position: absolute;
+  z-index: 10;
+  pointer-events: none;
+  padding: 7px 10px;
+  border-radius: 6px;
+  background: rgba(6, 9, 20, 0.94);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.075), 0 8px 24px rgba(0, 0, 0, 0.4);
+  white-space: nowrap;
+}
+.mapTipName { font-size: 12px; color: #FFF; }
+.mapTipCount { margin-top: 2px; font-family: var(--font-mono); font-size: 12px; color: #00FFFF; }
+
+.mapLegend {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  font-size: 12px;
+  white-space: nowrap;
+  color: rgba(255, 255, 255, 0.45);
+}
+.mapLegendNum { font-family: var(--font-mono); color: rgba(255, 255, 255, 0.58); }
+.mapLegendBar { width: 90px; height: 4px; border-radius: 2px; }
+
+/* By continent */
+.contRow {
+  display: grid;
+  grid-template-columns: minmax(96px, 1fr) minmax(60px, 140px) 28px;
+  gap: 14px;
+  align-items: center;
+  padding: 8px 0;
+}
+
+.rowName {
+  min-width: 0;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: rgba(255, 255, 255, 0.86);
+}
+
+.rowCount {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  text-align: right;
+  color: #FFF;
+}
+
+/* Top countries: two columns of name + count */
+.countryList {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 24px;
+}
+
+.countryRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 0;
+}
+.countryRow .rowCount { font-size: 13px; }
+
+.moreRow {
+  padding: 7px 0;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.languages {
+  font-size: 13px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+/* ── Players tab ────────────────────────────────────────────────────────── */
+
+.playersTitle {
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  color: #FFF;
+}
+
+/* Typical tester: header, then a grid of up to four columns. The grid is pulled
+   2px left so the first column's left groove is clipped by `.traits`. */
+.typical { padding: 32px 0 34px; }
+
+.typicalHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 14px;
+}
+
+.typicalSub {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.58);
+}
+
+.traits {
+  overflow: hidden;
+  margin-top: 20px;
+}
+
+.traitGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(max(190px, calc(25% - 1px)), 1fr));
+  margin-left: -2px;
+}
+
+.trait {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding: 18px 24px;
+  border-left: 1px solid var(--groove-dark);
+  border-bottom: 1px solid var(--groove-soft-dark);
+  box-shadow: inset 1px 0 0 var(--groove-light), 0 1px 0 var(--groove-soft-light);
+}
+
+.traitLabel {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.traitValue {
+  font-size: 17px;
+  font-weight: 500;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #FFF;
+}
+
+.traitShare {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+/* Attribute sections: intro on the left, a list of expandable rows on the right.
+   The two wrap into a stack once the container is narrower than ~800px. */
+.section {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px 56px;
+  padding: 32px 0 30px;
+}
+
+.sectionIntro {
+  flex: 0 1 260px;
+  min-width: 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sectionSummary {
+  font-size: 14px;
+  line-height: 1.6;
+  text-wrap: pretty;
+  color: rgba(255, 255, 255, 0.58);
+}
+
+.attrList {
+  flex: 1 1 520px;
+  min-width: 0;
+}
+
+/* Row and detail share one item so the soft groove sits under whichever is last. */
+.attrRow,
+.attrDetail {
+  display: grid;
+  grid-template-columns: minmax(110px, 180px) minmax(0, 1fr) auto;
+  gap: 20px;
+}
+
+.attrRow {
+  width: 100%;
+  align-items: center;
+  padding: 15px 10px;
+  text-align: left;
+  transition: background-color 120ms;
+  outline: none;
+}
+.attrRow:hover { background-color: rgba(0, 255, 255, 0.03); }
+.attrRow:focus-visible { background-color: rgba(0, 255, 255, 0.05); box-shadow: inset 2px 0 0 #00FFFF; }
+.attrOpen .attrRow { background-color: rgba(0, 255, 255, 0.035); }
+.attrOpen .attrRow:hover { background-color: rgba(0, 255, 255, 0.05); }
+
+.attrName {
+  min-width: 0;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.attrValue {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  min-width: 0;
+}
+
+.attrPct {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: 18px;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: #FFF;
+}
+
+.attrText {
+  min-width: 0;
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: rgba(255, 255, 255, 0.86);
+}
+
+.chevron {
+  width: 7px;
+  height: 7px;
+  margin: -4px 4px 0;
+  border-right: 1.5px solid rgba(255, 255, 255, 0.45);
+  border-bottom: 1.5px solid rgba(255, 255, 255, 0.45);
+  transform: rotate(45deg);
+  transition: transform 150ms, border-color 120ms, margin-top 150ms;
+}
+.attrOpen .chevron {
+  margin-top: 4px;
+  transform: rotate(225deg);
+  border-color: #00FFFF;
+}
+
+.attrDetail {
+  grid-template-columns: minmax(110px, 180px) minmax(0, 1fr);
+  padding: 2px 10px 20px;
+  background-color: rgba(0, 255, 255, 0.02);
+}
+.attrDetail[hidden] { display: none; }
+
+/* Phone widths: the name column drops to its minimum (grid would otherwise give
+   it the full 180px before the meaning text), and the source line sits above
+   the chart so the columns get the full row. */
+@container (max-width: 560px) {
+  .attrRow { grid-template-columns: 110px minmax(0, 1fr) auto; }
+  .attrDetail { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+}
+
+.attrSource {
+  font-size: 12px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.36);
+}
+
+/* Column chart: columns share the row, shrink to 56px, then the chart scrolls. */
+.chart {
+  max-width: 600px;
+  min-width: 0;
+  padding-top: 6px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.columns {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.column {
+  flex: 1 1 0;
+  min-width: 56px;
+  max-width: 120px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.columnPct {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: #FFF;
+}
+
+.columnBar {
+  width: 100%;
+  border-radius: 3px 3px 0 0;
+  background: linear-gradient(180deg, #00FFFF, #0066FF);
+}
+
+/* Two lines at most, so every column's base sits on the same line. */
+.columnLabel {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  width: 100%;
+  min-height: 32px;
+  font-size: 12px;
+  line-height: 1.35;
+  text-align: center;
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+  color: rgba(255, 255, 255, 0.58);
+}
+
+/* ── Roster tab ─────────────────────────────────────────────────────────── */
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px 28px;
+  padding: 20px 0;
+}
+
+.search {
+  position: relative;
+  flex: 1 1 240px;
+  max-width: 360px;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  color: rgba(255, 255, 255, 0.45);
+  pointer-events: none;
+}
+
+.searchInput {
+  width: 100%;
+  padding: 8px 0 8px 22px;
+  background: transparent;
+  font-size: 14px;
+  color: #FFF;
+  outline: none;
+  transition: border-color 120ms;
+}
+.searchInput::placeholder { color: rgba(255, 255, 255, 0.36); }
+.searchInput:focus-visible { border-bottom-color: rgba(0, 255, 255, 0.6); }
+
+.checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 22px;
+}
+
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  white-space: nowrap;
+  color: rgba(255, 255, 255, 0.86);
+  cursor: pointer;
+}
+
+.checkBox {
+  appearance: none;
+  flex-shrink: 0;
+  width: 12px;
+  height: 12px;
+  margin: 0;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 2px;
+  background: transparent;
+  cursor: pointer;
+  transition: background-color 120ms, border-color 120ms;
+}
+.checkBox:checked { background: #00FFFF; border-color: #00FFFF; }
+.checkBox:focus-visible { outline: 2px solid rgba(0, 255, 255, 0.6); outline-offset: 2px; }
+
+.checkCount {
+  font-family: var(--font-mono);
+  color: rgba(255, 255, 255, 0.36);
+}
+
+.tableWrap { overflow-x: auto; }
+
+.table {
+  width: 100%;
+  min-width: 900px;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.table th {
+  padding: 14px 16px 12px 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: left;
+  white-space: nowrap;
+  color: rgba(255, 255, 255, 0.45);
+  border-bottom: 1px solid var(--groove-dark);
+  box-shadow: 0 1px 0 var(--groove-light);
+}
+
+.table td {
+  padding: 14px 16px 14px 0;
+  vertical-align: top;
+  font-size: 13px;
+  border-bottom: 1px solid var(--groove-soft-dark);
+  box-shadow: 0 1px 0 var(--groove-soft-light);
+}
+
+.table .num { text-align: right; padding-right: 28px; }
+
+.tr {
+  cursor: pointer;
+  transition: background-color 120ms;
+}
+.tr:hover { background-color: rgba(0, 255, 255, 0.03); }
+
+.rid {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: #FFF;
+  outline: none;
+}
+.rid:hover { color: #AFFFFF; }
+.rid:focus-visible { text-decoration: underline; text-underline-offset: 3px; }
+
+.note {
+  margin-top: 3px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.cellText {
+  display: block;
+  max-width: 240px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: rgba(255, 255, 255, 0.86);
+}
+
+.cellNum {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: rgba(255, 255, 255, 0.86);
+}
+
+.cellDate { font-size: 12px; color: rgba(255, 255, 255, 0.58); }
+
+.dash { color: rgba(255, 255, 255, 0.36); }
+
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding: 16px 0;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.36);
+}
+
+.loadMore {
+  font-size: 13px;
+  color: #00FFFF;
+  transition: color 120ms;
+}
+.loadMore:hover { color: #AFFFFF; }

@@ -50,6 +50,24 @@ describe('Portal analytics DTO', () => {
     expect(data.testers).toHaveLength(1);
     expect(data.responses).toHaveLength(0);
   });
+  it('accepts numeric answer values such as Duration minutes', () => {
+    const input = fixture();
+    input.questions.push({ QuestionID: 2, QuestionText: 'How long?', QuestionDescription: '', DisplayOrder: 2, TypeName: 'Duration' });
+    (input.responses[0].answers as { questionId: number; value: unknown }[]).push({ questionId: 2, value: 320 });
+    const data = mapPortalData(input, '18', '32', portalGenericConfig);
+    expect(data.responses.find(r => r.rawAnswer === '320')).toBeDefined();
+  });
+  it('keeps choice options in form order and ignores a malformed list', () => {
+    const input = fixture();
+    input.questions.push(
+      { QuestionID: 2, QuestionText: 'Difficulty?', QuestionDescription: '', DisplayOrder: 2, TypeName: 'SingleChoice', Options: ['Too easy', 'About right', 'Too hard'] } as never,
+      { QuestionID: 3, QuestionText: 'Mode?', QuestionDescription: '', DisplayOrder: 3, TypeName: 'SingleChoice', Options: [1, 2] } as never,
+    );
+    const data = mapPortalData(input, '18', '32', portalGenericConfig);
+    expect(data.questions[1].options).toEqual(['Too easy', 'About right', 'Too hard']);
+    expect(data.questions[2].options).toBeUndefined();
+    expect(data.questions[0].options).toBeUndefined();
+  });
   it('supports an empty test', () => {
     const input = fixture(); input.responses = []; input.stats.totalResponses = 0;
     expect(mapPortalData(input, '18', '32', portalGenericConfig).testers).toHaveLength(0);

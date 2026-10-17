@@ -37,7 +37,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
 
   // Below `lg` both rails are off-canvas, so content is full-width. From `lg`
   // the nav is always docked and the filter panel optionally widens the offset.
-  const mainOffset = filterPanelOpen ? 'lg:ml-[480px]' : 'lg:ml-[220px]';
+  const mainOffset = filterPanelOpen ? 'lg:ml-[484px]' : 'lg:ml-[224px]';
 
   return (
     <div className="flex min-h-screen">
@@ -51,7 +51,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
           instead of blinking out. `inert` keeps its controls out of the tab order
           and off screen readers while hidden. */}
       <div
-        className={`hidden lg:flex fixed left-[220px] top-0 h-full w-[260px] border-r border-slate-800 z-30 transition-transform duration-200 ${
+        className={`hidden lg:flex print:hidden fixed left-[224px] top-0 h-full w-[260px] border-r border-slate-800 z-30 transition-transform duration-200 ${
           filterPanelOpen ? 'translate-x-0' : '-translate-x-[260px]'
         }`}
         inert={!filterPanelOpen}
@@ -75,7 +75,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
           aria-label="Expand filters"
           aria-expanded={false}
           title="Expand filters"
-          className="group hidden lg:flex fixed left-[220px] top-3 z-40 items-center py-1.5 px-2 rounded-r-lg border border-l-0 border-slate-700/60 bg-[#0d1220] text-slate-400 hover:text-white hover:border-slate-500 transition-colors"
+          className="group hidden lg:flex print:hidden fixed left-[224px] top-3 z-40 items-center py-1.5 px-2 rounded-r-lg border border-l-0 border-slate-700/60 bg-[#0d1220] text-slate-400 hover:text-white hover:border-slate-500 transition-colors"
         >
           <span className="grid grid-cols-[0fr] transition-[grid-template-columns] duration-200 group-hover:grid-cols-[1fr] group-focus-visible:grid-cols-[1fr]">
             <span className="flex overflow-hidden opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-visible:opacity-100">
@@ -98,7 +98,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
 
       {/* Off-canvas filter rail — below `lg`. Mounted always so it can animate. */}
       <div
-        className={`lg:hidden fixed left-0 top-0 h-full w-[300px] max-w-[85vw] border-r border-slate-800 z-50 transition-transform duration-200 ${
+        className={`lg:hidden print:hidden fixed left-0 top-0 h-full w-[300px] max-w-[85vw] border-r border-slate-800 z-50 transition-transform duration-200 ${
           mobileDrawer === 'filters' ? 'translate-x-0 shadow-2xl shadow-black/50' : '-translate-x-full'
         }`}
       >
@@ -115,7 +115,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
         />
       )}
 
-      <main className={`flex-1 ${mainOffset} min-w-0 min-h-screen pt-14 lg:pt-0 transition-all duration-200`}>
+      <main className={`flex-1 ${mainOffset} min-w-0 min-h-screen pt-14 lg:pt-0 print:pt-0 print:ml-0 transition-all duration-200`}>
         {/* Active-cohort banners. Pinned while scrolling so the reason the
             numbers below are small never scrolls out of sight — item 19 asks for
             the active filter to stay visibly highlighted. `top-14` clears the

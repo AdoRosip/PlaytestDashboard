@@ -52,22 +52,24 @@ export default function Sidebar() {
 
   return (
     <aside
+      // Same surface as the page — the top glow continues across the nav.
+      style={{ background: 'linear-gradient(180deg, rgba(0,102,255,.08), transparent 320px), #0B1021' }}
       className={cn(
-        'fixed top-0 left-0 h-full w-[220px] bg-[#0d1220] border-r border-slate-800 flex flex-col',
+        'fixed top-0 left-0 h-full w-[224px] groove-r flex flex-col font-sans print:hidden',
         // Off-canvas below `lg`, permanently docked from `lg` up.
         'z-50 transition-transform duration-200 lg:z-40 lg:translate-x-0',
         navOpen ? 'translate-x-0 shadow-2xl shadow-black/50' : '-translate-x-full',
       )}
     >
       {/* Logo */}
-      <div className="px-5 py-5 border-b border-slate-800 flex items-center justify-between gap-2">
+      <div className="px-5 py-5 groove-b flex items-center justify-between gap-2">
         <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-lg bg-slate-800/40 border border-slate-700/60 flex items-center justify-center overflow-hidden">
+          <div className="w-9 h-9 rounded-[9px] border border-[rgba(0,255,255,.22)] flex items-center justify-center overflow-hidden">
             <CompanyLogo className="w-8" priority />
           </div>
           <div>
-            <div className="font-display text-sm font-bold text-white leading-tight">Playlytix</div>
-            <div className="text-xs text-slate-500 leading-tight">Insights</div>
+            <div className="text-[15px] font-semibold text-white leading-tight">Playlytix</div>
+            <div className="text-[12px] text-white/[.58] leading-tight">Insights</div>
           </div>
         </div>
         <button
@@ -83,7 +85,7 @@ export default function Sidebar() {
       <nav className="flex-1 px-3 py-4 overflow-y-auto space-y-5">
         {NAV_SECTIONS.map(({ label, items }) => (
           <div key={label}>
-            <div className="px-3 mb-1 text-[10px] font-bold uppercase tracking-widest text-slate-600">
+            <div className="px-[10px] mb-1.5 font-mono text-[0.6875rem] uppercase tracking-[.08em] text-white/[.36]">
               {label}
             </div>
             <div className="space-y-0.5">
@@ -95,10 +97,10 @@ export default function Sidebar() {
                     key={href}
                     href={href}
                     className={cn(
-                      'flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors',
+                      'flex items-center gap-3 px-[10px] py-[9px] rounded-[7px] text-[14px] leading-tight transition-colors',
                       active
-                        ? 'bg-indigo-600/20 text-indigo-300 font-medium'
-                        : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60',
+                        ? 'bg-[rgba(0,255,255,.08)] text-[#00FFFF] font-medium'
+                        : 'text-white/[.58] hover:text-white/[.86] hover:bg-white/[.04]',
                     )}
                   >
                     <Icon className="w-4 h-4 flex-shrink-0" />

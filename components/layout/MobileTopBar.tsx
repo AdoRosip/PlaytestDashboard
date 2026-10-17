@@ -14,7 +14,7 @@ export default function MobileTopBar() {
   const project           = useDashboardStore((s) => s.project);
 
   return (
-    <header className="lg:hidden fixed top-0 left-0 right-0 h-14 z-30 flex items-center gap-2 px-3 bg-[#0d1220] border-b border-slate-800">
+    <header className="lg:hidden print:hidden fixed top-0 left-0 right-0 h-14 z-30 flex items-center gap-2 px-3 bg-[#0d1220] border-b border-slate-800">
       <button
         onClick={() => openMobileDrawer('nav')}
         aria-label="Open navigation"

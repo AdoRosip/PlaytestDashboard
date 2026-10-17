@@ -44,4 +44,15 @@ describe('dossier data contract', () => {
     expect(filterTesterList(d.testers, '29', 'all', d.responses, d.questions, portalGenericConfig).map(t => t.id)).toEqual([d.testers[1].id]);
     expect(filterTesterList(d.testers, '', 'target_genre', d.responses, d.questions, portalGenericConfig, ['Puzzle']).map(t => t.id)).toEqual([d.testers[1].id]);
   });
+  it('combines comma-separated roster filters and searches by country', () => {
+    const d = mapped();
+    d.testers[0].files = [];
+    d.testers[1].segments.country = 'Narnia';
+    const ids = (search: string, filter: string) =>
+      filterTesterList(d.testers, search, filter, d.responses, d.questions, portalGenericConfig, ['Puzzle']).map(t => t.id);
+    expect(ids('', 'recording')).toEqual([d.testers[1].id]);
+    expect(ids('', 'target_genre,recording')).toEqual([d.testers[1].id]);
+    expect(ids('', 'unmatched,recording')).toEqual([]);
+    expect(ids('narn', 'all')).toEqual([d.testers[1].id]);
+  });
 });
