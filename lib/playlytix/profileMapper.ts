@@ -1,5 +1,5 @@
-import type { TesterRegistryProfile, TesterVideo, VideoTranscriptRef } from '../types';
-import { profileText, registryGroups } from '../dossier';
+import type { TesterRegistryProfile, TesterFile, VideoTranscriptRef } from '../types';
+import { isImage, isVideo, profileText, registryGroups } from '../dossier';
 
 function string(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim() ? profileText(value.trim()) : undefined;
@@ -37,11 +37,14 @@ export function mapRegistryProfile(source: Record<string, unknown>): TesterRegis
   result.avoidedGenres = strings(source.avoidedGenres);
   result.languages = strings(source.languages);
   const steam = record(source.steam);
-  if (number(steam.gameCount) !== undefined || number(steam.totalHours) !== undefined) {
+  const match = record(steam.match);
+  const genreHours = number(match.genreHours);
+  if (number(steam.gameCount) !== undefined || number(steam.totalHours) !== undefined || genreHours !== undefined) {
     result.steam = { gameCount: number(steam.gameCount), totalHours: number(steam.totalHours) };
+    if (genreHours !== undefined) result.steam.match = { genreHours, modeHours: number(match.modeHours), partial: match.genreDataPartial === true };
   }
   // TODO(spec): subscriptions has no group/label in the spec; omit it.
-  // Steam connected, visibility, syncedAt and match are not dossier fields.
+  // Steam connected, visibility, syncedAt and match.ownsGame are not dossier fields.
   return result;
 }
 
@@ -58,7 +61,7 @@ export function mapProfileExtras(row: Record<string, unknown>, profile: Record<s
   // The Portal includes registry fields inline; no separate registry lookup is needed.
   const inRegistry = typeof profile.inRegistry === 'boolean' ? profile.inRegistry
     : Object.keys(profile).some(k => ['country', 'gender', 'ageRange', 'gamingPreferences', 'testedBefore', 'gpu'].includes(k) && profile[k] != null) ? true : undefined;
-  const files: TesterVideo[] = (Array.isArray(row.files) ? row.files : []).map((raw, index) => {
+  const files: TesterFile[] = (Array.isArray(row.files) ? row.files : []).map((raw, index) => {
     const f = record(raw);
     // TODO(spec): the current API omits title, upload time, duration, thumbnail,
     // resolution and response links. Accept those optional fields when supplied;
@@ -70,7 +73,7 @@ export function mapProfileExtras(row: Record<string, unknown>, profile: Record<s
       questionId: questionIds.get(String(f.questionId)),
       transcript: transcriptRef(f, source.testId, source.submissionId),
     };
-  }).filter(f => f.mimeType?.startsWith('video/') || /\.(mp4|webm|mov|m4v|avi|mkv|ogv)$/i.test(f.name ?? ''));
+  }).filter(f => isVideo(f) || isImage(f));
   const comments = (Array.isArray(row.comments) ? row.comments : []).flatMap(raw => {
     const c = record(raw);
     const text = string(c.text), createdAt = date(c.createdAt);

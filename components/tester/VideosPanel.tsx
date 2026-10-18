@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { TesterVideo, TranscriptCue } from '@/lib/types';
+import type { TesterFile, TranscriptCue } from '@/lib/types';
 import { profileAnswers, profileDate, profileText } from '@/lib/dossier';
 import { toVtt } from '@/lib/playlytix/transcripts';
 import TranscriptPanel, { useTranscript } from './TranscriptPanel';
@@ -15,9 +15,9 @@ function duration(seconds?: number) {
   const value = Math.floor(seconds);
   return value >= 3600 ? `${Math.floor(value / 3600)}:${String(Math.floor(value % 3600 / 60)).padStart(2, '0')}:${String(value % 60).padStart(2, '0')}` : `${Math.floor(value / 60)}:${String(value % 60).padStart(2, '0')}`;
 }
-function title(file: TesterVideo, index: number) { return profileText(file.title || file.name || `Video ${index + 1}`); }
+function title(file: TesterFile, index: number) { return profileText(file.title || file.name || `Video ${index + 1}`); }
 
-function Thumbnail({ file, metadata, onMetadata }: { file: TesterVideo; metadata?: VideoMetadata; onMetadata: (id: string, data: VideoMetadata) => void }) {
+function Thumbnail({ file, metadata, onMetadata }: { file: TesterFile; metadata?: VideoMetadata; onMetadata: (id: string, data: VideoMetadata) => void }) {
   const callback = useRef(onMetadata);
   useEffect(() => { callback.current = onMetadata; }, [onMetadata]);
   const [failedImage, setFailedImage] = useState(false);
@@ -65,7 +65,7 @@ function useVttUrl(cues?: TranscriptCue[]) {
   return url;
 }
 
-function Player({ file, name, captions, onVideo, onMetadata }: { file: TesterVideo; name: string; captions?: string; onVideo: (video: HTMLVideoElement | null) => void; onMetadata: (id: string, data: VideoMetadata) => void }) {
+function Player({ file, name, captions, onVideo, onMetadata }: { file: TesterFile; name: string; captions?: string; onVideo: (video: HTMLVideoElement | null) => void; onMetadata: (id: string, data: VideoMetadata) => void }) {
   const [error, setError] = useState(!file.url);
   const [loaded, setLoaded] = useState(false);
   return <div className={`${s.player} ${loaded ? '' : s.stripes}`}>
@@ -77,7 +77,7 @@ function Player({ file, name, captions, onVideo, onMetadata }: { file: TesterVid
 }
 
 export default function VideosPanel({ files, answers, metadata, onMetadata, onLinkedAnswer }: {
-  files: TesterVideo[]; answers: ReturnType<typeof profileAnswers>; metadata: Record<string, VideoMetadata>;
+  files: TesterFile[]; answers: ReturnType<typeof profileAnswers>; metadata: Record<string, VideoMetadata>;
   onMetadata: (id: string, data: VideoMetadata) => void; onLinkedAnswer: (id: string) => void;
 }) {
   const [selected, setSelected] = useState(0);

@@ -1,15 +1,17 @@
 'use client';
-import { useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
-  Sparkles, ChevronDown, ChevronUp, ExternalLink, Info,
+  Sparkles, ChevronDown, ChevronUp, Info,
   AlertCircle, RefreshCw, Loader2,
 } from 'lucide-react';
 import { useDashboardStore, selectAnyFilterActive, selectFilteredResponses } from '@/lib/store';
 import PageHeader from '@/components/ui/PageHeader';
 import EmptyState from '@/components/ui/EmptyState';
 import { filterThemesForResponses } from '@/lib/themeFiltering';
+import { getTesterDisplayName } from '@/lib/testerIdentity';
 
-export default function ThemesPage() {
+function Themes() {
   const storedThemes    = useDashboardStore((s) => s.themes);
   const categories      = useDashboardStore((s) => s.categories);
   const questions       = useDashboardStore((s) => s.questions);
@@ -21,9 +23,18 @@ export default function ThemesPage() {
   const analysisError   = useDashboardStore((s) => s.analysisError);
   const runThemeAnalysis = useDashboardStore((s) => s.runThemeAnalysis);
   const clearThemes     = useDashboardStore((s) => s.clearThemes);
-  const openDrawer      = useDashboardStore((s) => s.openDrawer);
+  const testers         = useDashboardStore((s) => s.testers);
+  const openTesterPanel = useDashboardStore((s) => s.openTesterPanel);
 
-  const [expanded, setExpanded] = useState<string | null>(null);
+  // `?theme=` comes from the theme rows on the overview and category pages.
+  const linkedTheme = useSearchParams().get('theme');
+  const [expanded, setExpanded] = useState<string | null>(linkedTheme);
+  useEffect(() => {
+    if (linkedTheme) document.getElementById(`theme-${linkedTheme}`)?.scrollIntoView({ block: 'start' });
+  }, [linkedTheme]);
+  const responseById = useMemo(() => new Map(responses.map((r) => [r.id, r])), [responses]);
+  const questionById = useMemo(() => new Map(questions.map((q) => [q.id, q])), [questions]);
+  const testerById = useMemo(() => new Map(testers.map((t) => [t.id, t])), [testers]);
 
   const themes = useMemo(
     () => filterThemesForResponses(storedThemes, responses, filtersActive),
@@ -166,7 +177,8 @@ export default function ThemesPage() {
               return (
                 <div
                   key={theme.id}
-                  className="rounded-xl border border-slate-700/60 bg-slate-800/20 overflow-hidden"
+                  id={`theme-${theme.id}`}
+                  className="scroll-mt-4 rounded-xl border border-slate-700/60 bg-slate-800/20 overflow-hidden"
                 >
                   {/* Header row */}
                   <div
@@ -221,18 +233,38 @@ export default function ThemesPage() {
                         </div>
                       )}
 
-                      {/* Actions */}
-                      <div className="flex items-center gap-3">
-                        {theme.questionId && (
-                          <button
-                            onClick={() => openDrawer(theme.questionId!, undefined)}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-700 text-xs text-slate-300 hover:text-white hover:border-slate-500 transition-colors"
-                          >
-                            <ExternalLink className="w-3 h-3" />
-                            View source responses
-                          </button>
-                        )}
-                      </div>
+                      {/* The answers the theme was built from — the evidence behind its count.
+                          Limited to the current (possibly filtered) cohort. */}
+                      {(() => {
+                        const sources = theme.linkedResponseIds.flatMap((id) => responseById.get(id) ?? []);
+                        if (!sources.length) return null;
+                        return (
+                          <div>
+                            <div className="text-[10px] text-slate-500 uppercase tracking-wide mb-2">
+                              Source responses ({sources.length})
+                            </div>
+                            <div className="space-y-2 max-h-[28rem] overflow-y-auto pr-1">
+                              {sources.map((r) => {
+                                const tester = r.testerId ? testerById.get(r.testerId) : undefined;
+                                return (
+                                  <div key={r.id} className="text-xs bg-slate-900/50 border border-slate-700/40 rounded px-3 py-2">
+                                    <div className="flex items-start justify-between gap-3 mb-1">
+                                      <span className="min-w-0 text-[11px] text-slate-500">{questionById.get(r.questionId)?.text}</span>
+                                      {tester && (
+                                        <button type="button" onClick={() => openTesterPanel(tester.id)}
+                                          className="shrink-0 text-[11px] text-cyan-300 hover:text-white">
+                                          {getTesterDisplayName(tester)} →
+                                        </button>
+                                      )}
+                                    </div>
+                                    <p className="text-slate-300 leading-relaxed whitespace-pre-wrap [overflow-wrap:anywhere]">{r.rawAnswer}</p>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </div>
                   )}
                 </div>
@@ -244,3 +276,5 @@ export default function ThemesPage() {
     </div>
   );
 }
+
+export default function ThemesPage() { return <Suspense><Themes /></Suspense>; }

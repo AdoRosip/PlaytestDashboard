@@ -464,6 +464,9 @@ a.kpiCell:hover { background-color: rgba(255, 255, 255, 0.02); }
   color: rgba(255, 255, 255, 0.36);
 }
 
+.themeSource { display: inline-block; transition: color 120ms; }
+.themeSource:hover, .themeSource:focus-visible { color: #00FFFF; }
+
 .aiLabel {
   margin-left: 8px;
   font-family: var(--font-mono);

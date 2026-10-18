@@ -20,6 +20,8 @@ export default function TesterProfileModal() {
     document.body.style.overflow = 'hidden';
     closeButton.current?.focus();
     const keyboard = (event: KeyboardEvent) => {
+      // A nested native dialog (the screenshot viewer) handles its own Escape and focus.
+      if ((event.target as Element | null)?.closest?.('dialog[open]')) return;
       if (event.key === 'Escape') { event.stopImmediatePropagation(); close(); return; }
       if (event.key !== 'Tab') return;
       const elements = Array.from(dialog.current?.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), video[controls], [tabindex]:not([tabindex="-1"])') ?? []).filter(el => el.tabIndex !== -1 && el.getClientRects().length);

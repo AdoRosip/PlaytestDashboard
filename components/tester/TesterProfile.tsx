@@ -5,12 +5,15 @@ import { useDashboardStore, selectFilteredResponses, selectGameConfig } from '@/
 import { getTesterDisplayName } from '@/lib/testerIdentity';
 import { engagement, testerGenres } from '@/lib/testerProfile';
 import { flagLabel } from '@/lib/outliers';
-import { profileAnswers, profileDate, profileGenreFit, profileText, ratingAverages, ratingScale, registryGroups, videoFiles } from '@/lib/dossier';
+import { profileAnswers, profileDate, profileGenreFit, profileText, ratingAverages, ratingScale, registryGroups, screenshotGroups, videoFiles } from '@/lib/dossier';
 import type { Tester } from '@/lib/types';
 import VideosPanel, { type VideoMetadata } from './VideosPanel';
+import ScreenshotsPanel from './ScreenshotsPanel';
 import s from './TesterProfile.module.css';
 
-export type ProfileTab = 'answers' | 'videos';
+export type ProfileTab = 'answers' | 'videos' | 'screenshots';
+const TABS: ProfileTab[] = ['answers', 'videos', 'screenshots'];
+const TAB_LABELS: Record<ProfileTab, string> = { answers: 'Answers', videos: 'Videos', screenshots: 'Screenshots' };
 type Fact = [string, string | undefined];
 function Facts({ rows }: { rows: Fact[] }) {
   return <dl className={s.facts}>{rows.filter(([, value]) => !!value).map(([label, value]) => <div key={label} className={s.fact}><dt>{label}</dt><dd className={['Submitted', 'Steam library', 'Plays'].includes(label) ? s.numeric : undefined}>{profileText(value!)}</dd></div>)}</dl>;
@@ -56,6 +59,7 @@ export default function TesterProfile({ tester, tab: routeTab, onTabChange }: { 
   const questions = useDashboardStore(state => state.questions);
   const categories = useDashboardStore(state => state.categories);
   const targets = useDashboardStore(state => state.project?.steamMatchGenres);
+  const modes = useDashboardStore(state => state.project?.steamMatchModes);
   const config = useDashboardStore(selectGameConfig);
   const [localTab, setLocalTab] = useState<ProfileTab>('answers');
   const tab = routeTab ?? localTab;
@@ -72,7 +76,11 @@ export default function TesterProfile({ tester, tab: routeTab, onTabChange }: { 
   const own = useMemo(() => ratingAverages(responses.filter(r => r.testerId === tester.id), questions), [responses, questions, tester.id]);
   const eng = engagement(tester.id, responses, questions);
   const fit = profileGenreFit(tester, config, targets);
+  const modeHoursValue = tester.profile?.steam?.match?.modeHours;
+  const modeHours = fit.hours !== undefined && modes?.length && modeHoursValue !== undefined ? `${modes.join(', ')} ${modeHoursValue.toLocaleString('en-GB')} h` : '';
   const files = useMemo(() => videoFiles(tester.files), [tester.files]);
+  const shots = useMemo(() => screenshotGroups(tester.files, questions), [tester.files, questions]);
+  const counts: Record<ProfileTab, number> = { answers: answers.length, videos: files.length, screenshots: shots.reduce((n, g) => n + g.files.length, 0) };
   const ratingCount = answers.filter(a => a.rating).length;
   const visible = answers.filter(a => filter === 'all' || (filter === 'ratings' ? a.rating : !a.rating));
   const flags = tester.quality?.flags ?? [];
@@ -102,18 +110,18 @@ export default function TesterProfile({ tester, tab: routeTab, onTabChange }: { 
       <div className={s.strip}>
         <div className={s.cell}><div className={s.cellLabel}>Avg rating</div><div className={s.cellValue}><span className={`${s.numeric} ${s.average}`}>{own.overall?.toFixed(1) ?? '—'}</span><span className={s.outOf}> / 5</span></div><div className={s.subline}>{own.overall === undefined ? 'no ratings' : group.overall === undefined ? 'no group data' : `group ${group.overall.toFixed(1)}`}</div></div>
         <div className={s.cell}><div className={s.cellLabel}>Written feedback</div><div className={s.cellValue}>{{ detailed: 'Detailed', brief: 'Brief', minimal: 'Low-effort', none: 'None' }[eng.tier]}</div><div className={s.subline}>{eng.answered} comments, {Math.round(eng.avgWords)} words</div></div>
-        <div className={s.cell}><div className={s.cellLabel}>Genre fit</div><div className={s.cellValue}>{fit.value}</div><div className={s.subline}>{profileText(fit.reason)}</div></div>
+        <div className={s.cell}><div className={s.cellLabel}>Genre fit</div><div className={s.cellValue}>{fit.value}{fit.hours !== undefined && <span className={`${s.numeric} ${s.outOf}`}>({fit.hours.toLocaleString('en-GB')} h)</span>}</div><div className={s.subline}>{profileText([fit.reason, modeHours].filter(Boolean).join(' · '))}</div></div>
         <div className={s.cell}><div className={s.cellLabel}>Flags</div><div className={s.cellValue}>{flags.length ? flags.map(f => flagLabel(f.type)).join(', ') : 'None'}</div>{flags[0] && <div className={`${s.subline} ${s.truncate}`} title={profileText(flags[0].detail)}>{profileText(flags[0].detail)}</div>}</div>
       </div>
       <div>
         <div className={s.tabHeader}><div role="tablist" aria-label="Tester feedback" className={s.tabs}>
-          {(['answers', 'videos'] as const).map((name, i) => <button key={name} ref={el => { tabs.current[i] = el; }} id={`${uid}-${name}-tab`} aria-controls={`${uid}-${name}-panel`} role="tab" aria-selected={tab === name} tabIndex={tab === name ? 0 : -1} className={s.tab} onClick={() => setTab(name)} onKeyDown={event => {
+          {TABS.map((name, i) => <button key={name} ref={el => { tabs.current[i] = el; }} id={`${uid}-${name}-tab`} aria-controls={`${uid}-${name}-panel`} role="tab" aria-selected={tab === name} tabIndex={tab === name ? 0 : -1} className={s.tab} onClick={() => setTab(name)} onKeyDown={event => {
             if (!['ArrowRight', 'ArrowLeft', 'Home', 'End'].includes(event.key)) return;
-            event.preventDefault(); const next = event.key === 'Home' ? 0 : event.key === 'End' ? 1 : 1 - i;
-            tabs.current[next]?.focus(); setTab(next ? 'videos' : 'answers');
-          }}>{name === 'answers' ? 'Answers' : 'Videos'}{' '}<span className={s.count}>{name === 'answers' ? answers.length : files.length}</span></button>)}
+            event.preventDefault(); const next = event.key === 'Home' ? 0 : event.key === 'End' ? TABS.length - 1 : (i + (event.key === 'ArrowRight' ? 1 : TABS.length - 1)) % TABS.length;
+            tabs.current[next]?.focus(); setTab(TABS[next]);
+          }}>{TAB_LABELS[name]}{' '}<span className={s.count}>{counts[name]}</span></button>)}
         </div>{tab === 'answers' ? <div className={s.filters} role="group" aria-label="Answer type">{[['all', 'All'], ['ratings', `Ratings ${ratingCount}`], ['written', `Written ${answers.length - ratingCount}`]].map(([value, label]) => <button key={value} aria-pressed={filter === value} onClick={() => { setFilter(value); setExpanded(false); }}>{label}</button>)}</div>
-          : totalDuration !== undefined && <span className={s.subtitle}>{totalDuration} min total</span>}</div>
+          : tab === 'videos' && totalDuration !== undefined && <span className={s.subtitle}>{totalDuration} min total</span>}</div>
         <div role="tabpanel" id={`${uid}-${tab}-panel`} aria-labelledby={`${uid}-${tab}-tab`} tabIndex={0}>
           {tab === 'answers' ? <div className={s.answers}>
             {visible.slice(0, expanded ? undefined : 20).map(({ q, response, index, rating }) => {
@@ -142,7 +150,7 @@ export default function TesterProfile({ tester, tab: routeTab, onTabChange }: { 
             {!answers.length && <p className={s.empty}>This tester didn&apos;t submit any answers.</p>}
             {!!answers.length && !visible.length && <p className={s.empty}>{filter === 'ratings' ? 'no ratings' : 'No written feedback'}</p>}
             {!expanded && visible.length > 20 && <button className={s.more} onClick={() => setExpanded(true)}>{visible.length - 20} more answers</button>}
-          </div> : <VideosPanel files={files} answers={answers} metadata={metadata} onMetadata={(id, data) => setMetadata(current => ({ ...current, [id]: { ...current[id], ...data } }))} onLinkedAnswer={id => { setFilter('all'); setExpanded(true); setPendingAnswer(id); setTab('answers'); }} />}
+          </div> : tab === 'screenshots' ? <ScreenshotsPanel groups={shots} /> : <VideosPanel files={files} answers={answers} metadata={metadata} onMetadata={(id, data) => setMetadata(current => ({ ...current, [id]: { ...current[id], ...data } }))} onLinkedAnswer={id => { setFilter('all'); setExpanded(true); setPendingAnswer(id); setTab('answers'); }} />}
         </div>
       </div>
       {tab === 'answers' && !!tester.comments?.length && <section className={s.comments}><h2>Comments during the session</h2>{tester.comments.map((comment, i) => <div key={`${comment.createdAt}-${i}`} className={s.comment}><time className={s.numeric} dateTime={comment.createdAt}>{new Date(comment.createdAt).toLocaleTimeString('en-GB', { hourCycle: 'h23' })}</time><p>{profileText(comment.text)}</p></div>)}</section>}

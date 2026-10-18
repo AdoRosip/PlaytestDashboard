@@ -1,4 +1,4 @@
-import type { Question, Response, Tester, TesterRegistryProfile, TesterVideo } from './types';
+import type { Question, Response, Tester, TesterRegistryProfile, TesterFile } from './types';
 import type { GameConfig } from './games';
 import { engagement, genreFit } from './testerProfile';
 import { getTesterDisplayName } from './testerIdentity';
@@ -48,8 +48,19 @@ export function ratingAverages(responses: Response[], questions: Question[]) {
   return { overall: mean(normalized), questions: new Map([...values].map(([key, xs]) => [key, mean(xs)!])) };
 }
 
-export function profileGenreFit(tester: Tester, config: GameConfig, targets?: string[]) {
+/**
+ * `value` stays one of a few fixed labels (filters and counts compare against it).
+ * With the Portal's Steam match for the test's target genres, fit is "has any
+ * Steam hours in them" and `hours` carries the number, as on the Portal's
+ * matchmaking; otherwise it falls back to the tester's stated genre preferences.
+ */
+export function profileGenreFit(tester: Tester, config: GameConfig, targets?: string[]): { value: string; reason: string; hours?: number } {
   if (tester.inRegistry !== true) return { value: tester.inRegistry === undefined ? '—' : 'Unknown', reason: 'profile data unavailable' };
+  const match = tester.profile?.steam?.match;
+  if (targets?.length && match) {
+    return { value: match.genreHours > 0 ? 'Target genre' : 'Outside target', hours: match.genreHours,
+      reason: `${targets.join(', ')} on Steam${match.partial ? ' · partial data' : ''}` };
+  }
   const configured = targets === undefined ? config : { ...config, targetGenres: targets.map(label => ({ label, match: new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') })) };
   const fit = genreFit(tester, configured);
   if (!fit.target.length) return { value: 'Not set', reason: 'test has no target genres' };
@@ -88,9 +99,30 @@ export function filterTesterList(testers: Tester[], search: string, filter: stri
   }).sort((a, b) => getTesterDisplayName(a).localeCompare(getTesterDisplayName(b), undefined, { numeric: true }));
 }
 
-export function videoFiles(files: TesterVideo[] = []) {
-  return files.filter(f => f.mimeType?.startsWith('video/') || /\.(mp4|webm|mov|m4v|avi|mkv|ogv)(?:[?#]|$)/i.test(f.name ?? f.url ?? ''))
-    .sort((a, b) => (Date.parse(a.uploadedAt ?? '') || 0) - (Date.parse(b.uploadedAt ?? '') || 0));
+export function isVideo(f: TesterFile) {
+  return !!f.mimeType?.startsWith('video/') || /\.(mp4|webm|mov|m4v|avi|mkv|ogv)(?:[?#]|$)/i.test(f.name ?? f.url ?? '');
+}
+export function isImage(f: TesterFile) {
+  return !!f.mimeType?.startsWith('image/') || /\.(png|jpe?g|gif|webp|bmp|avif)(?:[?#]|$)/i.test(f.name ?? f.url ?? '');
+}
+const byUpload = (a: TesterFile, b: TesterFile) => (Date.parse(a.uploadedAt ?? '') || 0) - (Date.parse(b.uploadedAt ?? '') || 0);
+
+export function videoFiles(files: TesterFile[] = []) {
+  return files.filter(isVideo).sort(byUpload);
+}
+
+/** Screenshots grouped under the File question they were uploaded to, in questionnaire order. */
+export function screenshotGroups(files: TesterFile[] = [], questions: Question[]) {
+  const order = new Map(questions.map((q, i) => [q.id, { q, index: q.displayOrder ?? i + 1 }]));
+  const groups = new Map<string, { q?: Question; index: number; files: TesterFile[] }>();
+  for (const file of files.filter(f => !isVideo(f) && isImage(f)).sort(byUpload)) {
+    const entry = file.questionId ? order.get(file.questionId) : undefined;
+    const key = entry ? entry.q.id : '';
+    const group = groups.get(key) ?? { q: entry?.q, index: entry?.index ?? Infinity, files: [] };
+    group.files.push(file);
+    groups.set(key, group);
+  }
+  return [...groups.values()].sort((a, b) => a.index - b.index);
 }
 
 export const registryGroups: { title: string; fields: [keyof TesterRegistryProfile, string][] }[] = [

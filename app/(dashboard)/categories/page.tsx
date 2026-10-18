@@ -65,12 +65,8 @@ export default function CategoriesPage() {
     };
   });
 
-  // Sort: worst first
-  const sorted = [...categoriesWithStats].sort((a, b) => {
-    if (a.avgScore === null) return b.avgScore === null ? 0 : 1;
-    if (b.avgScore === null) return -1;
-    return a.avgScore - b.avgScore;
-  });
+  // Questionnaire order (A, B, C…), the order testers met the categories in.
+  const sorted = [...categoriesWithStats].sort((a, b) => a.category.order - b.category.order);
 
   return (
     <div className="mx-auto w-full max-w-[1680px] px-4 md:px-6 lg:px-8 py-8">

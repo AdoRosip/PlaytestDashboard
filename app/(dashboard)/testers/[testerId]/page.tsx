@@ -23,12 +23,12 @@ function TesterDetail() {
   const targets = useDashboardStore(state => state.project?.steamMatchGenres);
   const visible = filterTesterList(testers, params.get('search') ?? '', params.get('filter') ?? 'all', responses, questions, config, targets);
   const index = visible.findIndex(t => t.id === testerId);
-  const tab: ProfileTab = params.get('tab') === 'videos' ? 'videos' : 'answers';
+  const tab: ProfileTab = params.get('tab') === 'videos' || params.get('tab') === 'screenshots' ? params.get('tab') as ProfileTab : 'answers';
   const listParams = new URLSearchParams(params.toString()); listParams.set('tab', 'roster');
   const backHref = `/testers${listParams.size ? `?${listParams}` : ''}`;
   const setTab = (next: ProfileTab) => {
     const query = new URLSearchParams(params.toString());
-    if (next === 'videos') query.set('tab', next); else query.delete('tab');
+    if (next !== 'answers') query.set('tab', next); else query.delete('tab');
     router.replace(`${pathname}${query.size ? `?${query}` : ''}`, { scroll: false });
   };
   return <div className={`${s.dossier} ${s.page}`}><div className={s.container}>

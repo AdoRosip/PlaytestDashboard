@@ -80,7 +80,7 @@ export interface Tester {
   username?: string;
   submittedAt?: string;
   profile?: TesterRegistryProfile;
-  files?: TesterVideo[];
+  files?: TesterFile[];
   comments?: { text: string; createdAt: string }[];
   /** Stable cross-game registry id from Playlytix (absent for unmatched testers). */
   playlytixId?: number;
@@ -179,6 +179,7 @@ export interface Project {
   matchedTesters: number;
   unmatchedTesters: number;
   steamMatchGenres?: string[];
+  steamMatchModes?: string[];
 }
 
 /** Explicit client-facing registry allowlist; never copy the raw Portal profile. */
@@ -186,7 +187,12 @@ export interface TesterRegistryProfile {
   testedBefore?: string;
   avoidedGenres?: string[];
   languages?: string[];
-  steam?: { gameCount?: number; totalHours?: number };
+  steam?: {
+    gameCount?: number;
+    totalHours?: number;
+    /** Steam hours in the test's target genres / modes, computed by the Portal (its matchmaking numbers). */
+    match?: { genreHours: number; modeHours?: number; partial?: boolean };
+  };
   sessionLength?: string;
   playTimes?: string;
   motivations?: string;
@@ -211,7 +217,7 @@ export interface TesterRegistryProfile {
   backsCrowdfunding?: string;
 }
 
-export interface TesterVideo {
+export interface TesterFile {
   id: string;
   url?: string;
   name?: string;
