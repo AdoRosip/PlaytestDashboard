@@ -1,7 +1,7 @@
 'use client';
 import { use, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import Link from '@/components/layout/ReportLink';
-import { ChevronDown, LayoutGrid, Sparkles } from 'lucide-react';
+import { LayoutGrid, Sparkles } from 'lucide-react';
 import { useDashboardStore, selectAnyFilterActive, selectSegmentFilteredResponses } from '@/lib/store';
 import QuestionSummaryDialog from '@/components/ui/QuestionSummaryDialog';
 import { questionTypeLabel, computeRatingDistribution } from '@/lib/utils';
@@ -106,7 +106,6 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ id: s
   // Question whose AI summary dialog is open (null = closed).
   const [summaryQ, setSummaryQ] = useState<Question | null>(null);
   const chartLayout = useSyncExternalStore(subscribeChartLayout, readChartLayout, serverChartLayout);
-  const [ratingsExpanded, setRatingsExpanded] = useState(true);
   const [layoutMenuOpen, setLayoutMenuOpen] = useState(false);
   const layoutControlRef = useRef<HTMLDivElement>(null);
   const layoutTriggerRef = useRef<HTMLButtonElement>(null);
@@ -185,16 +184,19 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ id: s
     );
   }
 
-  // Questions that can drive the cross-filter come first: rating and choice
-  // charts are filter controls, and everything below — free text especially —
-  // is meant to be read *through* whatever is selected up here. Prose can only
-  // ever be filtered, never filter, so it always sorts last.
+  // Questionnaire order, so a follow-up ("If not, please explain why.") sits
+  // right after the question it follows up. Consecutive charts share one grid,
+  // and every chart still drives the cross-filter for the answers around it.
   const isChoiceType = (t: Question['type']) => t === 'yes_no' || t === 'multiple_choice';
+  const isChart = (q: Question) => isRatingType(q.type) || isChoiceType(q.type);
   const ratingQuestions = catQuestions.filter((q) => isRatingType(q.type));
-  const chartQuestions = catQuestions.filter((q) => isRatingType(q.type) || isChoiceType(q.type));
-  const otherQuestions = catQuestions.filter(
-    (q) => !isRatingType(q.type) && !isChoiceType(q.type),
-  );
+  const chartCount = catQuestions.filter(isChart).length;
+  const runs: { chart: boolean; questions: Question[] }[] = [];
+  for (const q of catQuestions) {
+    const last = runs[runs.length - 1];
+    if (last && last.chart === isChart(q)) last.questions.push(q);
+    else runs.push({ chart: isChart(q), questions: [q] });
+  }
   const testerNumbers = new Map(testers.map((tester, index) => [tester.id, `#${String(index + 1).padStart(2, '0')}`]));
   const ratingQuestionIds = new Set(ratingQuestions.map((q) => q.id));
   const ratingsByTester = new Map<string, Map<string, number>>();
@@ -204,6 +206,139 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ id: s
     ratings.set(response.questionId, response.numericValue);
     ratingsByTester.set(response.testerId, ratings);
   }
+
+  const renderChart = (q: Question) => {
+    // Own chart shows the full distribution among testers matching the
+    // *other* drill filters (exclude self), with the selected bar lit.
+    const ownResponses = responses.filter((r) => r.questionId === q.id);
+    const visible = applyDrill(ownResponses, q.id);
+    const isChoice = isChoiceType(q.type);
+    const ratingResps = visible.filter((r) => r.numericValue !== null);
+    const dist = !isChoice && ratingResps.length > 0
+      ? computeRatingDistribution(ratingResps, q.type === 'rating_1_10' ? 10 : 5)
+      : null;
+    const choiceDist = isChoice && visible.some((r) => r.rawAnswer.trim())
+      ? computeChoiceDistribution(visible, ownResponses, q.options)
+      : null;
+    const scored = visible.filter((r) => r.normalizedScore !== null);
+    const avgNorm = scored.length
+      ? Math.round(scored.reduce((s, r) => s + (r.normalizedScore ?? 0), 0) / scored.length)
+      : null;
+
+    return (
+      <div key={q.id} className={css.ratingItem}>
+        {/* Below `sm` this unstacks into three rows — question, score,
+              actions — because all of it side by side either overflowed
+              the card or crowded the score against the buttons. From `sm`
+              it is the original single row. */}
+        <div className={css.questionHeader}>
+          <div className="flex items-start gap-2 flex-1 min-w-0">
+            <div className="min-w-0">
+              <p className={css.questionText}>{q.text}</p>
+              <div className="flex items-center gap-2 mt-1.5">
+                {isChoice && <span className={css.questionType}>{questionTypeLabel(q.type)}</span>}
+                <span className={css.questionMeta}>{visible.length} responses</span>
+              </div>
+            </div>
+          </div>
+          <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-3 sm:flex-shrink-0">
+            {avgNorm !== null && (
+              // One baseline row on a phone, stacked over its label from
+              // `sm` — a full line for a two-digit score is dead space.
+              <div className="flex items-baseline gap-1.5 sm:block sm:text-right">
+                <div className={css.questionScore} style={{ color: scoreBandColor(avgNorm) }}>{avgNorm}</div>
+                <div className={css.questionScoreUnit}>/ 100 avg</div>
+              </div>
+            )}
+            <div className="flex items-center gap-2 sm:gap-3">
+              <Link
+                href={`/questions/${q.id}`}
+                className={css.actionLink}
+              >
+                Detail →
+              </Link>
+            </div>
+          </div>
+        </div>
+
+        {dist ? (
+          <div className="mt-auto">
+            <RatingBarChart
+              data={dist}
+              scale={q.type === 'rating_1_10' ? 10 : 5}
+              palette={q.type === 'rating_1_5' ? ratingPalette : undefined}
+              isInverseScored={q.isInverseScored}
+              selectedValues={numericDrillValues(drill[q.id])}
+              onBarClick={(val) => toggleDrill(q.id, val)} // was: openDrawer(q.id, val)
+            />
+          </div>
+        ) : choiceDist ? (
+          <div className="mt-auto">
+            <div className="text-[10px] text-slate-500 mb-2 uppercase tracking-wide">
+              Answer breakdown (click a bar to cross-filter)
+            </div>
+            <ChoiceBarChart
+              data={choiceDist}
+              selectedValues={(drill[q.id] ?? []).filter((v): v is string => typeof v === 'string')}
+              onBarClick={(label) => toggleDrill(q.id, label)}
+            />
+          </div>
+        ) : (
+          <div className="mt-auto text-xs text-slate-500 italic py-4 text-center">
+            No responses match the current selection.
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderProse = (q: Question) => {
+    const visible = applyDrill(responses.filter((r) => r.questionId === q.id));
+    const proseResponses = q.type === 'free_text'
+      ? visible.filter((r) => r.numericValue === null && r.rawAnswer)
+      : visible.filter((r) => r.rawAnswer.trim());
+
+    return (
+      <div key={q.id} className={`${css.questionItem} ${css.proseItem}`}>
+        <div className={css.prosePrompt}>
+          <div className="min-w-0">
+            <div className={css.proseEyebrow}>{q.description?.trim() || questionTypeLabel(q.type)}</div>
+            <p className={css.questionText}>
+              {q.type === 'free_text'
+                ? <Link href={`/questions/${q.id}`} className={css.questionLink}>{q.text}</Link>
+                : q.text}
+            </p>
+            <div className={css.proseCount}>{proseResponses.length} answers</div>
+          </div>
+          <div className={css.proseActions}>
+            {q.type === 'free_text' && <button
+              onClick={() => setSummaryQ(q)}
+              className={css.actionLink}
+            >
+              <Sparkles className="w-3.5 h-3.5" /> Summarise
+            </button>}
+            {q.type !== 'free_text' && <Link
+              href={`/questions/${q.id}`}
+              className={css.actionLink}
+            >
+              Detail →
+            </Link>}
+          </div>
+        </div>
+
+        <div className={css.proseAnswers}>
+          {proseResponses.length > 0 ? (
+            <AnswerList responses={proseResponses} testerNumbers={testerNumbers}
+              ratingsByTester={ratingsByTester} ratingQuestions={ratingQuestions} />
+          ) : (
+            <div className={css.emptyAnswers}>
+              {drillActive ? 'No responses match the current selection.' : 'No responses yet.'}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className={css.page}>
@@ -231,7 +366,7 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ id: s
           <h2 className={css.sectionTitle}>KEY THEMES</h2>
           <div className={css.themes}>
             {catThemes.map((t) => (
-              <Link key={t.id} href={`/themes`} className={css.themeLink}>
+              <Link key={t.id} href={`/themes?theme=${encodeURIComponent(t.id)}`} className={css.themeLink}>
                   <span>{t.label}</span>
                   <span className={css.themeFrequency}>{t.frequency}</span>
               </Link>
@@ -244,14 +379,13 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ id: s
           (see `components/filters/CrossFilterBar.tsx`), so they stay on screen
           across every page rather than only this one. */}
 
-      {/* Rating and choice questions — each chart is a cross-filter control */}
-      {chartQuestions.length > 0 && (
+      {catQuestions.length > 0 && (
         <section className={css.section}>
           <div className={css.sectionHeader}>
-            <h2 className={css.sectionTitle}>RATINGS & CHOICES</h2>
-            <span className={css.sectionCount}>{chartQuestions.length} questions</span>
+            <h2 className={css.sectionTitle}>QUESTIONS</h2>
+            <span className={css.sectionCount}>{catQuestions.length} questions</span>
             <span className={css.headerSpacer} />
-            <div className={css.layoutControl} ref={layoutControlRef}
+            {chartCount > 0 && <div className={css.layoutControl} ref={layoutControlRef}
               onBlur={(event) => {
                 if (!event.currentTarget.contains(event.relatedTarget)) setLayoutMenuOpen(false);
               }}>
@@ -276,160 +410,18 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ id: s
                   ))}
                 </div>
               )}
+            </div>}
+          </div>
+          {chartCount > 0 && <p className={css.sectionHint}>Click a bar to filter every other question, written answers included, down to those testers.</p>}
+          {runs.map((run) => run.chart ? (
+            <div key={run.questions[0].id} className={css.ratingGrid} data-layout={chartLayout}>
+              {run.questions.map(renderChart)}
             </div>
-            <button type="button" className={css.iconButton} aria-expanded={ratingsExpanded}
-              aria-controls="category-ratings-content" aria-label={ratingsExpanded ? 'Collapse charts' : 'Expand charts'}
-              onClick={() => setRatingsExpanded((expanded) => !expanded)}>
-              <ChevronDown size={18} className={ratingsExpanded ? '' : css.chevronClosed} aria-hidden="true" />
-              <span className={css.tooltip} aria-hidden="true">{ratingsExpanded ? 'Collapse charts' : 'Expand charts'}</span>
-            </button>
-          </div>
-          {ratingsExpanded && <div id="category-ratings-content">
-          <p className={css.sectionHint}>Click a bar to filter every other question down to those testers.</p>
-          <div className={css.ratingGrid} data-layout={chartLayout}>
-            {chartQuestions.map((q) => {
-              // Own chart shows the full distribution among testers matching the
-              // *other* drill filters (exclude self), with the selected bar lit.
-              const ownResponses = responses.filter((r) => r.questionId === q.id);
-              const visible = applyDrill(ownResponses, q.id);
-              const isChoice = isChoiceType(q.type);
-              const ratingResps = visible.filter((r) => r.numericValue !== null);
-              const dist = !isChoice && ratingResps.length > 0
-                ? computeRatingDistribution(ratingResps, q.type === 'rating_1_10' ? 10 : 5)
-                : null;
-              const choiceDist = isChoice && visible.some((r) => r.rawAnswer.trim())
-                ? computeChoiceDistribution(visible, ownResponses, q.options)
-                : null;
-              const scored = visible.filter((r) => r.normalizedScore !== null);
-              const avgNorm = scored.length
-                ? Math.round(scored.reduce((s, r) => s + (r.normalizedScore ?? 0), 0) / scored.length)
-                : null;
-
-              return (
-                <div key={q.id} className={css.ratingItem}>
-                  {/* Below `sm` this unstacks into three rows — question, score,
-                        actions — because all of it side by side either overflowed
-                        the card or crowded the score against the buttons. From `sm`
-                        it is the original single row. */}
-                  <div className={css.questionHeader}>
-                    <div className="flex items-start gap-2 flex-1 min-w-0">
-                      <div className="min-w-0">
-                        <p className={css.questionText}>{q.text}</p>
-                        <div className="flex items-center gap-2 mt-1.5">
-                          {isChoice && <span className={css.questionType}>{questionTypeLabel(q.type)}</span>}
-                          <span className={css.questionMeta}>{visible.length} responses</span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-3 sm:flex-shrink-0">
-                      {avgNorm !== null && (
-                        // One baseline row on a phone, stacked over its label from
-                        // `sm` — a full line for a two-digit score is dead space.
-                        <div className="flex items-baseline gap-1.5 sm:block sm:text-right">
-                          <div className={css.questionScore} style={{ color: scoreBandColor(avgNorm) }}>{avgNorm}</div>
-                          <div className={css.questionScoreUnit}>/ 100 avg</div>
-                        </div>
-                      )}
-                      <div className="flex items-center gap-2 sm:gap-3">
-                        <Link
-                          href={`/questions/${q.id}`}
-                          className={css.actionLink}
-                        >
-                          Detail →
-                        </Link>
-                      </div>
-                    </div>
-                  </div>
-
-                  {dist ? (
-                    <div className="mt-auto">
-                      <RatingBarChart
-                        data={dist}
-                        scale={q.type === 'rating_1_10' ? 10 : 5}
-                        palette={q.type === 'rating_1_5' ? ratingPalette : undefined}
-                        isInverseScored={q.isInverseScored}
-                        selectedValues={numericDrillValues(drill[q.id])}
-                        onBarClick={(val) => toggleDrill(q.id, val)} // was: openDrawer(q.id, val)
-                      />
-                    </div>
-                  ) : choiceDist ? (
-                    <div className="mt-auto">
-                      <div className="text-[10px] text-slate-500 mb-2 uppercase tracking-wide">
-                        Answer breakdown (click a bar to cross-filter)
-                      </div>
-                      <ChoiceBarChart
-                        data={choiceDist}
-                        selectedValues={(drill[q.id] ?? []).filter((v): v is string => typeof v === 'string')}
-                        onBarClick={(label) => toggleDrill(q.id, label)}
-                      />
-                    </div>
-                  ) : (
-                    <div className="mt-auto text-xs text-slate-500 italic py-4 text-center">
-                      No responses match the current selection.
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-          </div>}
-        </section>
-      )}
-
-      {/* Open-ended questions sit below the charts so the cross-filter
-          selection above narrows the written answers. */}
-      {otherQuestions.length > 0 && (
-        <section className={css.section}>
-          <h2 className={css.sectionTitle}>OPEN-ENDED & OTHER</h2>
-          <div className={css.questionList}>
-            {otherQuestions.map((q) => {
-              const visible = applyDrill(responses.filter((r) => r.questionId === q.id));
-              const proseResponses = q.type === 'free_text'
-                ? visible.filter((r) => r.numericValue === null && r.rawAnswer)
-                : visible.filter((r) => r.rawAnswer.trim());
-
-              return (
-                <div key={q.id} className={`${css.questionItem} ${css.proseItem}`}>
-                  <div className={css.prosePrompt}>
-                    <div className="min-w-0">
-                      <div className={css.proseEyebrow}>{q.description?.trim() || questionTypeLabel(q.type)}</div>
-                      <p className={css.questionText}>
-                        {q.type === 'free_text'
-                          ? <Link href={`/questions/${q.id}`} className={css.questionLink}>{q.text}</Link>
-                          : q.text}
-                      </p>
-                      <div className={css.proseCount}>{proseResponses.length} answers</div>
-                    </div>
-                    <div className={css.proseActions}>
-                      {q.type === 'free_text' && <button
-                        onClick={() => setSummaryQ(q)}
-                        className={css.actionLink}
-                      >
-                        <Sparkles className="w-3.5 h-3.5" /> Summarise
-                      </button>}
-                      {q.type !== 'free_text' && <Link
-                        href={`/questions/${q.id}`}
-                        className={css.actionLink}
-                      >
-                        Detail →
-                      </Link>}
-                    </div>
-                  </div>
-
-                  <div className={css.proseAnswers}>
-                    {proseResponses.length > 0 ? (
-                      <AnswerList responses={proseResponses} testerNumbers={testerNumbers}
-                        ratingsByTester={ratingsByTester} ratingQuestions={ratingQuestions} />
-                    ) : (
-                      <div className={css.emptyAnswers}>
-                        {drillActive ? 'No responses match the current selection.' : 'No responses yet.'}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          ) : (
+            <div key={run.questions[0].id} className={css.questionList}>
+              {run.questions.map(renderProse)}
+            </div>
+          ))}
         </section>
       )}
 

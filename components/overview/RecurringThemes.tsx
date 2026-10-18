@@ -59,7 +59,9 @@ export default function RecurringThemes({ themes, visible, status, error, run, h
           <div key={t.id} className={`${s.takeRow} groove-t-soft`}>
             <p className={s.takeTitle}>{t.label}</p>
             {t.summary && <p className={`${s.takeDetail} ${s.clamp2}`} title={t.summary}>{t.summary}</p>}
-            <p className={s.themeMeta}>{t.frequency} {t.frequency === 1 ? 'response' : 'responses'}</p>
+            <Link href={`/themes?theme=${encodeURIComponent(t.id)}`} className={`${s.themeMeta} ${s.themeSource}`}>
+              {t.frequency} {t.frequency === 1 ? 'response' : 'responses'} · view sources →
+            </Link>
           </div>
         ))
       )}

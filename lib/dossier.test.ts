@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { mapPortalData } from './playlytix/mapper';
 import { portalGenericConfig } from './games/portalGeneric';
 import { dossierFixture } from '../tests/fixtures/tester-dossier';
-import { filterTesterList, profileAnswers, profileGenreFit, profileText, ratingAverages } from './dossier';
+import { filterTesterList, profileAnswers, profileGenreFit, profileText, ratingAverages, screenshotGroups, videoFiles } from './dossier';
 
 const mapped = () => mapPortalData(dossierFixture(), '7', '18', portalGenericConfig);
 describe('dossier data contract', () => {
@@ -15,10 +15,11 @@ describe('dossier data contract', () => {
     expect(data.project.steamMatchGenres).toEqual(['Puzzle']);
     expect(profileGenreFit(data.testers[1], portalGenericConfig, data.project.steamMatchGenres).value).toBe('Target genre');
   });
-  it('preserves videos while excluding screenshots, operator fields and anonymous names', () => {
+  it('preserves videos and screenshots while excluding operator fields and anonymous names', () => {
     const data = mapped();
-    expect(data.testers[0].files).toHaveLength(1);
+    expect(data.testers[0].files).toHaveLength(2);
     expect(data.testers[0].files![0]).toMatchObject({ name: 'attachment-1.mp4', mimeType: 'video/mp4', questionId: 'portal_7_18_q_955' });
+    expect(data.testers[0].files![1]).toMatchObject({ name: 'screenshot.jpg', mimeType: 'image/jpeg', questionId: 'portal_7_18_q_955' });
     expect(JSON.stringify(data)).not.toMatch(/hidden-user|evaluationScore|payoutStatus|syncedAt|subscriptions/);
     expect(profileText('Email me at someone@example.com')).not.toContain('@');
   });
@@ -30,6 +31,16 @@ describe('dossier data contract', () => {
     expect(filtered.questions.get(questions[0].id)).toBe(1);
     expect(filtered.overall).toBe(1);
     expect(ratingAverages([], questions).overall).toBeUndefined();
+  });
+  it('judges genre fit by Steam hours in the target genres when the Portal sends them', () => {
+    const input = dossierFixture();
+    input.responses[0].tester.steam = { ...input.responses[0].tester.steam, match: { ownsGame: false, ownsGameHours: null, genreHours: 52, genreDataPartial: false, modeHours: 1466 } } as never;
+    input.responses[1].tester.steam = { ...input.responses[1].tester.steam, match: { ownsGame: false, ownsGameHours: null, genreHours: 0, genreDataPartial: true, modeHours: 3 } } as never;
+    const { testers, project } = mapPortalData(input, '7', '18', portalGenericConfig);
+    expect(testers[0].profile!.steam!.match).toEqual({ genreHours: 52, modeHours: 1466, partial: false });
+    // Tester 0 never listed Puzzle as a liked genre, but has Puzzle hours on Steam.
+    expect(profileGenreFit(testers[0], portalGenericConfig, project.steamMatchGenres)).toEqual({ value: 'Target genre', hours: 52, reason: 'Puzzle on Steam' });
+    expect(profileGenreFit(testers[1], portalGenericConfig, project.steamMatchGenres)).toEqual({ value: 'Outside target', hours: 0, reason: 'Puzzle on Steam · partial data' });
   });
   it('preserves registry tri-state and skips blank/internal answers', () => {
     const { testers, responses, questions } = mapped();
@@ -43,6 +54,15 @@ describe('dossier data contract', () => {
     const d = mapped();
     expect(filterTesterList(d.testers, '29', 'all', d.responses, d.questions, portalGenericConfig).map(t => t.id)).toEqual([d.testers[1].id]);
     expect(filterTesterList(d.testers, '', 'target_genre', d.responses, d.questions, portalGenericConfig, ['Puzzle']).map(t => t.id)).toEqual([d.testers[1].id]);
+  });
+  it('groups screenshots by question in questionnaire order, apart from videos', () => {
+    const { testers, questions } = mapped();
+    const files = [...testers[0].files!, { id: 'late', name: 'b.png', questionId: questions[0].id }, { id: 'orphan', name: 'c.webp' }];
+    const groups = screenshotGroups(files, questions);
+    expect(groups.map(g => [g.q?.id, g.index, g.files.map(f => f.name)])).toEqual([
+      [questions[0].id, 4, ['b.png']], ['portal_7_18_q_955', 9, ['screenshot.jpg']], [undefined, Infinity, ['c.webp']],
+    ]);
+    expect(videoFiles(files).map(f => f.name)).toEqual(['attachment-1.mp4']);
   });
   it('combines comma-separated roster filters and searches by country', () => {
     const d = mapped();

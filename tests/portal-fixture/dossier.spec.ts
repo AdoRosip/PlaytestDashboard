@@ -209,3 +209,38 @@ test('category layout persists and many answer ratings fit narrow screens', asyn
   }
   expect(errors).toEqual([]);
 });
+
+test('screenshots show in one grid and open in a viewer that keeps the profile dialog open', async ({ page }) => {
+  await page.setViewportSize({ width: 1600, height: 1000 });
+  await openTest(page);
+  // A 1×1 PNG served in place of the signed storage URL.
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
+  await page.route('https://media.example.test/screenshot.jpg', route => route.fulfill({ body: png, contentType: 'image/png' }));
+  await page.getByRole('link', { name: 'Tester-28', exact: true }).click();
+  await page.getByRole('tab', { name: 'Screenshots 1' }).click();
+  await expect(page).toHaveURL(/tab=screenshots/);
+  await expect(page.getByText('Question 6', { exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: 'View screenshot.jpg' }).click();
+  const viewer = page.getByRole('dialog', { name: 'screenshot.jpg' });
+  await expect(viewer).toBeVisible();
+  await expect.poll(() => viewer.locator('img').evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(1);
+  await expect(viewer.getByRole('link', { name: 'Open original' })).toHaveAttribute('href', 'https://media.example.test/screenshot.jpg');
+  await page.keyboard.press('Escape');
+  await expect(viewer).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByRole('tab', { name: 'Screenshots 1' })).toHaveAttribute('aria-selected', 'true');
+
+  await page.getByRole('link', { name: 'Responses', exact: true }).click();
+  await page.getByRole('button', { name: 'Profile →', exact: true }).first().click();
+  const profile = page.getByRole('dialog', { name: 'Tester-28' });
+  await profile.getByRole('tab', { name: 'Videos 1' }).focus();
+  await page.keyboard.press('ArrowRight');
+  await expect(profile.getByRole('tab', { name: 'Screenshots 1' })).toBeFocused();
+  await profile.getByRole('button', { name: 'View screenshot.jpg' }).click();
+  await expect(page.getByRole('dialog', { name: 'screenshot.jpg' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog', { name: 'screenshot.jpg' })).toHaveCount(0);
+  await expect(profile).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(profile).toHaveCount(0);
+});

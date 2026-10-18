@@ -53,8 +53,9 @@
 .tooltip { position: absolute; top: calc(100% + 8px); left: 50%; z-index: 30; padding: 5px 8px; background: #15203b; border: 1px solid rgba(255, 255, 255, .12); color: #fff; font: 11px var(--font-sans); white-space: nowrap; pointer-events: none; opacity: 0; visibility: hidden; transform: translate(-50%, -4px); transition: opacity 120ms, transform 120ms, visibility 120ms; }
 .iconButton:hover .tooltip, .iconButton:focus-visible .tooltip { opacity: 1; visibility: visible; transform: translate(-50%, 0); }
 .layoutControl .iconButton[aria-expanded='true'] .tooltip { opacity: 0; visibility: hidden; }
-.sectionHeader > .iconButton .tooltip { left: auto; right: 0; transform: translateY(-4px); }
-.sectionHeader > .iconButton:hover .tooltip, .sectionHeader > .iconButton:focus-visible .tooltip { transform: translateY(0); }
+/* The layout button is the header's last control, so its tooltip opens leftwards to stay on screen. */
+.layoutControl .tooltip { left: auto; right: 0; transform: translateY(-4px); }
+.layoutControl .iconButton:hover .tooltip, .layoutControl .iconButton:focus-visible .tooltip { transform: translateY(0); }
 .layoutMenu { position: absolute; top: calc(100% + 7px); right: 0; z-index: 35; width: 138px; padding: 5px; background: #131d36; border: 1px solid rgba(255, 255, 255, .12); box-shadow: 0 12px 28px rgba(0, 0, 0, .36); }
 .layoutOption { display: flex; align-items: center; gap: 9px; width: 100%; padding: 8px 10px; color: rgba(255, 255, 255, .72); font-size: 13px; text-align: left; }
 .layoutOption:hover, .layoutOption:focus-visible { color: #AFFFFF; background: rgba(0, 255, 255, .07); outline: none; }
@@ -62,7 +63,6 @@
 .layoutGlyph { display: inline-flex; align-items: stretch; gap: 2px; width: 18px; height: 7px; flex: 0 0 18px; }
 .layoutGlyph > span { flex: 1 1 0; min-width: 0; border-radius: 1px; background: currentColor; opacity: .65; }
 .layoutOption[aria-pressed='true'] .layoutGlyph > span { opacity: 1; }
-.chevronClosed { transform: rotate(-90deg); }
 .ratingGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); overflow: hidden; }
 .ratingGrid[data-layout='large'] { grid-template-columns: minmax(0, 1fr); }
 .ratingGrid[data-layout='small'] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
