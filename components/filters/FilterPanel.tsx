@@ -4,6 +4,7 @@ import { X, SlidersHorizontal, Info, ChevronLeft } from 'lucide-react';
 import { useDashboardStore, selectActiveFilterCount, selectGameConfig } from '@/lib/store';
 import { sentimentBand, SENTIMENT_BAND_LABELS, buildEnjoyRatingMap } from '@/lib/filtering';
 import { continentFor, CONTINENTS } from '@/lib/geo';
+import { findPlaytimeQuestion, PLAYTIME_BUCKETS } from '@/lib/duration';
 import type { FilterState, SentimentBand } from '@/lib/types';
 
 const SENTIMENT_BANDS: SentimentBand[] = ['detractors', 'almost_believers', 'believers'];
@@ -14,12 +15,6 @@ const SENTIMENT_RANGE: Record<SentimentBand, string> = {
 };
 
 const HARDWARE_TIERS = ['High', 'Mid', 'Low'];
-const PLAYTIME_OPTIONS: { label: string; value: FilterState['sessionPlaytime'] }[] = [
-  { label: '< 1h',  value: '<1h'  },
-  { label: '1–3h',  value: '1-3h' },
-  { label: '3–6h',  value: '3-6h' },
-  { label: '6h+',   value: '6h+'  },
-];
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
@@ -114,9 +109,7 @@ export default function FilterPanel() {
   const hasSatQ = Boolean(satisfactoryDetector && questions.some(
     (q) => satisfactoryDetector.pattern.test(q.text) && q.categoryId === backgroundCategoryId,
   ));
-  const hasSessionQ = Boolean(config.filters.sessionPlaytime && questions.some(
-    (q) => config.filters.sessionPlaytime!.test(q.text),
-  ));
+  const hasSessionQ = Boolean(findPlaytimeQuestion(questions, config.filters.sessionPlaytime));
 
   // Player-sentiment band counts (drive the sentiment segment).
   // Bands come from the single "overall enjoyment" question — only testers who
@@ -299,9 +292,9 @@ export default function FilterPanel() {
             <SectionLabel>Playtest Session</SectionLabel>
             <div className="text-xs text-slate-400 mb-2">Time Played</div>
             <div className="flex flex-wrap gap-1.5">
-              {PLAYTIME_OPTIONS.map((opt) => (
+              {PLAYTIME_BUCKETS.map((opt) => (
                 <Chip
-                  key={opt.value!}
+                  key={opt.value}
                   label={opt.label}
                   active={filters.sessionPlaytime === opt.value}
                   onClick={() => setFilter({ sessionPlaytime: filters.sessionPlaytime === opt.value ? null : opt.value })}

@@ -24,6 +24,11 @@ function url(value: unknown): string | undefined {
   } catch { return undefined; }
 }
 
+const VIDEO_STATES = ['ready', 'preparing', 'unavailable'] as const;
+function videoState(value: unknown): TesterFile['videoState'] {
+  return VIDEO_STATES.find(state => state === value);
+}
+
 /** Keys verified against the supplied production response and api-reference.html. */
 export function mapRegistryProfile(source: Record<string, unknown>): TesterRegistryProfile {
   const result: TesterRegistryProfile = {};
@@ -71,6 +76,7 @@ export function mapProfileExtras(row: Record<string, unknown>, profile: Record<s
       title: string(f.title), uploadedAt: date(f.uploadedAt), durationSec: number(f.durationSec),
       width: number(f.width), height: number(f.height), thumbnailUrl: url(f.thumbnailUrl),
       questionId: questionIds.get(String(f.questionId)),
+      videoState: videoState(f.videoState),
       transcript: transcriptRef(f, source.testId, source.submissionId),
     };
   }).filter(f => isVideo(f) || isImage(f));

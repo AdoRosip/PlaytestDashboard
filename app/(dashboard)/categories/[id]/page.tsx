@@ -20,6 +20,7 @@ import type { Question, Response } from '@/lib/types';
 import { filterThemesForResponses } from '@/lib/themeFiltering';
 import { scoreBandColor } from '@/lib/coreScores';
 import { categoryScoringResponses } from '@/lib/categoryScoring';
+import { durationDistribution, formatDurationMinutes, parseDurationMinutes } from '@/lib/duration';
 import css from './category.module.css';
 
 type ChartLayout = 'large' | 'medium' | 'small';
@@ -188,7 +189,7 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ id: s
   // right after the question it follows up. Consecutive charts share one grid,
   // and every chart still drives the cross-filter for the answers around it.
   const isChoiceType = (t: Question['type']) => t === 'yes_no' || t === 'multiple_choice';
-  const isChart = (q: Question) => isRatingType(q.type) || isChoiceType(q.type);
+  const isChart = (q: Question) => isRatingType(q.type) || isChoiceType(q.type) || q.type === 'duration';
   const ratingQuestions = catQuestions.filter((q) => isRatingType(q.type));
   const chartCount = catQuestions.filter(isChart).length;
   const runs: { chart: boolean; questions: Question[] }[] = [];
@@ -217,9 +218,14 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ id: s
     const dist = !isChoice && ratingResps.length > 0
       ? computeRatingDistribution(ratingResps, q.type === 'rating_1_10' ? 10 : 5)
       : null;
+    // Duration answers are minutes, charted as the Time Played filter's bands.
+    const minutes = q.type === 'duration'
+      ? visible.flatMap((r) => { const m = parseDurationMinutes(r.rawAnswer); return m === null ? [] : [m]; })
+      : [];
     const choiceDist = isChoice && visible.some((r) => r.rawAnswer.trim())
       ? computeChoiceDistribution(visible, ownResponses, q.options)
-      : null;
+      : minutes.length ? durationDistribution(visible) : null;
+    const avgMinutes = minutes.length ? minutes.reduce((s, m) => s + m, 0) / minutes.length : null;
     const scored = visible.filter((r) => r.normalizedScore !== null);
     const avgNorm = scored.length
       ? Math.round(scored.reduce((s, r) => s + (r.normalizedScore ?? 0), 0) / scored.length)
@@ -236,8 +242,8 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ id: s
             <div className="min-w-0">
               <p className={css.questionText}>{q.text}</p>
               <div className="flex items-center gap-2 mt-1.5">
-                {isChoice && <span className={css.questionType}>{questionTypeLabel(q.type)}</span>}
-                <span className={css.questionMeta}>{visible.length} responses</span>
+                {(isChoice || q.type === 'duration') && <span className={css.questionType}>{questionTypeLabel(q.type)}</span>}
+                <span className={css.questionMeta}>{q.type === 'duration' ? minutes.length : visible.length} responses</span>
               </div>
             </div>
           </div>
@@ -248,6 +254,12 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ id: s
               <div className="flex items-baseline gap-1.5 sm:block sm:text-right">
                 <div className={css.questionScore} style={{ color: scoreBandColor(avgNorm) }}>{avgNorm}</div>
                 <div className={css.questionScoreUnit}>/ 100 avg</div>
+              </div>
+            )}
+            {avgMinutes !== null && (
+              <div className="flex items-baseline gap-1.5 sm:block sm:text-right">
+                <div className={css.questionScore}>{formatDurationMinutes(avgMinutes)}</div>
+                <div className={css.questionScoreUnit}>avg played</div>
               </div>
             )}
             <div className="flex items-center gap-2 sm:gap-3">

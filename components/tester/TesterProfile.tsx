@@ -3,6 +3,7 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { useDashboardStore, selectFilteredResponses, selectGameConfig } from '@/lib/store';
 import { getTesterDisplayName } from '@/lib/testerIdentity';
+import { formatDurationMinutes, parseDurationMinutes } from '@/lib/duration';
 import { engagement, testerGenres } from '@/lib/testerProfile';
 import { flagLabel } from '@/lib/outliers';
 import { profileAnswers, profileDate, profileGenreFit, profileText, ratingAverages, ratingScale, registryGroups, screenshotGroups, videoFiles } from '@/lib/dossier';
@@ -130,6 +131,7 @@ export default function TesterProfile({ tester, tab: routeTab, onTabChange }: { 
               const points = max - min + 1;
               const value = response.numericValue ?? 0;
               const category = categories.find(c => c.id === q.categoryId)?.name;
+              const minutes = q.type === 'duration' ? parseDurationMinutes(response.rawAnswer) : null;
               // Interview-transcript layout: question number in a gutter, category
               // above the muted question, and the answer in brighter text below it.
               return <article key={response.id} data-answer-id={response.id} tabIndex={-1} className={`${s.answer} ${pendingAnswer === response.id ? s.flash : ''}`}>
@@ -143,7 +145,7 @@ export default function TesterProfile({ tester, tab: routeTab, onTabChange }: { 
                       {points <= 10 && points > 0 && Number.isInteger(points) ? Array.from({ length: points }, (_, i) => <span key={i} className={s.segment}>{i + min <= value && <span className={s.filled} style={{ display: 'block' }} />}</span>) : <span className={s.segment}><span className={s.filled} style={{ display: 'block', width: `${Math.max(0, Math.min(100, (value - min) / (max - min) * 100))}%` }} /></span>}
                     </div>
                     <span className={`${s.groupAverage} ${avg !== undefined && Math.abs(value - avg) >= 1.5 ? s.far : ''}`}>{avg === undefined ? 'no group data' : `avg ${avg.toFixed(1)}`}</span>
-                  </div> : <p className={s.written}>{profileText(response.rawAnswer)}</p>}
+                  </div> : <p className={s.written}>{minutes !== null ? formatDurationMinutes(minutes) : profileText(response.rawAnswer)}</p>}
                 </div>
               </article>;
             })}
