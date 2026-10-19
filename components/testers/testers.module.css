@@ -550,7 +550,16 @@
   color: rgba(255, 255, 255, 0.36);
 }
 
-.tableWrap { overflow-x: auto; }
+/* The table scrolls inside a window-sized box so the toolbar and footer stay
+   in view; 340px is roughly the header, tabs, toolbar and footer above/below. */
+.tableWrap {
+  overflow: auto;
+  max-height: max(360px, calc(100dvh - 340px));
+}
+
+@media print {
+  .tableWrap { overflow: visible; max-height: none; }
+}
 
 .table {
   width: 100%;
@@ -571,6 +580,10 @@
   color: rgba(255, 255, 255, 0.45);
   border-bottom: 1px solid var(--groove-dark);
   box-shadow: 0 1px 0 var(--groove-light);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--background);
 }
 
 .table td {
