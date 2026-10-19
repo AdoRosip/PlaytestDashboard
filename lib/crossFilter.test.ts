@@ -263,6 +263,26 @@ describe('buildPerQuestionSets with verbatim answers', () => {
   });
 });
 
+describe('buildPerQuestionSets with playtime bands', () => {
+  // Q4 is a Duration question answered in minutes: 45, 180, 320, 540.
+  const durations = [
+    textResp('t1', 'Q4', '45'),
+    textResp('t2', 'Q4', '180'),
+    textResp('t3', 'Q4', '320'),
+    textResp('t4', 'Q4', '540'),
+  ];
+
+  it('matches a band label against the minutes it covers', () => {
+    expect(buildPerQuestionSets(durations, { Q4: ['1–3h'] }).get('Q4')).toEqual(new Set(['t2']));
+    expect(buildPerQuestionSets(durations, { Q4: ['< 1h', '6h+'] }).get('Q4')).toEqual(new Set(['t1', 't4']));
+  });
+
+  it('ANDs a band with an answer on another question', () => {
+    const sets = buildPerQuestionSets([...durations, ...choices], { Q4: ['3–6h', '1–3h'], Q3: ['Yes'] });
+    expect(matchingTesterIds(sets)).toEqual(new Set(['t3']));
+  });
+});
+
 describe('toggleDrill with verbatim answers', () => {
   it('adds and removes a string answer', () => {
     const added = toggleDrill({}, 'Q3', 'Yes');

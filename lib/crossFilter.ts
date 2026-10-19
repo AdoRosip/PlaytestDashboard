@@ -1,4 +1,5 @@
 import type { Response } from './types';
+import { parseDurationMinutes, playtimeBucket, PLAYTIME_BUCKETS } from './duration';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // In-category cross-question drill-down ("local filter").
@@ -104,12 +105,17 @@ export function buildPerQuestionSets(
     if (values.length === 0) continue;
     const ratings = new Set(numericDrillValues(values));
     const answers = new Set(values.filter((v): v is string => typeof v === 'string'));
+    // A Duration chart's bars are playtime bands ("1–3h"); they match answers by
+    // their minutes, since no tester typed the band label itself.
+    const bands = new Set(PLAYTIME_BUCKETS.filter((b) => answers.has(b.label)).map((b) => b.value));
     const s = new Set<string>();
     for (const r of responses) {
       if (r.questionId !== qid || r.testerId === null) continue;
       const ratingHit = r.numericValue !== null && ratings.has(Math.round(r.numericValue));
       const answerHit = answers.size > 0 && answers.has(answerKey(r.rawAnswer ?? ''));
-      if (ratingHit || answerHit) s.add(r.testerId);
+      const minutes = bands.size > 0 ? parseDurationMinutes(r.rawAnswer ?? '') : null;
+      const bandHit = minutes !== null && bands.has(playtimeBucket(minutes / 60));
+      if (ratingHit || answerHit || bandHit) s.add(r.testerId);
     }
     sets.set(qid, s);
   }

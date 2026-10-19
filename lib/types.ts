@@ -230,6 +230,12 @@ export interface TesterFile {
   thumbnailUrl?: string;
   questionId?: string;
   responseId?: string;
+  /**
+   * Portal videos are served as a muted copy: `ready` = `url` points at it,
+   * `preparing` = not made yet (`url` is absent until a later load),
+   * `unavailable` = it can never be made. Absent for images and older payloads.
+   */
+  videoState?: 'ready' | 'preparing' | 'unavailable';
   /** Present when the Portal has a parsed .srt for this video; the cues load on demand. */
   transcript?: VideoTranscriptRef;
 }

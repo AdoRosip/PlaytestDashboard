@@ -37,6 +37,21 @@ describe('Portal analytics DTO', () => {
     expect(files[0].transcript).toEqual({ testId: '32', submissionId: 7, fileId: 9031, cues: 1240, durationSec: 17980 });
     expect(files[1].transcript).toBeUndefined();
   });
+  it('keeps each video copy state and leaves images and unknown states without one', () => {
+    const input = fixture();
+    input.questions.push({ QuestionID: 412, QuestionText: 'Recording', QuestionDescription: '', DisplayOrder: 2, TypeName: 'File' });
+    input.responses[0].files = [
+      { questionId: 412, fileName: 'a.mp4', contentType: 'video/mp4', url: 'https://files.test/a', videoState: 'ready' },
+      { questionId: 412, fileName: 'b.mp4', contentType: 'video/mp4', url: null, videoState: 'preparing' },
+      { questionId: 412, fileName: 'c.mkv', contentType: 'video/x-matroska', url: null, videoState: 'unavailable' },
+      { questionId: 412, fileName: 'd.mp4', contentType: 'video/mp4', url: null, videoState: 'queued' },
+      { questionId: 412, fileName: 'e.png', contentType: 'image/png', url: 'https://files.test/e', videoState: null },
+    ] as never;
+    const files = mapPortalData(input, '18', '32', portalGenericConfig).testers[0].files!;
+    expect(files.map(f => [f.videoState, f.url])).toEqual([
+      ['ready', 'https://files.test/a'], ['preparing', undefined], ['unavailable', undefined], [undefined, undefined], [undefined, 'https://files.test/e'],
+    ]);
+  });
   it('rejects inconsistent scale metadata and invalid ordering even for a single question', () => {
     const input = structuredClone(productionResponse);
     input.questions[0].Scale.max = 10;

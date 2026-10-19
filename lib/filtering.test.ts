@@ -201,6 +201,23 @@ describe('computeFilteredTesterIds', () => {
       const result = computeFilteredTesterIds({ testers: t, responses: r, questions: [q], filters: f({ sessionPlaytime: '3-6h' }) });
       expect(ids(result)).toEqual([]);
     });
+
+    it('reads a Portal Duration question as minutes, whatever its wording', () => {
+      const dq = question('q_dur', 'Roughly how long did you play in total?', { type: 'duration' });
+      const t = [tester('a'), tester('b'), tester('c'), tester('d')];
+      const r = [
+        response('a', 'q_dur', { rawAnswer: '45' }),
+        response('b', 'q_dur', { rawAnswer: '180' }),  // exactly 3h → 1-3h
+        response('c', 'q_dur', { rawAnswer: '320' }),
+        response('d', 'q_dur', { rawAnswer: '540' }),
+      ];
+      const run = (bucket: FilterState['sessionPlaytime']) =>
+        ids(computeFilteredTesterIds({ testers: t, responses: r, questions: [dq], filters: f({ sessionPlaytime: bucket }) }));
+      expect(run('<1h')).toEqual(['a']);
+      expect(run('1-3h')).toEqual(['b']);
+      expect(run('3-6h')).toEqual(['c']);
+      expect(run('6h+')).toEqual(['d']);
+    });
   });
 
   describe('played-game background filter', () => {

@@ -17,6 +17,19 @@ async function openTest(page: Page, adjust?: (data: ReturnType<typeof mapPortalD
   await expect(page.getByRole('link', { name: 'Tester-28', exact: true })).toBeVisible();
 }
 
+test('a video still being prepared says so instead of failing to play', async ({ page }) => {
+  await openTest(page, data => {
+    for (const file of data.testers.flatMap(t => t.files ?? [])) {
+      if (file.mimeType?.startsWith('video/')) { file.videoState = 'preparing'; delete file.url; }
+    }
+  });
+  await page.getByRole('link', { name: 'Tester-28', exact: true }).click();
+  await page.getByRole('tab', { name: 'Videos 1' }).click();
+  await expect(page.getByText('This video is still being prepared. Reload the page later to watch it.')).toBeVisible();
+  await expect(page.getByRole('listbox', { name: 'Recordings' }).getByText('Preparing…')).toBeVisible();
+  await expect(page.locator('video')).toHaveCount(0);
+});
+
 test('tester list opens the dossier, keeps filters, paginates and persists tabs', async ({ page }) => {
   const errors: string[] = []; page.on('pageerror', e => errors.push(e.message));
   await page.setViewportSize({ width: 1600, height: 1000 });
@@ -42,7 +55,7 @@ test('tester list opens the dossier, keeps filters, paginates and persists tabs'
   await page.getByRole('tab', { name: 'Videos 1' }).click();
   await expect(page).toHaveURL(/tab=videos/);
   await expect(page.getByText("This video can't be played in the browser")).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Download', exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Download', exact: true })).toHaveCount(0);
   await page.reload();
   await expect(page.getByRole('tab', { name: 'Videos 1' })).toHaveAttribute('aria-selected', 'true');
   await page.getByRole('button', { name: /Linked answer/ }).click();

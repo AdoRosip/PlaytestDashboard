@@ -65,14 +65,26 @@ function useVttUrl(cues?: TranscriptCue[]) {
   return url;
 }
 
+const UNPLAYABLE = "This video can't be played in the browser";
+/** Why a video has no playable link, or undefined when it should play. */
+function unplayableReason(file: TesterFile): string | undefined {
+  if (file.videoState === 'preparing') return 'This video is still being prepared. Reload the page later to watch it.';
+  if (file.videoState === 'unavailable') return "This video isn't available.";
+  return file.url ? undefined : UNPLAYABLE;
+}
+/** Playlist sub-label for a video that can't play yet. */
+const STATE_LABEL: Partial<Record<NonNullable<TesterFile['videoState']>, string>> = { preparing: 'Preparing…', unavailable: 'Unavailable' };
+
 function Player({ file, name, captions, onVideo, onMetadata }: { file: TesterFile; name: string; captions?: string; onVideo: (video: HTMLVideoElement | null) => void; onMetadata: (id: string, data: VideoMetadata) => void }) {
-  const [error, setError] = useState(!file.url);
+  const [failed, setFailed] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const reason = unplayableReason(file) ?? (failed ? UNPLAYABLE : undefined);
+  // Recordings are viewed in place only: no download link, and the player's own download item is hidden.
   return <div className={`${s.player} ${loaded ? '' : s.stripes}`}>
-    {!error && <video ref={onVideo} controls preload="metadata" playsInline src={file.url} aria-label={name} onError={() => setError(true)} onLoadedMetadata={event => { setLoaded(true); onMetadata(file.id, readMetadata(event.currentTarget)); }}>
+    {!reason && <video ref={onVideo} controls controlsList="nodownload" preload="metadata" playsInline src={file.url} aria-label={name} onError={() => setFailed(true)} onLoadedMetadata={event => { setLoaded(true); onMetadata(file.id, readMetadata(event.currentTarget)); }}>
       {captions && <track kind="captions" label="Transcript" src={captions} />}
     </video>}
-    {error && <div className={s.playerError}><p>This video can&apos;t be played in the browser</p>{file.url && <a href={file.url} download target="_blank" rel="noreferrer">Download</a>}</div>}
+    {reason && <div className={s.playerError}><p>{reason}</p></div>}
   </div>;
 }
 
@@ -107,6 +119,6 @@ export default function VideosPanel({ files, answers, metadata, onMetadata, onLi
         const next = event.key === 'Home' ? 0 : event.key === 'End' ? files.length - 1 : (i + (['ArrowDown', 'ArrowRight'].includes(event.key) ? 1 : files.length - 1)) % files.length;
         setFocused(next); items.current[next]?.focus();
       } else if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setSelected(i); }
-    }}><Thumbnail file={item} metadata={metadata[item.id]} onMetadata={onMetadata} /><div className={s.playlistText}><div className={s.playlistTitle}>{title(item, i)}</div><div className={s.playlistSub}>{selected === i ? 'Playing now' : profileDate(item.uploadedAt)}</div></div></button>)}
+    }}><Thumbnail file={item} metadata={metadata[item.id]} onMetadata={onMetadata} /><div className={s.playlistText}><div className={s.playlistTitle}>{title(item, i)}</div><div className={s.playlistSub}>{(item.videoState && STATE_LABEL[item.videoState]) || (selected === i ? 'Playing now' : profileDate(item.uploadedAt))}</div></div></button>)}
   </div></div>;
 }

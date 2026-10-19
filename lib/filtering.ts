@@ -1,6 +1,7 @@
 import type { FilterState, Question, Response, SentimentBand, Tester } from './types';
 import { isSentimentOutlier } from './outliers';
 import { continentFor } from './geo';
+import { findPlaytimeQuestion, playtimeBucket, playtimeHours } from './duration';
 import type { GameConfig } from './games';
 
 // ─── Player-sentiment bands ──────────────────────────────────────────────────
@@ -90,19 +91,19 @@ export function hasActiveFilters(f: FilterState): boolean {
   );
 }
 
-/** Map of testerId → reported session playtime (numeric answers only). */
+/** Map of testerId → reported session playtime in hours (numeric answers only). */
 function buildPlaytimeMap(
   responses: Response[],
   questions: Question[],
   pattern: RegExp,
 ): Map<string, number> {
   const map = new Map<string, number>();
-  const q = questions.find((q) => pattern.test(q.text));
+  const q = findPlaytimeQuestion(questions, pattern);
   if (!q) return map;
   for (const r of responses) {
-    if (r.questionId === q.id && r.testerId && r.numericValue !== null) {
-      map.set(r.testerId, r.numericValue);
-    }
+    if (r.questionId !== q.id || !r.testerId) continue;
+    const hours = playtimeHours(q, r);
+    if (hours !== null) map.set(r.testerId, hours);
   }
   return map;
 }
@@ -131,15 +132,6 @@ function buildPlayedGameSet(
     }
   }
   return set;
-}
-
-function matchesPlaytimeBucket(bucket: FilterState['sessionPlaytime'], pt: number): boolean {
-  return (
-    (bucket === '<1h' && pt < 1) ||
-    (bucket === '1-3h' && pt >= 1 && pt <= 3) ||
-    (bucket === '3-6h' && pt > 3 && pt <= 6) ||
-    (bucket === '6h+' && pt > 6)
-  );
 }
 
 /**
@@ -189,7 +181,7 @@ export function computeFilteredTesterIds(input: FilterInput): Set<string> | null
     if (filters.sessionPlaytime !== null) {
       const pt = playtimeMap!.get(t.id);
       if (pt === undefined) continue;
-      if (!matchesPlaytimeBucket(filters.sessionPlaytime, pt)) continue;
+      if (playtimeBucket(pt) !== filters.sessionPlaytime) continue;
     }
     if (filters.playerSentiment !== null && sentimentBand(enjoyMap!.get(t.id)) !== filters.playerSentiment) {
       continue;
