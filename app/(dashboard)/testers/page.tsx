@@ -10,14 +10,14 @@ import ov from '@/components/overview/overview.module.css';
 import s from '@/components/testers/testers.module.css';
 
 const TABS = [
+  { key: 'roster', label: 'Roster' },
   { key: 'overview', label: 'Overview' },
   { key: 'players', label: 'Players' },
-  { key: 'roster', label: 'Roster' },
 ] as const;
 type TabKey = typeof TABS[number]['key'];
 
 const parseTab = (value: string | null): TabKey =>
-  TABS.some(t => t.key === value) ? value as TabKey : 'overview';
+  TABS.some(t => t.key === value) ? value as TabKey : 'roster';
 
 /** "21 Sep – 3 Oct 2026": the year (and month) are only repeated when they change. */
 function formatDateRange(start: Date, end: Date): string {
@@ -65,7 +65,7 @@ function TestersPageContent() {
     ].filter(Boolean).join(' · ');
   }, [testers, responses]);
 
-  const selectTab = (key: TabKey) => setQuery('tab', key === 'overview' ? '' : key);
+  const selectTab = (key: TabKey) => setQuery('tab', key === 'roster' ? '' : key);
   const onTabKey = (e: React.KeyboardEvent, index: number) => {
     const step = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
     const next = e.key === 'Home' ? 0 : e.key === 'End' ? TABS.length - 1 : step ? (index + step + TABS.length) % TABS.length : -1;
