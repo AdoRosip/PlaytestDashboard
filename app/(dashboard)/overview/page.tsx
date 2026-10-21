@@ -28,7 +28,7 @@ interface Kpi {
   info: string;
   value: string;
   unit?: string;
-  sub: string;
+  sub?: string;
   /** Overrides the value colour, e.g. to flag a worrying bug rate. */
   tone?: string;
   href?: string;
@@ -41,7 +41,7 @@ function KpiCell({ label, info, value, unit, sub, tone, href }: Kpi) {
       <div className={css.kpiValue} style={tone ? { color: tone } : undefined}>
         {value}{unit && <span className={css.kpiUnit}>{unit}</span>}
       </div>
-      <div className={css.kpiSub} title={sub}>{sub}</div>
+      {sub && <div className={css.kpiSub} title={sub}>{sub}</div>}
     </>
   );
   const cls = `${css.kpiCell} groove-cell`;
@@ -152,7 +152,7 @@ function ScoringOverview() {
       const p = (n: number) => Math.round((n / rs.length) * 100);
       return {
         avg: rs.reduce((s, r) => s + r.numericValue!, 0) / rs.length,
-        positive: p(pos), neutral: p(rs.length - pos - neg), negative: p(neg), n: rs.length, max,
+        positive: p(pos), positiveCount: pos, neutral: p(rs.length - pos - neg), negative: p(neg), n: rs.length, max,
       };
     };
 
@@ -371,30 +371,30 @@ function ScoringOverview() {
     kpis.push({
       key,
       label,
-      info: `Average rating from the "${label}" question, matched automatically by keywords. Shown as average / scale max.`,
+      info: `Average rating from the "${label}" question, matched automatically by keywords. Shown as average / scale max. Sub-label: testers who rated it positively / testers who answered.`,
       value: stats.avg.toFixed(1),
       unit: `/${stats.max}`,
-      sub: `${stats.positive}% positive · n=${stats.n}`,
+      sub: `${stats.positiveCount}/${stats.n} testers`,
     });
   }
   const { overall, recommend, playAgain, bugs } = d.headlines;
   if (overall) kpis.push({
     key: 'overall', label: 'Overall rating',
-    info: 'Average answer to the overall-experience rating question. Sub-label shows the share of testers who rated it in the top fifth of the scale.',
+    info: 'Average answer to the overall-experience rating question. Sub-label: number of testers who answered.',
     value: overall.avg.toFixed(1), unit: `/${overall.max}`,
-    sub: `${overall.highPct}% rated ${overall.highFrom}+ · n=${overall.n}`,
+    sub: `${overall.n} ${overall.n === 1 ? 'tester' : 'testers'}`,
   });
   if (recommend) kpis.push({
     key: 'recommend', label: 'Would recommend',
     info: "Share of testers who answered in the top two points of the 'recommend to a friend' rating question.",
     value: String(recommend.pct), unit: '%',
-    sub: `rated ${recommend.from}–${recommend.max} · n=${recommend.n}`,
+    sub: `${recommend.count}/${recommend.n} testers`,
   });
   if (playAgain) kpis.push({
     key: 'playAgain', label: 'Would play again',
     info: "Share of testers who answered in the top two points of the 'play again' rating question.",
     value: String(playAgain.pct), unit: '%',
-    sub: `rated ${playAgain.from}–${playAgain.max} · n=${playAgain.n}`,
+    sub: `${playAgain.count}/${playAgain.n} testers`,
   });
   if (bugs) kpis.push({
     key: 'bugs', label: 'Hit a bug',
