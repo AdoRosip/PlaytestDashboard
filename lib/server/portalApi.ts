@@ -1,6 +1,6 @@
 import 'server-only';
 import { clientKeys, portalDenied, privateHeaders, readSession, type PortalSession } from './portalAuth';
-import { array, id, mapPortalData, object, text } from '../playlytix/mapper';
+import { array, mapPortalData, object } from '../playlytix/mapper';
 import { mapTranscripts } from '../playlytix/transcripts';
 import { GAME_CONFIGS } from '../games';
 import { portalDiagnostics } from './portalDiagnostics';
@@ -84,7 +84,12 @@ async function loadPortalData(request: Request, testId: string | undefined, debu
     if (data instanceof Response) return data;
     if (!testId) {
       stage.current = 'map_test_list';
-      const tests = array(object(data).tests).map(object).map(t => ({ id: id(t.TestID), name: text(t.TestName) }));
+      // A malformed entry is left out of the picker rather than hiding every test.
+      const tests = array(object(data).tests).flatMap(raw => {
+        const t = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw as Record<string, unknown> : {};
+        return Number.isSafeInteger(t.TestID) && (t.TestID as number) > 0 && typeof t.TestName === 'string'
+          ? [{ id: t.TestID as number, name: t.TestName }] : [];
+      });
       return Response.json({ tests }, { headers: privateHeaders });
     }
     stage.current = 'game_configuration';

@@ -3,6 +3,9 @@ import { useCallback, useEffect, useState } from 'react';
 import { Sparkles, RefreshCw, Lightbulb, X, Brain } from 'lucide-react';
 import type { QuestionAnalysisResult } from '@/app/api/question-analysis/route';
 import type { Question, Response, Tester } from '@/lib/types';
+import { useDashboardStore } from '@/lib/store';
+import { buildRankingContext } from '@/lib/ranking';
+import OptionInsights from '@/components/overview/OptionInsights';
 
 interface Props {
   question: Question;
@@ -21,6 +24,9 @@ export default function QuestionSummaryDialog({ question, responses, testers, on
   const [analysis, setAnalysis] = useState<QuestionAnalysisResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // When the test also ranks items, the AI reads each answer beside the tester's order.
+  const allQuestions = useDashboardStore((s) => s.questions);
+  const allResponses = useDashboardStore((s) => s.responses);
 
   const run = useCallback(async () => {
     setLoading(true);
@@ -30,7 +36,7 @@ export default function QuestionSummaryDialog({ question, responses, testers, on
       const res = await fetch('/api/question-analysis', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question, responses, testers }),
+        body: JSON.stringify({ question, responses, testers, rankingContext: buildRankingContext(allQuestions, allResponses) }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error((data as { error?: string }).error ?? `HTTP ${res.status}`);
@@ -40,7 +46,7 @@ export default function QuestionSummaryDialog({ question, responses, testers, on
     } finally {
       setLoading(false);
     }
-  }, [question, responses, testers]);
+  }, [question, responses, testers, allQuestions, allResponses]);
 
   // Kick off the analysis as soon as the dialog opens. Deferred to a microtask
   // so the initial setState doesn't run synchronously inside the effect body.
@@ -123,6 +129,13 @@ export default function QuestionSummaryDialog({ question, responses, testers, on
                 <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">Summary</div>
                 <p className="text-sm text-slate-300 leading-relaxed">{analysis.summary}</p>
               </div>
+
+              {analysis.optionInsights && analysis.optionInsights.length > 0 && (
+                <div>
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">By ranked item</div>
+                  <OptionInsights insights={analysis.optionInsights} />
+                </div>
+              )}
 
               {/* Themes + quotes side by side */}
               {(analysis.themes.length > 0 || analysis.highlights.length > 0) && (

@@ -6,6 +6,7 @@ export type QuestionType =
   | 'free_text'
   | 'duration'
   | 'file_upload'
+  | 'ranking'
   | 'timestamp'
   | 'internal_admin'
   | 'unknown';
@@ -146,6 +147,8 @@ export interface Response {
   rawAnswer: string;
   numericValue: number | null;
   normalizedScore: number | null; // 0–100
+  /** A ranking answer: the question's options, best first. Absent for every other type. */
+  ranking?: string[];
   submittedAt: string;
   matchStatus: MatchStatus;
 }

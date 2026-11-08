@@ -13,6 +13,9 @@ import { questionTypeLabel, scoreColor, formatDate, computeRatingDistribution, f
 import ChoiceBarChart from '@/components/charts/ChoiceBarChart';
 import { applyDrill, buildPerQuestionSets, computeChoiceDistribution, matchingTesterIds, numericDrillValues, type DrillValue } from '@/lib/crossFilter';
 import { durationDistribution, findPlaytimeQuestion, formatDurationMinutes, parseDurationMinutes, playtimeHours } from '@/lib/duration';
+import { buildRankingContext, computeRanking } from '@/lib/ranking';
+import RankingBars from '@/components/charts/RankingBars';
+import OptionInsights from '@/components/overview/OptionInsights';
 
 /** Older forms ask for playtime in a plain number question instead of a Duration one. */
 const PLAYTIME_TEXT_RE = /how many hours.*(?:play|game|session)|hours.*played.*(?:exo|game|session)|session.*(?:duration|length)/i;
@@ -140,7 +143,8 @@ export default function QuestionDetailPage({ params }: { params: Promise<{ id: s
       const res = await fetch('/api/question-analysis', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question, responses: qResponses, testers: analysisTesters }),
+        // When the test also ranks items, the AI reads each answer beside the tester's order.
+        body: JSON.stringify({ question, responses: qResponses, testers: analysisTesters, rankingContext: buildRankingContext(questions, responses) }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error((data as { error?: string }).error ?? `HTTP ${res.status}`);
@@ -239,7 +243,7 @@ export default function QuestionDetailPage({ params }: { params: Promise<{ id: s
           <div className="mb-6 flex items-center justify-between gap-4 rounded-xl border border-indigo-500/40 bg-indigo-950/60 px-4 py-3">
             <div className="flex items-center gap-2 text-xs text-indigo-200">
               <Filter className="w-3.5 h-3.5" />
-              Showing testers who {question.type === 'duration' ? 'played' : isChoice ? 'answered' : 'scored'}
+              Showing testers who {question.type === 'duration' ? 'played' : question.type === 'ranking' ? 'ranked' : isChoice ? 'answered' : 'scored'}
               <span className="flex items-center gap-1">
                 {selectedRatings?.map((value, index) => (
                   <span key={value} className="flex items-center gap-1">
@@ -339,8 +343,26 @@ export default function QuestionDetailPage({ params }: { params: Promise<{ id: s
           </CollapsibleSection>
         )}
 
-        {/* Multiple choice / Yes-No individual responses */}
-        {(question.type === 'multiple_choice' || question.type === 'yes_no') && qResponses.length > 0 && (
+        {/* Ranking: share of testers per item and place. Like the charts above it
+            ignores this question's own selection, so every cell stays clickable. */}
+        {question.type === 'ranking' && allQuestionResponses.some((r) => r.ranking) && (
+          <CollapsibleSection
+            title="Ranking Results"
+            description={ratingFilterActive
+              ? 'Filtering this page to the selected segments. Click a selected segment to remove it, or another segment to add it.'
+              : 'Share of testers who put each item in each place, best average first. Click a segment to include the testers behind it.'}
+            className="mb-6"
+          >
+            <RankingBars
+              result={computeRanking(question, allQuestionResponses)}
+              selectedValues={selectedAnswers}
+              onCellClick={toggleRatingFilter}
+            />
+          </CollapsibleSection>
+        )}
+
+        {/* Multiple choice / Yes-No / ranking individual responses */}
+        {(question.type === 'multiple_choice' || question.type === 'yes_no' || question.type === 'ranking') && qResponses.length > 0 && (
           <CollapsibleSection
             title="Individual Responses"
             description="Answers and tester context"
@@ -710,6 +732,13 @@ export default function QuestionDetailPage({ params }: { params: Promise<{ id: s
                   <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">Summary</div>
                   <p className="text-sm text-slate-300 leading-relaxed">{aiAnalysis.summary}</p>
                 </div>
+
+                {aiAnalysis.optionInsights && aiAnalysis.optionInsights.length > 0 && (
+                  <div>
+                    <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">By ranked item</div>
+                    <OptionInsights insights={aiAnalysis.optionInsights} compact />
+                  </div>
+                )}
 
                 {/* Themes */}
                 {aiAnalysis.themes.length > 0 && (

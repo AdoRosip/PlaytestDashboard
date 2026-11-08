@@ -1,5 +1,6 @@
 import type { Response } from './types';
 import { parseDurationMinutes, playtimeBucket, PLAYTIME_BUCKETS } from './duration';
+import { parseRankDrillValue, rankingMatches } from './ranking';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // In-category cross-question drill-down ("local filter").
@@ -108,6 +109,8 @@ export function buildPerQuestionSets(
     // A Duration chart's bars are playtime bands ("1–3h"); they match answers by
     // their minutes, since no tester typed the band label itself.
     const bands = new Set(PLAYTIME_BUCKETS.filter((b) => answers.has(b.label)).map((b) => b.value));
+    // A ranking matrix cell ("Long intro #1") matches testers who put that item in that place.
+    const ranks = [...answers].filter((v) => parseRankDrillValue(v) !== null);
     const s = new Set<string>();
     for (const r of responses) {
       if (r.questionId !== qid || r.testerId === null) continue;
@@ -115,7 +118,8 @@ export function buildPerQuestionSets(
       const answerHit = answers.size > 0 && answers.has(answerKey(r.rawAnswer ?? ''));
       const minutes = bands.size > 0 ? parseDurationMinutes(r.rawAnswer ?? '') : null;
       const bandHit = minutes !== null && bands.has(playtimeBucket(minutes / 60));
-      if (ratingHit || answerHit || bandHit) s.add(r.testerId);
+      const rankHit = ranks.length > 0 && ranks.some((v) => rankingMatches(r.ranking, v));
+      if (ratingHit || answerHit || bandHit || rankHit) s.add(r.testerId);
     }
     sets.set(qid, s);
   }
