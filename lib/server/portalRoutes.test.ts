@@ -71,6 +71,22 @@ it.each([[404, 404], [401, 502], [429, 429], [500, 502]])('translates upstream %
   expect(result.status).toBe(expected);
   expect(await result.text()).not.toContain('private backend details');
 });
+it('leaves a malformed test out of the picker instead of failing the list', async () => {
+  vi.stubGlobal('fetch', vi.fn(async () => Response.json({ tests: [{ TestID: 32, TestName: 'Good' }, { TestID: 'x' }, null] })));
+  const result = await portalApi(request('2'));
+  expect(result.status).toBe(200);
+  expect(await result.json()).toEqual({ tests: [{ id: 32, name: 'Good' }] });
+});
+it('still serves the report when one submission is malformed', async () => {
+  const input = structuredClone(productionResponse) as { responses: unknown[] };
+  input.responses.push({ responseId: 'broken' });
+  vi.stubGlobal('fetch', vi.fn(async () => Response.json(input)));
+  const result = await portalApi(request('2'), '18');
+  expect(result.status).toBe(200);
+  const data = await result.json();
+  expect(data.testers).toHaveLength(1);
+  expect(data.warnings).toContain('Skipped a submission without a valid ID.');
+});
 it('handles malformed JSON and network failure safely', async () => {
   vi.stubGlobal('fetch', vi.fn(async () => new Response('not-json')));
   expect((await portalApi(request('2'))).status).toBe(502);

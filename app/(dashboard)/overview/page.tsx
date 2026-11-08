@@ -7,6 +7,8 @@ import { countRespondents } from '@/lib/responseStats';
 import { filterThemesForResponses } from '@/lib/themeFiltering';
 import { distributionOf, isChoiceQuestion, substantiveAnswers, textAnswers } from '@/lib/qualitative';
 import QualitativeOverview from './QualitativeOverview';
+import RankingOverview from './RankingOverview';
+import { isRankingStudy } from '@/lib/ranking';
 import CoreExperienceScores from '@/components/overview/CoreExperienceScores';
 import QuestionHighlights from '@/components/overview/QuestionHighlights';
 import RecurringThemes from '@/components/overview/RecurringThemes';
@@ -114,8 +116,11 @@ export default function OverviewPage() {
   // Dispatch on the active game's overview mode: qualitative (free-text-heavy
   // forms like Wannabe Trashman) gets a purpose-built layout; scoring
   // (rating-heavy forms like Exovia) keeps the category-scorecard layout below.
+  // A ranking study (no ratings to score) gets its own layout regardless of game.
   const project = useDashboardStore((s) => s.project);
   const overviewMode = useDashboardStore((s) => selectGameConfig(s).overviewMode);
+  const rankingStudy = useDashboardStore((s) => isRankingStudy(s.questions));
+  if (project && rankingStudy) return <RankingOverview />;
   if (project && overviewMode === 'qualitative') return <QualitativeOverview />;
   return <ScoringOverview />;
 }

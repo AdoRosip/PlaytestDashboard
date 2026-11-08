@@ -43,6 +43,7 @@ export function questionTypeLabel(type: QuestionType): string {
     free_text: 'Free Text',
     duration: 'Duration',
     file_upload: 'File Upload',
+    ranking: 'Ranking',
     timestamp: 'Timestamp',
     internal_admin: 'Internal',
     unknown: 'Unknown',
