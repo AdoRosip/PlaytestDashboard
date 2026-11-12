@@ -6,7 +6,12 @@ import { configuredClientKeys } from './portalConfig.mjs';
 export const portalMode = () => process.env.VERCEL_ENV === 'production' || process.env.PORTAL_MODE === 'true';
 export const privateHeaders = { 'Cache-Control': 'private, no-store', 'Referrer-Policy': 'no-referrer' };
 export const cookieName = () => process.env.NODE_ENV === 'production' ? '__Host-playlytix-session' : 'playlytix-session';
-export const cookieOptions = () => ({ httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax' as const, path: '/', maxAge: 7200 });
+/** A session lapses after this long without activity; activity renews it. */
+export const SESSION_IDLE_SECONDS = 2 * 60 * 60;
+/** Renewal never extends a session past this long after its Portal launch. */
+export const SESSION_MAX_SECONDS = 12 * 60 * 60;
+export const cookieOptions = (maxAge = SESSION_IDLE_SECONDS) => ({ httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax' as const, path: '/', maxAge });
+/** `issuedAt` is the Portal launch time; it is kept across renewals so the hard cap holds. */
 export interface PortalSession { clientId: string; issuedAt: number; expiresAt: number; sid: string }
 
 export function clientKeys(): Record<string, string> {
@@ -43,7 +48,13 @@ export function verifyLaunch(token: string, now = Math.floor(Date.now() / 1000))
 }
 export function issueSession(clientId: string, now = Math.floor(Date.now() / 1000)) {
   if (!Object.hasOwn(clientKeys(), clientId)) throw new PortalAuthError('CLIENT_NOT_CONFIGURED');
-  const session: PortalSession = { clientId, issuedAt: now, expiresAt: now + 7200, sid: randomBytes(16).toString('hex') };
+  return signSession({ clientId, issuedAt: now, expiresAt: now + SESSION_IDLE_SECONDS, sid: randomBytes(16).toString('hex') });
+}
+/** Extends an active session by the idle window, capped at SESSION_MAX_SECONDS after launch. */
+export function renewSession(session: PortalSession, now = Math.floor(Date.now() / 1000)) {
+  return signSession({ ...session, expiresAt: Math.min(now + SESSION_IDLE_SECONDS, session.issuedAt + SESSION_MAX_SECONDS) });
+}
+function signSession(session: PortalSession) {
   const payload = Buffer.from(JSON.stringify(session)).toString('base64url');
   return { session, token: `${payload}.${sign(payload, secret('DASHBOARD_SESSION_SECRET'))}` };
 }
@@ -59,7 +70,7 @@ export function readSession(request: Request, now = Math.floor(Date.now() / 1000
     if (typeof s.clientId !== 'string' || !Object.hasOwn(clientKeys(), s.clientId) ||
       !Number.isSafeInteger(s.issuedAt) || !Number.isSafeInteger(s.expiresAt) ||
       (s.issuedAt as number) > now || (s.expiresAt as number) <= now ||
-      (s.expiresAt as number) - (s.issuedAt as number) !== 7200 || typeof s.sid !== 'string' || !/^[a-f0-9]{32}$/.test(s.sid)) throw new PortalAuthError('SESSION_INVALID_OR_EXPIRED');
+      (s.expiresAt as number) - (s.issuedAt as number) > SESSION_MAX_SECONDS || typeof s.sid !== 'string' || !/^[a-f0-9]{32}$/.test(s.sid)) throw new PortalAuthError('SESSION_INVALID_OR_EXPIRED');
     return s as unknown as PortalSession;
   } catch (error) { portalDiagnostics('session').failure('rejected', error); return null; }
 }

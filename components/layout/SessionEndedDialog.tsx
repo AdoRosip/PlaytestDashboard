@@ -7,7 +7,7 @@ export type SessionEnd = 'expired' | 'replaced';
 const COPY: Record<SessionEnd, { title: string; body: string }> = {
   expired: {
     title: 'Your session has expired',
-    body: 'For security, sessions last two hours and this report has been closed.',
+    body: 'For security, sessions end after two hours without activity or 12 hours after opening, and this report has been closed.',
   },
   replaced: {
     title: 'This session was replaced',
