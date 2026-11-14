@@ -4,7 +4,7 @@ vi.mock('server-only', () => ({}));
 import { portalApi, portalTranscripts } from './portalApi';
 import { issueSession, cookieName } from './portalAuth';
 import { GET as launch } from '../../app/auth/launch/route';
-import { DELETE as logout } from '../../app/api/portal/session/route';
+import { DELETE as logout, POST as renew } from '../../app/api/portal/session/route';
 import productionResponse from '../../tests/fixtures/portal-production-response.json';
 beforeEach(() => {
   vi.stubEnv('PORTAL_MODE', 'true');
@@ -133,6 +133,21 @@ it('rejects cross-origin logout and clears the cookie for same-origin logout', (
   expect(logout(new Request('https://dashboard.example/api/portal/session', { method: 'DELETE', headers: { origin: 'https://evil.example' } })).status).toBe(403);
   const result = logout(new Request('https://dashboard.example/api/portal/session', { method: 'DELETE', headers: { origin: 'https://dashboard.example' } }));
   expect(result.headers.get('set-cookie')).toContain('Max-Age=0');
+});
+
+it('renews only a same-origin request for the current session', async () => {
+  const live = request('2', '/api/portal/session');
+  const post = (headers: Record<string, string>) => renew(new Request(live.url, { method: 'POST', headers: { cookie: live.headers.get('cookie')!, origin: 'https://dashboard.example', ...headers } }));
+  expect(renew(new Request(live.url, { method: 'POST', headers: { cookie: live.headers.get('cookie')!, origin: 'https://evil.example' } })).status).toBe(403);
+  const sid = live.headers.get('x-portal-session')!;
+  const renewed = post({ 'x-portal-session': sid });
+  expect(renewed.status).toBe(200);
+  expect((await renewed.json()).sid).toBe(sid);
+  expect(renewed.headers.get('set-cookie')).toContain("Max-Age=7200");
+  const stale = post({ 'x-portal-session': 'old-tab' });
+  expect((await stale.json()).sid).toBe(sid);
+  expect(stale.headers.get('set-cookie')).toBeNull();
+  expect(renew(new Request(live.url, { method: 'POST', headers: { origin: 'https://dashboard.example' } })).status).toBe(401);
 });
 
 function launchRequest(expiry = Math.floor(Date.now() / 1000) + 300) {
