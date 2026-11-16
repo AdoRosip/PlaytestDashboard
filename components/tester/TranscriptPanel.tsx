@@ -175,7 +175,7 @@ export default function TranscriptPanel({ cueRef, transcript, video }: {
       : <>
         <Summary cueRef={cueRef} cues={cues} seek={seek} />
         {query && <p className={s.micro}>{visible.length} {visible.length === 1 ? 'match' : 'matches'}</p>}
-        <div ref={list} className={s.cueList} onWheel={() => { userScrolledAt.current = Date.now(); }} onTouchMove={() => { userScrolledAt.current = Date.now(); }}>
+        <div ref={list} data-tour="transcript" className={s.cueList} onWheel={() => { userScrolledAt.current = Date.now(); }} onTouchMove={() => { userScrolledAt.current = Date.now(); }}>
           {visible.map(({ cue, index }) => <button key={index} type="button" data-cue={index} className={s.cue} aria-current={index === active || undefined} disabled={!video} onClick={() => seek(cue.start)}>
             <span className={`${s.cueTime} ${s.numeric}`}>{formatCueTime(cue.start)}</span>
             <span>{cue.text}</span>

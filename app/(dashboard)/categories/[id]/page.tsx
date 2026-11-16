@@ -274,7 +274,7 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ id: s
         </div>
 
         {dist ? (
-          <div className="mt-auto">
+          <div className="mt-auto" data-tour="category-chart">
             <RatingBarChart
               data={dist}
               scale={q.type === 'rating_1_10' ? 10 : 5}
@@ -285,7 +285,7 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ id: s
             />
           </div>
         ) : choiceDist ? (
-          <div className="mt-auto">
+          <div className="mt-auto" data-tour="category-chart">
             <div className="text-[10px] text-slate-500 mb-2 uppercase tracking-wide">
               Answer breakdown (click a bar to cross-filter)
             </div>
@@ -324,6 +324,7 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ id: s
           </div>
           <div className={css.proseActions}>
             {q.type === 'free_text' && <button
+              data-tour="ai-summary"
               onClick={() => setSummaryQ(q)}
               className={css.actionLink}
             >

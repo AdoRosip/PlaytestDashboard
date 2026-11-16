@@ -5,11 +5,12 @@ import { isPortalBrowser } from '@/lib/portalBrowser';
 import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard, Layers, HelpCircle, Sparkles,
-  Users, Table2, SlidersHorizontal, FolderTree, X,
+  Users, Table2, SlidersHorizontal, FolderTree, X, Lightbulb,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useDashboardStore, selectActiveFilterCount } from '@/lib/store';
 import CompanyLogo from '@/components/brand/CompanyLogo';
+import { useOnboarding } from '@/lib/onboarding';
 
 const NAV_SECTIONS = [
   {
@@ -44,6 +45,9 @@ export default function Sidebar() {
   const mobileDrawer     = useDashboardStore((s) => s.mobileDrawer);
   const openMobileDrawer = useDashboardStore((s) => s.openMobileDrawer);
   const closeMobileDrawer = useDashboardStore((s) => s.closeMobileDrawer);
+  const replayTour = useOnboarding((s) => s.replay);
+  const tourRunning = useOnboarding((s) => s.running);
+  const isLoaded = useDashboardStore((s) => s.isLoaded);
 
   const navOpen = mobileDrawer === 'nav';
 
@@ -133,6 +137,20 @@ export default function Sidebar() {
               {activeFilterCount}
             </span>
           )}
+        </button>
+      </div>
+
+      {/* The guided tour runs once on the first visit; this runs it again. */}
+      <div className="px-3 pb-3">
+        <button
+          type="button"
+          onClick={() => { closeMobileDrawer(); replayTour(); }}
+          disabled={!isLoaded || tourRunning}
+          title="Walk through the dashboard's main features again"
+          className="flex items-center gap-2 w-full px-3 py-2 rounded-md text-xs text-white/[.58] hover:text-white/[.86] hover:bg-white/[.04] transition-colors disabled:opacity-40 disabled:pointer-events-none"
+        >
+          <Lightbulb className="w-3.5 h-3.5 flex-shrink-0" />
+          Replay tour
         </button>
       </div>
 

@@ -392,7 +392,7 @@ export default function QuestionDetailPage({ params }: { params: Promise<{ id: s
                       )}
                       {tester && (
                         <button
-                          onClick={() => openTesterPanel(tester.id)}
+                          data-tour="question-profile" onClick={() => openTesterPanel(tester.id)}
                           className="text-xs font-medium text-indigo-400 hover:text-indigo-300 transition-colors border border-indigo-400/30 hover:border-indigo-300/50 rounded px-2 py-0.5"
                         >
                           Profile →
@@ -467,7 +467,7 @@ export default function QuestionDetailPage({ params }: { params: Promise<{ id: s
                         )}
                         {tester && (
                           <button
-                            onClick={() => openTesterPanel(tester.id)}
+                            data-tour="question-profile" onClick={() => openTesterPanel(tester.id)}
                             className="text-xs font-medium text-indigo-400 hover:text-indigo-300 transition-colors border border-indigo-400/30 hover:border-indigo-300/50 rounded px-2 py-0.5"
                           >
                             Profile →
@@ -523,7 +523,7 @@ export default function QuestionDetailPage({ params }: { params: Promise<{ id: s
                         <span className="text-[10px] text-slate-600">{formatDate(r.submittedAt)}</span>
                         {tester && (
                           <button
-                            onClick={() => openTesterPanel(tester.id)}
+                            data-tour="question-profile" onClick={() => openTesterPanel(tester.id)}
                             className="text-xs font-medium text-indigo-400 hover:text-indigo-300 transition-colors border border-indigo-400/30 hover:border-indigo-300/50 rounded px-2 py-0.5"
                           >
                             Profile →
@@ -623,7 +623,7 @@ export default function QuestionDetailPage({ params }: { params: Promise<{ id: s
                         <td className={`${cellClass} rounded-r-lg border-r text-right`}>
                           {tester ? (
                             <button
-                              onClick={() => openTesterPanel(tester.id)}
+                              data-tour="question-profile" onClick={() => openTesterPanel(tester.id)}
                               className="rounded-md border border-indigo-400/30 px-2.5 py-1 text-xs font-medium text-indigo-400 transition-colors hover:border-indigo-300/50 hover:text-indigo-300"
                             >
                               Profile →

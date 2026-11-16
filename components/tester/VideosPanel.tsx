@@ -111,7 +111,8 @@ export default function VideosPanel({ files, answers, metadata, onMetadata, onLi
     <h2 className={s.videoTitle}>{title(file, selected)}</h2>
     <p className={`${s.videoMeta} ${s.numeric}`}>{[uploaded ? `Uploaded ${uploaded}` : '', duration(file.durationSec ?? meta?.durationSec), width && height ? `${width} × ${height}` : ''].filter(Boolean).join(' · ')}</p>
     {linked && <button className={s.linked} onClick={() => onLinkedAnswer(linked.response.id)}><div className={s.micro}>Linked answer</div><div className={`${s.linkedText} ${s.truncate}`}>Q{linked.index} · &quot;{profileText(linked.response.rawAnswer)}&quot;</div></button>}
-    {file.transcript && <TranscriptPanel key={file.id} cueRef={file.transcript} transcript={transcript} video={video} />}
+    {/* Keyed per video like the Player, so both reset on a switch; the suffix keeps the two sibling keys apart. */}
+    {file.transcript && <TranscriptPanel key={`${file.id}-transcript`} cueRef={file.transcript} transcript={transcript} video={video} />}
   </div><div className={s.playlist} role="listbox" aria-label="Recordings" aria-orientation="vertical">
     {files.map((item, i) => <button key={item.id} ref={el => { items.current[i] = el; }} role="option" aria-selected={i === selected} aria-label={title(item, i)} className={s.playlistItem} tabIndex={focused === i ? 0 : -1} onFocus={() => setFocused(i)} onClick={() => setSelected(i)} onKeyDown={event => {
       if (['ArrowDown', 'ArrowUp', 'ArrowRight', 'ArrowLeft', 'Home', 'End'].includes(event.key)) {

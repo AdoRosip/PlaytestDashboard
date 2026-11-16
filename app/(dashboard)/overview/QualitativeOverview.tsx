@@ -231,7 +231,7 @@ export default function QualitativeOverview() {
                     // percentage height resolves against. Under `items-end` the
                     // buttons sized to their label and every bar computed to 0px —
                     // the axis rendered alone, looking like a broken chart.
-                    <div className="flex items-stretch gap-1 h-20 mb-2">
+                    <div className="flex items-stretch gap-1 h-20 mb-2" data-tour="evidence">
                       {kpi.dist.map((b) => {
                         const position = kpi.max > 1 ? (b.value - 1) / (kpi.max - 1) : 0.5;
                         // Any non-zero count keeps a visible sliver, so "one tester

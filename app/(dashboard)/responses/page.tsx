@@ -24,7 +24,7 @@ export default function ResponsesPage() {
     <div className="mx-auto w-full max-w-[1680px] px-4 md:px-6 lg:px-8 py-8">
       <PageHeader title="Raw Responses" sub={`${responses.length} total responses`} />
 
-      <div className="relative mb-4">
+      <div className="relative mb-4 max-w-md" data-tour="responses-search">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
         <input
           type="text"

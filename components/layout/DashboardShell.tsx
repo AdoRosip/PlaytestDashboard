@@ -9,6 +9,7 @@ import CrossFilterBar from '@/components/filters/CrossFilterBar';
 import { useDashboardStore, selectFilteredResponses, selectActiveFilterCount } from '@/lib/store';
 import EvidenceDrawer from '@/components/ui/EvidenceDrawer';
 import TesterProfileModal from '@/components/tester/TesterProfileModal';
+import OnboardingHost from '@/components/onboarding/OnboardingHost';
 import { countRespondents } from '@/lib/responseStats';
 
 export default function DashboardShell({ children }: { children: React.ReactNode }) {
@@ -51,6 +52,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
           instead of blinking out. `inert` keeps its controls out of the tab order
           and off screen readers while hidden. */}
       <div
+        data-tour={filterPanelOpen ? 'filters' : undefined}
         className={`hidden lg:flex print:hidden fixed left-[224px] top-0 h-full w-[260px] border-r border-slate-800 z-30 transition-transform duration-200 ${
           filterPanelOpen ? 'translate-x-0' : '-translate-x-[260px]'
         }`}
@@ -72,6 +74,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
       {!filterPanelOpen && (
         <button
           onClick={toggleFilterPanel}
+          data-tour="filters"
           aria-label="Expand filters"
           aria-expanded={false}
           title="Expand filters"
@@ -146,6 +149,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
 
       <EvidenceDrawer />
       <TesterProfileModal />
+      <OnboardingHost />
     </div>
   );
 }

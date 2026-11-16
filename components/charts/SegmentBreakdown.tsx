@@ -49,7 +49,7 @@ export default function SegmentBreakdown({ responses, testers, scale, isInverseS
       description="Average rating broken down by tester profile"
       className="mb-6"
     >
-      <div className="flex flex-wrap items-center justify-end gap-1.5 mb-4">
+      <div className="flex flex-wrap items-center justify-end gap-1.5 mb-4" data-tour="segment-breakdown">
           {BREAKDOWN_SEGMENTS.map((key) => (
             <button
               key={key}
