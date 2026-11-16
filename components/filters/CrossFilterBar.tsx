@@ -27,7 +27,7 @@ export default function CrossFilterBar() {
   if (crossFilterCount === 0) return null;
 
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 md:px-6 py-2 bg-indigo-900/25 border-b border-indigo-700/30">
+    <div data-tour="cross-filter" className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 md:px-6 py-2 bg-indigo-900/25 border-b border-indigo-700/30">
       <div className="flex items-center gap-1.5 text-xs font-semibold text-indigo-200 flex-shrink-0">
         <Filter className="w-3.5 h-3.5 text-indigo-400" />
         Cross-filter ·{' '}

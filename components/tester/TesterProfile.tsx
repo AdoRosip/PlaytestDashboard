@@ -115,7 +115,7 @@ export default function TesterProfile({ tester, tab: routeTab, onTabChange }: { 
         <div className={s.cell}><div className={s.cellLabel}>Flags</div><div className={s.cellValue}>{flags.length ? flags.map(f => flagLabel(f.type)).join(', ') : 'None'}</div>{flags[0] && <div className={`${s.subline} ${s.truncate}`} title={profileText(flags[0].detail)}>{profileText(flags[0].detail)}</div>}</div>
       </div>
       <div>
-        <div className={s.tabHeader}><div role="tablist" aria-label="Tester feedback" className={s.tabs}>
+        <div className={s.tabHeader}><div role="tablist" aria-label="Tester feedback" className={s.tabs} data-tour="tester-tabs">
           {TABS.map((name, i) => <button key={name} ref={el => { tabs.current[i] = el; }} id={`${uid}-${name}-tab`} aria-controls={`${uid}-${name}-panel`} role="tab" aria-selected={tab === name} tabIndex={tab === name ? 0 : -1} className={s.tab} onClick={() => setTab(name)} onKeyDown={event => {
             if (!['ArrowRight', 'ArrowLeft', 'Home', 'End'].includes(event.key)) return;
             event.preventDefault(); const next = event.key === 'Home' ? 0 : event.key === 'End' ? TABS.length - 1 : (i + (event.key === 'ArrowRight' ? 1 : TABS.length - 1)) % TABS.length;

@@ -1,0 +1,104 @@
+/* driver.js popovers in the Playlytix brand. Loaded after driver.css by
+   OnboardingHost; `.driver-popover.plx-tour` outranks its single-class rules. */
+
+.driver-popover.plx-tour {
+  --plx-tour-bg: #0d1530;
+  font-family: var(--font-instrument-sans), system-ui, sans-serif;
+  background: var(--plx-tour-bg);
+  color: var(--brand-white);
+  border: 1px solid var(--brand-border-strong);
+  border-radius: 12px;
+  padding: 18px 18px 14px;
+  min-width: 280px;
+  max-width: 340px;
+  box-shadow: 0 20px 45px -12px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(0, 255, 255, 0.06);
+}
+
+.driver-popover.plx-tour .driver-popover-title {
+  font-family: var(--font-outfit), system-ui, sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.35;
+  padding-right: 22px;
+}
+
+.driver-popover.plx-tour .driver-popover-description {
+  font-size: 14px;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.driver-popover.plx-tour .driver-popover-close-btn {
+  color: var(--brand-subtle);
+  top: 6px;
+  right: 6px;
+}
+.driver-popover.plx-tour .driver-popover-close-btn:hover,
+.driver-popover.plx-tour .driver-popover-close-btn:focus-visible {
+  color: var(--brand-white);
+}
+
+.driver-popover.plx-tour .driver-popover-footer {
+  margin-top: 16px;
+  gap: 12px;
+}
+
+.driver-popover.plx-tour .driver-popover-progress-text {
+  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--brand-subtle);
+}
+
+.driver-popover.plx-tour .driver-popover-footer-btn {
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.2;
+  padding: 7px 12px;
+  border-radius: 7px;
+  color: rgba(255, 255, 255, 0.86);
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  text-shadow: none;
+  transition: border-color 0.15s, background-color 0.15s, color 0.15s;
+}
+.driver-popover.plx-tour .driver-popover-footer-btn:hover,
+.driver-popover.plx-tour .driver-popover-footer-btn:focus-visible {
+  color: var(--brand-white);
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.32);
+}
+
+/* The forward action is the primary one. */
+.driver-popover.plx-tour .driver-popover-next-btn,
+.driver-popover.plx-tour .driver-popover-done-btn {
+  color: var(--brand-night);
+  background: var(--brand-cyan);
+  border-color: var(--brand-cyan);
+  font-weight: 600;
+}
+.driver-popover.plx-tour .driver-popover-next-btn:hover,
+.driver-popover.plx-tour .driver-popover-next-btn:focus-visible,
+.driver-popover.plx-tour .driver-popover-done-btn:hover,
+.driver-popover.plx-tour .driver-popover-done-btn:focus-visible {
+  color: var(--brand-night);
+  background: #afffff;
+  border-color: #afffff;
+}
+.driver-popover.plx-tour .driver-popover-footer-btn:focus-visible {
+  outline: 2px solid var(--brand-cyan);
+  outline-offset: 2px;
+}
+
+/* driver.css draws the arrow as one coloured border side; recolour that side. */
+.driver-popover.plx-tour .driver-popover-arrow-side-left { border-left-color: var(--plx-tour-bg); }
+.driver-popover.plx-tour .driver-popover-arrow-side-right { border-right-color: var(--plx-tour-bg); }
+.driver-popover.plx-tour .driver-popover-arrow-side-top { border-top-color: var(--plx-tour-bg); }
+.driver-popover.plx-tour .driver-popover-arrow-side-bottom { border-bottom-color: var(--plx-tour-bg); }
+
+@media print {
+  .driver-overlay,
+  .driver-popover {
+    display: none !important;
+  }
+}

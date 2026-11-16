@@ -29,7 +29,8 @@ export default function TesterProfileModal() {
       if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
       else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
     };
-    const trap = (event: FocusEvent) => { if (!dialog.current?.contains(event.target as Node)) closeButton.current?.focus(); };
+    // The guided tour's popover sits outside the dialog while it points into it.
+    const trap = (event: FocusEvent) => { const target = event.target as Element; if (!dialog.current?.contains(target) && !target.closest?.('.driver-popover')) closeButton.current?.focus(); };
     window.addEventListener('keydown', keyboard, true);
     document.addEventListener('focusin', trap);
     return () => {
