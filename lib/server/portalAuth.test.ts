@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createHmac } from 'node:crypto';
-import { cookieName, cookieOptions, issueSession, readSession, verifyLaunch, portalMode } from './portalAuth';
+import { cookieName, cookieOptions, issueSession, readSession, renewSession, verifyLaunch, portalMode } from './portalAuth';
 import { requireDashboardAuth } from './requestAuth';
 const now = 1800000000;
 const launchSecret = 'launch-fixture-secret-not-for-use-12345';
@@ -43,6 +43,24 @@ describe('Portal launch and session security', () => {
   it('rejects changes to signed bytes', () => {
     const token = launch({ d: 2, e: now + 30 });
     expect(() => verifyLaunch('x' + token.slice(1), now)).toThrow();
+  });
+  it('renews by two hours from activity, keeps the sid, and never passes the 12-hour cap', () => {
+    const cookie = (token: string) => new Request('https://dashboard.test/api/portal/session', { headers: { cookie: `${cookieName()}=${token}` } });
+    const first = issueSession('2', now);
+    const renewed = renewSession(first.session, now + 3600);
+    expect(renewed.session).toEqual({ ...first.session, expiresAt: now + 3600 + 7200 });
+    expect(readSession(cookie(renewed.token), now + 7200 + 60)?.sid).toBe(first.session.sid);
+    expect(readSession(cookie(renewed.token), now + 3600 + 7200)).toBeNull();
+    const late = renewSession(first.session, now + 11 * 3600);
+    expect(late.session.expiresAt).toBe(now + 12 * 3600);
+    expect(readSession(cookie(late.token), now + 12 * 3600 - 1)?.clientId).toBe('2');
+    expect(readSession(cookie(late.token), now + 12 * 3600)).toBeNull();
+  });
+  it('rejects a signed session that claims to outlive the hard cap', () => {
+    const forged = issueSession('2', now);
+    const payload = Buffer.from(JSON.stringify({ ...forged.session, expiresAt: now + 12 * 3600 + 1 })).toString('base64url');
+    const token = `${payload}.${createHmac('sha256', 'independent-session-fixture-secret-12345').update(payload).digest('base64url')}`;
+    expect(readSession(new Request('https://dashboard.test/', { headers: { cookie: `${cookieName()}=${token}` } }), now + 60)).toBeNull();
   });
   it('keeps sessions valid after launch expires, then enforces two-hour expiry', () => {
     const { token } = issueSession('2', now);
